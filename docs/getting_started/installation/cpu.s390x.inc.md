@@ -1,17 +1,17 @@
 <!-- markdownlint-disable MD041 -->
 --8<-- [start:installation]
 
-vLLM has experimental support for s390x architecture on IBM Z platform. For now, users must build from source to natively run on IBM Z platform.
+vLLM 实验性地支持 IBM Z 平台上的 s390x 架构。目前，用户必须从源码构建才能在 IBM Z 平台上原生运行。
 
-Currently, the CPU implementation for s390x architecture supports FP32, BF16 and FP16.
+目前，s390x 架构的 CPU 实现支持 FP32、BF16 和 FP16。
 
 --8<-- [end:installation]
 --8<-- [start:requirements]
 
-- OS: `Linux`
-- SDK: `gcc/g++ >= 14.0.0` or later with Command Line Tools
-- Instruction Set Architecture (ISA): VXE support is required. Works with Z14 and above.
-- Build install python packages: `torchvision`, `llvmlite`, `numba`, `pyarrow (for testing)`, `opencv-headless`
+- 操作系统：`Linux`
+- SDK：`gcc/g++ >= 14.0.0` 或更高版本（含 Command Line Tools）
+- 指令集架构 (ISA)：需要 VXE 支持。适用于 Z14 及更高版本。
+- 构建所需的 Python 包：`torchvision`、`llvmlite`、`numba`、`pyarrow（用于测试）`、`opencv-headless`
 
 --8<-- [end:requirements]
 --8<-- [start:set-up-using-python]
@@ -19,12 +19,12 @@ Currently, the CPU implementation for s390x architecture supports FP32, BF16 and
 --8<-- [end:set-up-using-python]
 --8<-- [start:pre-built-wheels]
 
-Currently, there are no pre-built IBM Z CPU wheels.
+目前，没有预构建的 IBM Z CPU wheel 包。
 
 --8<-- [end:pre-built-wheels]
 --8<-- [start:build-wheel-from-source]
 
-Install the following packages from the package manager before building the vLLM. For example on RHEL 9.6:
+在构建 vLLM 之前，请从包管理器安装以下包。例如在 RHEL 9.6 上：
 
 ```bash
 dnf install -y \
@@ -34,17 +34,17 @@ dnf install -y \
     clang llvm-devel llvm-static clang-devel
 ```
 
-Install rust>=1.80 which is needed for `outlines-core` and `uvloop` python packages installation.
+安装 `outlines-core` 和 `uvloop` Python 包所需的 rust>=1.80。
 
 ```bash
 curl https://sh.rustup.rs -sSf | sh -s -- -y && \
     . "$HOME/.cargo/env"
 ```
 
-Execute the following commands to build and install vLLM from source.
+执行以下命令从源码构建并安装 vLLM。
 
 !!! tip
-    Please build the following dependencies, `torchvision`, `llvmlite`, `numba`, `llguidance`, `pyarrow`, `opencv-headless` from source before building vLLM.
+    请在构建 vLLM 之前从源码构建以下依赖项：`torchvision`、`llvmlite`、`numba`、`llguidance`、`pyarrow`、`opencv-headless`。
 
 ```bash
     uv pip install -v \
@@ -69,7 +69,7 @@ Execute the following commands to build and install vLLM from source.
 --8<-- [end:build-wheel-from-source]
 --8<-- [start:pre-built-images]
 
-Currently, there are no pre-built IBM Z CPU images.
+目前，没有预构建的 IBM Z CPU 镜像。
 
 --8<-- [end:pre-built-images]
 --8<-- [start:build-image-from-source]
@@ -78,7 +78,7 @@ Currently, there are no pre-built IBM Z CPU images.
 docker build -f docker/Dockerfile.s390x \
     --tag vllm-cpu-env .
 
-# Launch OpenAI server
+# 启动 OpenAI 服务器
 docker run --rm \
     --privileged true \
     --shm-size 4g \
@@ -92,7 +92,7 @@ docker run --rm \
 ```
 
 !!! tip
-    An alternative of `--privileged true` is `--cap-add SYS_NICE --security-opt seccomp=unconfined`.
+    `--privileged true` 的替代方案是 `--cap-add SYS_NICE --security-opt seccomp=unconfined`。
 
 --8<-- [end:build-image-from-source]
 --8<-- [start:extra-information]

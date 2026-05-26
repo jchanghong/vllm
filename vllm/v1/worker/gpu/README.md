@@ -1,4 +1,4 @@
-# [Experimental] Model Runner V2
+# [实验性] Model Runner V2
 
-This directory contains the new model runner which is under active development.
-Ping [Woosuk Kwon](https://github.com/WoosukKwon) for any changes.
+此目录包含正在积极开发中的新模型运行器。
+如有任何更改，请联系 [Woosuk Kwon](https://github.com/WoosukKwon)。

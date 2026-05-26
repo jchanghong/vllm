@@ -1,12 +1,12 @@
-# vLLM CLI Guide
+# vLLM CLI 指南
 
-The vllm command-line tool is used to run and manage vLLM models. You can start by viewing the help message with:
+vllm 命令行工具用于运行和管理 vLLM 模型。你可以通过查看帮助信息开始：
 
 ```bash
 vllm --help
 ```
 
-Available Commands:
+可用命令：
 
 ```bash
 vllm {chat,complete,serve,launch,bench,collect-env,run-batch}
@@ -14,100 +14,99 @@ vllm {chat,complete,serve,launch,bench,collect-env,run-batch}
 
 ## serve
 
-Starts the vLLM OpenAI Compatible API server.
+启动 vLLM OpenAI 兼容的 API 服务器。
 
-Start with a model:
+使用模型启动：
 
 ```bash
 vllm serve meta-llama/Llama-2-7b-hf
 ```
 
-Specify the port:
+指定端口：
 
 ```bash
 vllm serve meta-llama/Llama-2-7b-hf --port 8100
 ```
 
-Serve over a Unix domain socket:
+通过 Unix 域套接字提供服务：
 
 ```bash
 vllm serve meta-llama/Llama-2-7b-hf --uds /tmp/vllm.sock
 ```
 
-Check with --help for more options:
+使用 --help 查看更多选项：
 
 ```bash
-# To list all flags
+# 列出所有标志
 vllm serve --help=all
 
-# To view an argument group
+# 查看参数组
 vllm serve --help=ModelConfig
 
-# To view a single argument
+# 查看单个参数
 vllm serve --help=max-num-seqs
 
-# To search by keyword or flag name
+# 按关键字或标志名称搜索
 vllm serve --help=max
 ```
 
-See [vllm serve](./serve.md) for the full reference of all available arguments.
+参见 [vllm serve](./serve.md) 获取所有可用参数的完整参考。
 
 ## launch
 
-Launch individual vLLM components.
+启动单个 vLLM 组件。
 
 ```bash
-# Launch the rendering server component
+# 启动渲染服务器组件
 vllm launch render meta-llama/Llama-3.2-1B-Instruct
 
-# Inspect all available flags for the render component
+# 查看渲染组件的所有可用标志
 vllm launch render --help=all
 ```
 
-See [vllm launch render](./launch/render.md) for the current launch
-component reference.
+参见 [vllm launch render](./launch/render.md) 获取当前启动组件参考。
 
 ## chat
 
-Generate chat completions via the running API server.
+通过运行的 API 服务器生成聊天补全。
 
 ```bash
-# Directly connect to localhost API without arguments
+# 直接连接本地 localhost API，无需参数
 vllm chat
 
-# Specify API url
+# 指定 API url
 vllm chat --url http://{vllm-serve-host}:{vllm-serve-port}/v1
 
-# Quick chat with a single prompt
+# 使用单个提示快速聊天
 vllm chat --quick "hi"
 ```
 
-See [vllm chat](./chat.md) for the full reference of all available arguments.
+参见 [vllm chat](./chat.md) 获取所有可用参数的完整参考。
 
 ## complete
 
-Generate text completions based on the given prompt via the running API server.
+通过运行的 API 服务器，基于给定提示生成文本补全。
 
 ```bash
-# Directly connect to localhost API without arguments
+# 直接连接本地 localhost API，无需参数
 vllm complete
 
-# Specify API url
+# 指定 API url
 vllm complete --url http://{vllm-serve-host}:{vllm-serve-port}/v1
 
-# Quick complete with a single prompt
+# 使用单个提示快速补全
 vllm complete --quick "The future of AI is"
 ```
 
-See [vllm complete](./complete.md) for the full reference of all available arguments.
+参见 [vllm complete](./complete.md) 获取所有可用参数的完整参考。
 
 ## bench
 
-Run benchmark tests for latency online serving throughput and offline inference throughput.
+运行延迟、在线服务吞吐量和离线推理吞吐量的基准测试。
 
-To use benchmark commands, please install with extra dependencies using `pip install vllm[bench]`.
+要使用基准测试命令，请使用 `pip install vllm[bench]` 安装额外依赖。
 
-Available Commands:
+可用命令：
 
 ```bash
 vllm bench {latency, serve, throughput}
@@ -115,7 +114,7 @@ vllm bench {latency, serve, throughput}
 
 ### latency
 
-Benchmark the latency of a single batch of requests.
+对单个请求批次的延迟进行基准测试。
 
 ```bash
 vllm bench latency \
@@ -126,11 +125,11 @@ vllm bench latency \
     --load-format dummy
 ```
 
-See [vllm bench latency](./bench/latency.md) for the full reference of all available arguments.
+参见 [vllm bench latency](./bench/latency.md) 获取所有可用参数的完整参考。
 
 ### serve
 
-Benchmark the online serving throughput.
+对在线服务吞吐量进行基准测试。
 
 ```bash
 vllm bench serve \
@@ -142,11 +141,11 @@ vllm bench serve \
     --num-prompts  5
 ```
 
-See [vllm bench serve](./bench/serve.md) for the full reference of all available arguments.
+参见 [vllm bench serve](./bench/serve.md) 获取所有可用参数的完整参考。
 
 ### throughput
 
-Benchmark offline inference throughput.
+对离线推理吞吐量进行基准测试。
 
 ```bash
 vllm bench throughput \
@@ -157,11 +156,11 @@ vllm bench throughput \
     --load-format dummy
 ```
 
-See [vllm bench throughput](./bench/throughput.md) for the full reference of all available arguments.
+参见 [vllm bench throughput](./bench/throughput.md) 获取所有可用参数的完整参考。
 
 ## collect-env
 
-Start collecting environment information.
+开始收集环境信息。
 
 ```bash
 vllm collect-env
@@ -169,9 +168,9 @@ vllm collect-env
 
 ## run-batch
 
-Run batch prompts and write results to file.
+运行批量提示并将结果写入文件。
 
-Running with a local file:
+使用本地文件运行：
 
 ```bash
 vllm run-batch \
@@ -180,7 +179,7 @@ vllm run-batch \
     --model meta-llama/Meta-Llama-3-8B-Instruct
 ```
 
-Using remote file:
+使用远程文件：
 
 ```bash
 vllm run-batch \
@@ -189,11 +188,11 @@ vllm run-batch \
     --model meta-llama/Meta-Llama-3-8B-Instruct
 ```
 
-See [vllm run-batch](./run-batch.md) for the full reference of all available arguments.
+参见 [vllm run-batch](./run-batch.md) 获取所有可用参数的完整参考。
 
-## More Help
+## 更多帮助
 
-For detailed options of any subcommand, use:
+有关任何子命令的详细选项，请使用：
 
 ```bash
 vllm <subcommand> --help

@@ -1,8 +1,8 @@
-# Summary
+# 概要
 
-## Configuration
+## 配置
 
-API documentation for vLLM's configuration classes.
+vLLM 配置类的 API 文档。
 
 - [vllm.config.ModelConfig][]
 - [vllm.config.CacheConfig][]
@@ -21,42 +21,42 @@ API documentation for vLLM's configuration classes.
 - [vllm.config.CompilationConfig][]
 - [vllm.config.VllmConfig][]
 
-## Offline Inference
+## 离线推理
 
-LLM Class.
+LLM 类。
 
 - [vllm.LLM][]
 
-Prompt schema for LLM APIs.
+LLM API 的提示词模式。
 
 - [vllm.inputs.llm][]
 
-## vLLM Engines
+## vLLM 引擎
 
-Engine classes for offline and online inference.
+用于离线和在线推理的引擎类。
 
 - [vllm.LLMEngine][]
 - [vllm.AsyncLLMEngine][]
 
-## Inference Parameters
+## 推理参数
 
-Inference parameters for vLLM APIs.
+vLLM API 的推理参数。
 
 - [vllm.SamplingParams][]
 - [vllm.PoolingParams][]
 
-## Multi-Modality
+## 多模态
 
-vLLM provides experimental support for multi-modal models through the [vllm.multimodal][] package.
+vLLM 通过 [vllm.multimodal][] 包为多模态模型提供实验性支持。
 
-Multi-modal inputs can be passed alongside text and token prompts to [supported models](../models/supported_models.md#list-of-multimodal-language-models)
-via the `multi_modal_data` field in [vllm.inputs.PromptType][].
+多模态输入可以与文本和 token 提示一起传递给[支持的模型](../models/supported_models.md#list-of-multimodal-language-models)，
+通过 [vllm.inputs.PromptType][] 中的 `multi_modal_data` 字段。
 
-Looking to add your own multi-modal model? Please follow the instructions listed [here](../contributing/model/multimodal.md).
+想要添加自己的多模态模型？请按照[此处](../contributing/model/multimodal.md)的说明操作。
 
 - [vllm.multimodal.MULTIMODAL_REGISTRY][]
 
-### Internal data structures
+### 内部数据结构
 
 - [vllm.multimodal.inputs.PlaceholderRange][]
 - [vllm.multimodal.inputs.NestedTensors][]
@@ -65,19 +65,19 @@ Looking to add your own multi-modal model? Please follow the instructions listed
 - [vllm.multimodal.inputs.MultiModalKwargsItem][]
 - [vllm.multimodal.inputs.MultiModalKwargsItems][]
 
-### Data Parsing
+### 数据解析
 
 - [vllm.multimodal.parse][]
 
-### Data Processing
+### 数据处理
 
 - [vllm.multimodal.processing][]
 
-### Registry
+### 注册表
 
 - [vllm.multimodal.registry][]
 
-## Model Development
+## 模型开发
 
 - [vllm.model_executor.models.interfaces_base][]
 - [vllm.model_executor.models.interfaces][]

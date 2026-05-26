@@ -1,43 +1,43 @@
-# Collaboration Policy
+# 协作政策
 
-This page outlines how vLLM collaborates with model providers, hardware vendors, and other stakeholders.
+本文概述了 vLLM 如何与模型提供商、硬件供应商和其他利益相关方进行协作。
 
-## Adding New Major Features
+## 添加新的主要功能
 
-Anyone can contribute to vLLM. For major features, submit an RFC (request for comments) first. To submit an RFC, create an [issue](https://github.com/vllm-project/vllm/issues/new/choose) and select the `RFC` template.
-RFCs are similar to design docs that discuss the motivation, problem solved, alternatives considered, and proposed change.
+任何人都可以为 vLLM 做出贡献。对于主要功能，请先提交 RFC（请求评论）。要提交 RFC，请创建一个[问题](https://github.com/vllm-project/vllm/issues/new/choose)并选择 `RFC` 模板。
+RFC 类似于设计文档，讨论动机、解决的问题、考虑的替代方案以及提议的变更。
 
-Once you submit the RFC, please post it in the #contributors channel in vLLM Slack, and loop in area owners and committers for feedback.
-For high-interest features, the committers nominate a person to help with the RFC process and PR review. This makes sure someone is guiding you through the process. It is reflected as the "assignee" field in the RFC issue.
-If the assignee and lead maintainers find the feature to be contentious, the maintainer team aims to make decisions quickly after learning the details from everyone. This involves assigning a committer as the DRI (Directly Responsible Individual) to make the decision and shepherd the code contribution process.
+提交 RFC 后，请将其发布到 vLLM Slack 的 #contributors 频道，并通知领域负责人和提交者征求意见。
+对于高关注度的功能，提交者会指定一个人来协助 RFC 流程和 PR 审查。这确保有人在流程中为您提供指导。这反映为 RFC 问题中的"经办人"字段。
+如果经办人和主要维护者发现该功能存在争议，维护者团队旨在了解各方的细节后快速做出决定。这包括指派一名提交者作为 DRI（直接负责人）做出决定并指导代码贡献过程。
 
-For features that you intend to maintain, please feel free to add yourself in [`mergify.yml`](https://github.com/vllm-project/vllm/blob/main/.github/mergify.yml) to receive notifications and auto-assignment when the PRs touching the feature you are maintaining. Over time, the ownership will be evaluated and updated through the committers nomination and voting process.
+对于您打算维护的功能，请随时在 [`mergify.yml`](https://github.com/vllm-project/vllm/blob/main/.github/mergify.yml) 中添加自己，以便在触及您维护功能的 PR 时接收通知和自动分配。随着时间的推移，所有权将通过提交者提名和投票过程进行评估和更新。
 
-## Adding New Models
+## 添加新模型
 
-If you use vLLM, we recommend you making the model work with vLLM by following the [model registration](../contributing/model/registration.md) process before you release it publicly.
+如果您使用 vLLM，我们建议您在公开发布模型之前，按照[模型注册](../contributing/model/registration.md)流程使模型与 vLLM 兼容。
 
-The vLLM team helps with new model architectures not supported by vLLM, especially models pushing architectural frontiers.
-Here's how the vLLM team works with model providers. The vLLM team includes all [committers](./committers.md) of the project. Model providers can exclude certain members but shouldn't, as this may harm release timelines due to missing expertise. Contact [project leads](./process.md) if you want to collaborate.
+vLLM 团队帮助处理 vLLM 尚未支持的新模型架构，特别是推动架构前沿的模型。
+以下是 vLLM 团队与模型提供商的合作方式。vLLM 团队包括项目的所有[提交者](./committers.md)。模型提供商可以排除某些成员，但不应该这样做，因为缺少专业知识可能会损害发布时间线。如果您希望合作，请联系[项目负责人](./process.md)。
 
-Once we establish the connection between the vLLM team and model provider:
+一旦我们在 vLLM 团队和模型提供商之间建立联系：
 
-- The vLLM team learns the model architecture and relevant changes, then plans which area owners to involve and what features to include.
-- The vLLM team creates a private communication channel (currently a Slack channel in the vLLM workspace) and a private fork within the vllm-project organization. The model provider team can invite others to the channel and repo.
-- Third parties like compute providers, hosted inference providers, hardware vendors, and other organizations often work with both the model provider and vLLM on model releases. We establish direct communication (with permission) or three-way communication as needed.
+- vLLM 团队了解模型架构和相关变更，然后规划要参与的领域负责人以及要包含的功能。
+- vLLM 团队创建一个私有通信渠道（目前是 vLLM 工作区中的一个 Slack 频道）和一个 vllm-project 组织内的私有分支。模型提供商团队可以邀请其他人加入频道和仓库。
+- 第三方，如计算提供商、托管推理提供商、硬件供应商和其他组织，通常与模型提供商和 vLLM 合作进行模型发布。我们根据需要建立直接沟通（经许可）或三方沟通。
 
-The vLLM team works with model providers on features, integrations, and release timelines. We work to meet release timelines, but engineering challenges like feature development, model accuracy alignment, and optimizations can cause delays.
+vLLM 团队与模型提供商在功能、集成和发布时间线上合作。我们努力满足发布时间线，但功能开发、模型精度对齐和优化等工程挑战可能会导致延迟。
 
-The vLLM maintainers will not publicly share details about model architecture, release timelines, or upcoming releases. We maintain model weights on secure servers with security measures (though we can work with security reviews and testing without certification). We delete pre-release weights or artifacts upon request.
+vLLM 维护者不会公开分享有关模型架构、发布时间线或即将发布的版本的详细信息。我们将模型权重保存在安全的服务器上，并采取安全措施（不过我们可以在不经过认证的情况下配合安全审查和测试）。我们会根据要求删除发布前的权重或工件。
 
-The vLLM team collaborates on marketing and promotional efforts for model releases. Model providers can use vLLM's trademark and logo in publications and materials.
+vLLM 团队在模型发布的营销和推广方面进行合作。模型提供商可以在出版物和材料中使用 vLLM 的商标和标识。
 
-## Adding New Hardware
+## 添加新硬件
 
-vLLM is designed as a platform for frontier model architectures and high-performance accelerators.
-For new hardware, follow the [hardware plugin](../design/plugin_system.md) system to add support.
-Use the platform plugin system to add hardware support.
-As hardware gains popularity, we help endorse it in our documentation and marketing materials.
-The vLLM GitHub organization can host hardware plugin repositories, especially for collaborative efforts among companies.
+vLLM 被设计为一个面向前沿模型架构和高性能加速器的平台。
+对于新硬件，请按照[硬件插件](../design/plugin_system.md)系统添加支持。
+使用平台插件系统添加硬件支持。
+随着硬件获得普及，我们帮助在其文档和营销材料中予以认可。
+vLLM GitHub 组织可以托管硬件插件仓库，特别是用于公司之间的协作。
 
-We rarely add new hardware to vLLM directly. Instead, we make existing hardware platforms modular to keep the vLLM core hardware-agnostic.
+我们很少直接将新硬件添加到 vLLM 中。相反，我们使现有硬件平台模块化，以保持 vLLM 核心与硬件无关。

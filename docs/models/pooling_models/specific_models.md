@@ -1,42 +1,42 @@
-# Specific Model Examples
+# 特定模型示例
 
-## ColBERT Late Interaction Models
+## ColBERT 后期交互模型
 
-[ColBERT](https://arxiv.org/abs/2004.12832) (Contextualized Late Interaction over BERT) is a retrieval model that uses per-token embeddings and MaxSim scoring for document ranking. Unlike single-vector embedding models, ColBERT retains token-level representations and computes relevance scores through late interaction, providing better accuracy while being more efficient than cross-encoders.
+[ColBERT](https://arxiv.org/abs/2004.12832)（基于 BERT 的上下文后期交互）是一种检索模型，使用逐 token 嵌入和 MaxSim 评分进行文档排序。与单向量嵌入模型不同，ColBERT 保留 token 级别的表示，并通过后期交互计算相关性分数，在比交叉编码器更高效的同时提供了更好的准确性。
 
-vLLM supports ColBERT models with multiple encoder backbones:
+vLLM 支持使用多种编码器骨干网络的 ColBERT 模型：
 
-| Architecture | Backbone | Example HF Models |
+| 架构 | 骨干网络 | 示例 HF 模型 |
 | - | - | - |
 | `HF_ColBERT` | BERT | `answerdotai/answerai-colbert-small-v1`, `colbert-ir/colbertv2.0` |
 | `ColBERTModernBertModel` | ModernBERT | `lightonai/GTE-ModernColBERT-v1` |
 | `ColBERTJinaRobertaModel` | Jina XLM-RoBERTa | `jinaai/jina-colbert-v2` |
 | `ColBERTLfm2Model` | LFM2 | `LiquidAI/LFM2-ColBERT-350M` |
 
-**BERT-based ColBERT** models work out of the box:
+**基于 BERT 的 ColBERT** 模型开箱即用：
 
 ```shell
 vllm serve answerdotai/answerai-colbert-small-v1
 ```
 
-For **non-BERT backbones**, use `--hf-overrides` to set the correct architecture:
+对于**非 BERT 骨干网络**，使用 `--hf-overrides` 设置正确的架构：
 
 ```shell
-# ModernBERT backbone
+# ModernBERT 骨干网络
 vllm serve lightonai/GTE-ModernColBERT-v1 \
     --hf-overrides '{"architectures": ["ColBERTModernBertModel"]}'
 
-# Jina XLM-RoBERTa backbone
+# Jina XLM-RoBERTa 骨干网络
 vllm serve jinaai/jina-colbert-v2 \
     --hf-overrides '{"architectures": ["ColBERTJinaRobertaModel"]}' \
     --trust-remote-code
 
-# LFM2 backbone
+# LFM2 骨干网络
 vllm serve LiquidAI/LFM2-ColBERT-350M \
     --hf-overrides '{"architectures": ["ColBERTLfm2Model"]}'
 ```
 
-Then you can use the rerank API:
+然后您可以使用 rerank API：
 
 ```shell
 curl -s http://localhost:8000/rerank -H "Content-Type: application/json" -d '{
@@ -50,7 +50,7 @@ curl -s http://localhost:8000/rerank -H "Content-Type: application/json" -d '{
 }'
 ```
 
-Or the score API:
+或 score API：
 
 ```shell
 curl -s http://localhost:8000/score -H "Content-Type: application/json" -d '{
@@ -60,7 +60,7 @@ curl -s http://localhost:8000/score -H "Content-Type: application/json" -d '{
 }'
 ```
 
-You can also get the raw token embeddings using the Pooling API with `token_embed` task:
+您还可以使用 `token_embed` 任务的 Pooling API 获取原始 token 嵌入：
 
 ```shell
 curl -s http://localhost:8000/pooling -H "Content-Type: application/json" -d '{
@@ -70,27 +70,27 @@ curl -s http://localhost:8000/pooling -H "Content-Type: application/json" -d '{
 }'
 ```
 
-An example can be found here: [examples/pooling/score/colbert_rerank_online.py](../../../examples/pooling/score/colbert_rerank_online.py)
+示例请参见：[examples/pooling/score/colbert_rerank_online.py](../../../examples/pooling/score/colbert_rerank_online.py)
 
-## ColQwen3 Multi-Modal Late Interaction Models
+## ColQwen3 多模态后期交互模型
 
-ColQwen3 is based on [ColPali](https://arxiv.org/abs/2407.01449), which extends ColBERT's late interaction approach to **multi-modal** inputs. While ColBERT operates on text-only token embeddings, ColPali/ColQwen3 can embed both **text and images** (e.g. PDF pages, screenshots, diagrams) into per-token L2-normalized vectors and compute relevance via MaxSim scoring. ColQwen3 specifically uses Qwen3-VL as its vision-language backbone.
+ColQwen3 基于 [ColPali](https://arxiv.org/abs/2407.01449)，将 ColBERT 的后期交互方法扩展到**多模态**输入。ColBERT 仅处理纯文本 token 嵌入，而 ColPali/ColQwen3 可以将**文本和图像**（例如 PDF 页面、截图、图表）嵌入为逐 token L2 归一化向量，并通过 MaxSim 评分计算相关性。ColQwen3 具体使用 Qwen3-VL 作为其视觉语言骨干网络。
 
-| Architecture | Backbone | Example HF Models |
+| 架构 | 骨干网络 | 示例 HF 模型 |
 | - | - | - |
 | `ColQwen3` | Qwen3-VL | `TomoroAI/tomoro-colqwen3-embed-4b`, `TomoroAI/tomoro-colqwen3-embed-8b` |
 | `OpsColQwen3Model` | Qwen3-VL | `OpenSearch-AI/Ops-Colqwen3-4B`, `OpenSearch-AI/Ops-Colqwen3-8B` |
 | `Qwen3VLNemotronEmbedModel` | Qwen3-VL | `nvidia/nemotron-colembed-vl-4b-v2`, `nvidia/nemotron-colembed-vl-8b-v2` |
 
-Start the server:
+启动服务器：
 
 ```shell
 vllm serve TomoroAI/tomoro-colqwen3-embed-4b --max-model-len 4096
 ```
 
-### Text-only scoring and reranking
+### 纯文本评分和重排序
 
-Use the `/rerank` API:
+使用 `/rerank` API：
 
 ```shell
 curl -s http://localhost:8000/rerank -H "Content-Type: application/json" -d '{
@@ -104,7 +104,7 @@ curl -s http://localhost:8000/rerank -H "Content-Type: application/json" -d '{
 }'
 ```
 
-Or the `/score` API:
+或 `/score` API：
 
 ```shell
 curl -s http://localhost:8000/score -H "Content-Type: application/json" -d '{
@@ -114,14 +114,13 @@ curl -s http://localhost:8000/score -H "Content-Type: application/json" -d '{
 }'
 ```
 
-### Multi-modal scoring and reranking (text query × image documents)
+### 多模态评分和重排序（文本查询 × 图像文档）
 
-The `/score` and `/rerank` APIs also accept multi-modal inputs directly.
-Pass image documents using the `data_1`/`data_2` (for `/score`) or `documents` (for `/rerank`) fields
-with a `content` list containing `image_url` and `text` parts — the same format used by the
-OpenAI chat completion API:
+`/score` 和 `/rerank` API 也直接接受多模态输入。
+使用 `data_1`/`data_2`（用于 `/score`）或 `documents`（用于 `/rerank`）字段传递图像文档，
+其中包含 `content` 列表，包含 `image_url` 和 `text` 部分——与 OpenAI 聊天补全 API 使用的格式相同：
 
-Score a text query against image documents:
+对文本查询与图像文档进行评分：
 
 ```shell
 curl -s http://localhost:8000/score -H "Content-Type: application/json" -d '{
@@ -138,7 +137,7 @@ curl -s http://localhost:8000/score -H "Content-Type: application/json" -d '{
 }'
 ```
 
-Rerank image documents by a text query:
+通过文本查询对图像文档进行重排序：
 
 ```shell
 curl -s http://localhost:8000/rerank -H "Content-Type: application/json" -d '{
@@ -162,9 +161,9 @@ curl -s http://localhost:8000/rerank -H "Content-Type: application/json" -d '{
 }'
 ```
 
-### Raw token embeddings
+### 原始 token 嵌入
 
-You can also get the raw token embeddings using the `/pooling` API with `token_embed` task:
+您还可以使用 `/pooling` API 与 `token_embed` 任务获取原始 token 嵌入：
 
 ```shell
 curl -s http://localhost:8000/pooling -H "Content-Type: application/json" -d '{
@@ -174,7 +173,7 @@ curl -s http://localhost:8000/pooling -H "Content-Type: application/json" -d '{
 }'
 ```
 
-For **image inputs** via the Pooling API, use the chat-style `messages` field:
+对于通过 Pooling API 的**图像输入**，请使用聊天风格的 `messages` 字段：
 
 ```shell
 curl -s http://localhost:8000/pooling -H "Content-Type: application/json" -d '{
@@ -191,26 +190,26 @@ curl -s http://localhost:8000/pooling -H "Content-Type: application/json" -d '{
 }'
 ```
 
-### Examples
+### 示例
 
-- Multi-vector retrieval: [examples/pooling/token_embed/colqwen3_token_embed_online.py](../../../examples/pooling/token_embed/colqwen3_token_embed_online.py)
-- Reranking (text + multi-modal): [examples/pooling/score/colqwen3_rerank_online.py](../../../examples/pooling/score/colqwen3_rerank_online.py)
+- 多向量检索：[examples/pooling/token_embed/colqwen3_token_embed_online.py](../../../examples/pooling/token_embed/colqwen3_token_embed_online.py)
+- 重排序（文本 + 多模态）：[examples/pooling/score/colqwen3_rerank_online.py](../../../examples/pooling/score/colqwen3_rerank_online.py)
 
-## ColQwen3.5 Multi-Modal Late Interaction Models
+## ColQwen3.5 多模态后期交互模型
 
-ColQwen3.5 is based on [ColPali](https://arxiv.org/abs/2407.01449), extending ColBERT's late interaction approach to **multi-modal** inputs. It uses the Qwen3.5 hybrid backbone (linear + full attention) and produces per-token L2-normalized vectors for MaxSim scoring.
+ColQwen3.5 基于 [ColPali](https://arxiv.org/abs/2407.01449)，将 ColBERT 的后期交互方法扩展到**多模态**输入。它使用 Qwen3.5 混合骨干网络（线性 + 完全注意力），并生成逐 token L2 归一化向量用于 MaxSim 评分。
 
-| Architecture | Backbone | Example HF Models |
+| 架构 | 骨干网络 | 示例 HF 模型 |
 | - | - | - |
 | `ColQwen3_5` | Qwen3.5 | `athrael-soju/colqwen3.5-4.5B` |
 
-Start the server:
+启动服务器：
 
 ```shell
 vllm serve athrael-soju/colqwen3.5-4.5B --max-model-len 4096
 ```
 
-Then you can use the rerank endpoint:
+然后您可以使用 rerank 端点：
 
 ```shell
 curl -s http://localhost:8000/rerank -H "Content-Type: application/json" -d '{
@@ -224,7 +223,7 @@ curl -s http://localhost:8000/rerank -H "Content-Type: application/json" -d '{
 }'
 ```
 
-Or the score endpoint:
+或 score 端点：
 
 ```shell
 curl -s http://localhost:8000/score -H "Content-Type: application/json" -d '{
@@ -234,21 +233,19 @@ curl -s http://localhost:8000/score -H "Content-Type: application/json" -d '{
 }'
 ```
 
-An example can be found here: [examples/pooling/score/colqwen3_5_rerank_online.py](../../../examples/pooling/score/colqwen3_5_rerank_online.py)
+示例请参见：[examples/pooling/score/colqwen3_5_rerank_online.py](../../../examples/pooling/score/colqwen3_5_rerank_online.py)
 
-## Llama Nemotron Multimodal
+## Llama Nemotron 多模态
 
-### Embedding Model
+### 嵌入模型
 
-Llama Nemotron VL Embedding models combine the bidirectional Llama embedding backbone
-(from `nvidia/llama-nemotron-embed-1b-v2`) with SigLIP as the vision encoder to produce
-single-vector embeddings from text and/or images.
+Llama Nemotron VL 嵌入模型将双向 Llama 嵌入骨干网络（来自 `nvidia/llama-nemotron-embed-1b-v2`）与 SigLIP 视觉编码器相结合，从文本和/或图像生成单向量嵌入。
 
-| Architecture | Backbone | Example HF Models |
+| 架构 | 骨干网络 | 示例 HF 模型 |
 | - | - | - |
-| `LlamaNemotronVLModel` | Bidirectional Llama + SigLIP | `nvidia/llama-nemotron-embed-vl-1b-v2` |
+| `LlamaNemotronVLModel` | 双向 Llama + SigLIP | `nvidia/llama-nemotron-embed-vl-1b-v2` |
 
-Start the server:
+启动服务器：
 
 ```shell
 vllm serve nvidia/llama-nemotron-embed-vl-1b-v2 \
@@ -257,16 +254,11 @@ vllm serve nvidia/llama-nemotron-embed-vl-1b-v2 \
 ```
 
 !!! note
-    The chat template bundled with this model's tokenizer is not suitable for
-    the embeddings API. Use the provided override template above when serving
-    with the `messages`-based (chat-style) embeddings API.
+    此模型 tokenizer 附带的聊天模板不适用于嵌入 API。在基于 `messages`（聊天风格）的嵌入 API 提供服务时，请使用上面提供的覆盖模板。
 
-    The override template uses the message `role` to automatically prepend the
-    appropriate prefix: set `role` to `"query"` for queries (prepends `query: `)
-    or `"document"` for passages (prepends `passage: `). Any other role omits
-    the prefix.
+    覆盖模板使用消息 `role` 来自动添加适当的前缀：对于查询，将 `role` 设置为 `"query"`（添加 `query: ` 前缀）；对于段落，将 `role` 设置为 `"document"`（添加 `passage: ` 前缀）。任何其他角色将省略前缀。
 
-Embed text queries:
+嵌入文本查询：
 
 ```shell
 curl -s http://localhost:8000/v1/embeddings -H "Content-Type: application/json" -d '{
@@ -282,7 +274,7 @@ curl -s http://localhost:8000/v1/embeddings -H "Content-Type: application/json" 
 }'
 ```
 
-Embed images via the chat-style `messages` field:
+通过聊天风格 `messages` 字段嵌入图像：
 
 ```shell
 curl -s http://localhost:8000/v1/embeddings -H "Content-Type: application/json" -d '{
@@ -299,16 +291,15 @@ curl -s http://localhost:8000/v1/embeddings -H "Content-Type: application/json" 
 }'
 ```
 
-### Reranker Model
+### 重排序模型
 
-Llama Nemotron VL reranker models combine the same bidirectional Llama + SigLIP
-backbone with a sequence-classification head for cross-encoder scoring and reranking.
+Llama Nemotron VL 重排序模型将相同的双向 Llama + SigLIP 骨干网络与序列分类头相结合，用于交叉编码器评分和重排序。
 
-| Architecture | Backbone | Example HF Models |
+| 架构 | 骨干网络 | 示例 HF 模型 |
 | - | - | - |
-| `LlamaNemotronVLForSequenceClassification` | Bidirectional Llama + SigLIP | `nvidia/llama-nemotron-rerank-vl-1b-v2` |
+| `LlamaNemotronVLForSequenceClassification` | 双向 Llama + SigLIP | `nvidia/llama-nemotron-rerank-vl-1b-v2` |
 
-Start the server:
+启动服务器：
 
 ```shell
 vllm serve nvidia/llama-nemotron-rerank-vl-1b-v2 \
@@ -318,11 +309,9 @@ vllm serve nvidia/llama-nemotron-rerank-vl-1b-v2 \
 ```
 
 !!! note
-    The chat template bundled with this checkpoint's tokenizer is not suitable
-    for the Score/Rerank APIs. Use the provided override template when serving:
-    `examples/pooling/score/template/nemotron-vl-rerank.jinja`.
+    此检查点 tokenizer 附带的聊天模板不适用于评分/重排序 API。在提供服务时，请使用提供的覆盖模板：`examples/pooling/score/template/nemotron-vl-rerank.jinja`。
 
-Score a text query against an image document:
+对文本查询与图像文档进行评分：
 
 ```shell
 curl -s http://localhost:8000/score -H "Content-Type: application/json" -d '{
@@ -339,7 +328,7 @@ curl -s http://localhost:8000/score -H "Content-Type: application/json" -d '{
 }'
 ```
 
-Rerank image documents by a text query:
+通过文本查询对图像文档进行重排序：
 
 ```shell
 curl -s http://localhost:8000/rerank -H "Content-Type: application/json" -d '{
@@ -365,15 +354,13 @@ curl -s http://localhost:8000/rerank -H "Content-Type: application/json" -d '{
 
 ## BAAI/bge-m3
 
-The `BAAI/bge-m3` model comes with extra weights for sparse and colbert embeddings but unfortunately in its `config.json`
-the architecture is declared as `XLMRobertaModel`, which makes `vLLM` load it as a vanilla ROBERTA model without the
-extra weights. To load the full model weights, override its architecture like this:
+`BAAI/bge-m3` 模型附带用于稀疏和 colbert 嵌入的额外权重，但不幸的是在其 `config.json` 中架构声明为 `XLMRobertaModel`，这使得 `vLLM` 将其作为普通的 ROBERTA 模型加载，而不会加载这些额外权重。要加载完整的模型权重，请像这样覆盖其架构：
 
 ```shell
 vllm serve BAAI/bge-m3 --hf-overrides '{"architectures": ["BgeM3EmbeddingModel"]}'
 ```
 
-Then you obtain the sparse embeddings like this:
+然后您可以像这样获取稀疏嵌入：
 
 ```shell
 curl -s http://localhost:8000/pooling -H "Content-Type: application/json" -d '{
@@ -383,13 +370,9 @@ curl -s http://localhost:8000/pooling -H "Content-Type: application/json" -d '{
 }'
 ```
 
-Due to limitations in the output schema, the output consists of a list of
-token scores for each token for each input. This means that you'll have to call
-`/tokenize` as well to be able to pair tokens with scores.
-Refer to the tests in  `tests/models/language/pooling/test_bge_m3.py` to see how
-to do that.
+由于输出模式的限制，输出由每个输入的每个 token 的 token 分数列表组成。这意味着您还需要调用 `/tokenize` 才能将 token 与分数配对。请参考 `tests/models/language/pooling/test_bge_m3.py` 中的测试来了解如何操作。
 
-You can obtain the colbert embeddings like this:
+您可以像这样获取 colbert 嵌入：
 
 ```shell
 curl -s http://localhost:8000/pooling -H "Content-Type: application/json" -d '{

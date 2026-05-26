@@ -1,48 +1,47 @@
-# CI Failures
+# CI 失败
 
-What should I do when a CI job fails on my PR, but I don't think my PR caused
-the failure?
+当我的 PR 上的 CI 作业失败，但我认为我的 PR 没有导致该失败时，我该怎么办？
 
-- Check the dashboard of current CI test failures:  
-  👉 [CI Failures Dashboard](https://github.com/orgs/vllm-project/projects/20)
+- 查看当前 CI 测试失败仪表板：  
+  👉 [CI 失败仪表板](https://github.com/orgs/vllm-project/projects/20)
 
-- If your failure **is already listed**, it's likely unrelated to your PR.
-  Help fixing it is always welcome!
-    - Leave comments with links to additional instances of the failure.
-    - React with a 👍 to signal how many are affected.
+- 如果您的失败**已列出**，很可能是与您的 PR 无关的。
+  欢迎帮助修复它！
+    - 留下带有失败额外实例链接的评论。
+    - 使用 👍 反应来标记受影响的人数。
 
-- If your failure **is not listed**, you should **file an issue**.
+- 如果您的失败**未列出**，您应该**提交一个问题**。
 
-## Filing a CI Test Failure Issue
+## 提交 CI 测试失败问题
 
-- **File a bug report:**  
-    👉 [New CI Failure Report](https://github.com/vllm-project/vllm/issues/new?template=450-ci-failure.yml)
+- **提交错误报告：**  
+    👉 [新建 CI 失败报告](https://github.com/vllm-project/vllm/issues/new?template=450-ci-failure.yml)
 
-- **Use this title format:**
+- **使用以下标题格式：**
 
     ```text
-    [CI Failure]: failing-test-job - regex/matching/failing:test
+    [CI Failure]: 失败的测试作业 - 正则/匹配/失败:测试
     ```
 
-- **For the environment field:**
+- **对于环境字段：**
 
     ```text
-    Still failing on main as of commit abcdef123
+    在主分支提交 abcdef123 上仍然失败
     ```
 
-- **In the description, include failing tests:**
+- **在描述中，包括失败的测试：**
 
     ```text
-    FAILED failing/test.py:failing_test1 - Failure description
-    FAILED failing/test.py:failing_test2 - Failure description
+    FAILED failing/test.py:failing_test1 - 失败描述
+    FAILED failing/test.py:failing_test2 - 失败描述
     https://github.com/orgs/vllm-project/projects/20
     https://github.com/vllm-project/vllm/issues/new?template=400-bug-report.yml
-    FAILED failing/test.py:failing_test3 - Failure description
+    FAILED failing/test.py:failing_test3 - 失败描述
     ```
 
-- **Attach logs** (collapsible section example):
+- **附加日志**（可折叠部分示例）：
     <details>
-    <summary>Logs:</summary>
+    <summary>日志：</summary>
 
     ```text
     ERROR 05-20 03:26:38 [dump_input.py:68] Dumping input data
@@ -51,28 +50,28 @@ the failure?
       File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 203, in execute_model  
         return self.model_executor.execute_model(scheduler_output)
     ...
-    FAILED failing/test.py:failing_test1 - Failure description
-    FAILED failing/test.py:failing_test2 - Failure description
-    FAILED failing/test.py:failing_test3 - Failure description
+    FAILED failing/test.py:failing_test1 - 失败描述
+    FAILED failing/test.py:failing_test2 - 失败描述
+    FAILED failing/test.py:failing_test3 - 失败描述
     ```
 
     </details>
 
-## Logs Wrangling
+## 日志处理
 
-Download a job's log (no Buildkite login required):
+下载作业日志（无需 Buildkite 登录）：
 
 [.buildkite/scripts/ci-fetch-log.sh](../../../.buildkite/scripts/ci-fetch-log.sh)
 
 ```bash
-# Find the failing job. Each row's URL is .../builds/<N>#<job_uuid>:
+# 找到失败的作业。每行的 URL 格式为 .../builds/<N>#<job_uuid>：
 gh pr checks <PR> --repo vllm-project/vllm
 
-# Download + strip timestamps/ANSI in one step:
+# 一步完成下载 + 去除时间戳/ANSI：
 .buildkite/scripts/ci-fetch-log.sh "https://buildkite.com/vllm/ci/builds/<N>#<job_uuid>"
 ```
 
-To clean an already-downloaded log:
+清理已下载的日志：
 
 [.buildkite/scripts/ci-clean-log.sh](../../../.buildkite/scripts/ci-clean-log.sh)
 
@@ -80,22 +79,22 @@ To clean an already-downloaded log:
 ./ci-clean-log.sh ci.log
 ```
 
-Use a tool [wl-clipboard](https://github.com/bugaevc/wl-clipboard) for quick copy-pasting:
+使用工具 [wl-clipboard](https://github.com/bugaevc/wl-clipboard) 快速复制粘贴：
 
 ```bash
 tail -525 ci_build.log | wl-copy
 ```
 
-## Investigating a CI Test Failure
+## 调查 CI 测试失败
 
-1. Go to 👉 [Buildkite main branch](https://buildkite.com/vllm/ci/builds?branch=main)
-2. Bisect to find the first build that shows the issue.  
-3. Add your findings to the GitHub issue.  
-4. If you find a strong candidate PR, mention it in the issue and ping contributors.
+1. 前往 👉 [Buildkite 主分支](https://buildkite.com/vllm/ci/builds?branch=main)
+2. 通过二分查找找到第一个出现该问题的构建。
+3. 将您的发现添加到 GitHub 问题中。
+4. 如果您找到了很有嫌疑的 PR，请在问题中提及并联系贡献者。
 
-## Reproducing a Failure
+## 复现失败
 
-CI test failures may be flaky. Use a bash loop to run repeatedly:
+CI 测试失败可能是偶发的。使用 bash 循环重复运行：
 
 [.buildkite/scripts/rerun-test.sh](../../../.buildkite/scripts/rerun-test.sh)
 
@@ -103,26 +102,26 @@ CI test failures may be flaky. Use a bash loop to run repeatedly:
 ./rerun-test.sh tests/v1/engine/test_engine_core_client.py::test_kv_cache_events[True-tcp]
 ```
 
-## Submitting a PR
+## 提交 PR
 
-If you submit a PR to fix a CI failure:
+如果您提交 PR 以修复 CI 失败：
 
-- Link the PR to the issue:
-  Add `Closes #12345` to the PR description.
-- Add the `ci-failure` label:
-  This helps track it in the [CI Failures GitHub Project](https://github.com/orgs/vllm-project/projects/20).
+- 将 PR 链接到问题：
+  在 PR 描述中添加 `Closes #12345`。
+- 添加 `ci-failure` 标签：
+  这有助于在 [CI 失败 GitHub 项目](https://github.com/orgs/vllm-project/projects/20)中进行跟踪。
 
-## Other Resources
+## 其他资源
 
-- 🔍 [Test Reliability on `main`](https://buildkite.com/organizations/vllm/analytics/suites/ci-1/tests?branch=main&order=ASC&sort_by=reliability)
-- 🧪 [Latest Buildkite CI Runs](https://buildkite.com/vllm/ci/builds?branch=main)
+- 🔍 [`main` 分支上的测试可靠性](https://buildkite.com/organizations/vllm/analytics/suites/ci-1/tests?branch=main&order=ASC&sort_by=reliability)
+- 🧪 [最新的 Buildkite CI 运行](https://buildkite.com/vllm/ci/builds?branch=main)
 
-## Daily Triage
+## 每日分类
 
-Use [Buildkite analytics (2-day view)](https://buildkite.com/organizations/vllm/analytics/suites/ci-1/tests?branch=main&period=2days) to:
+使用 [Buildkite 分析（2 天视图）](https://buildkite.com/organizations/vllm/analytics/suites/ci-1/tests?branch=main&period=2days)来：
 
-- Identify recent test failures **on `main`**.
-- Exclude legitimate test failures on PRs.
-- (Optional) Ignore tests with 0% reliability.
+- 识别 **`main` 分支上**的近期测试失败。
+- 排除 PR 上的合理测试失败。
+- （可选）忽略可靠性为 0% 的测试。
 
-Compare to the [CI Failures Dashboard](https://github.com/orgs/vllm-project/projects/20).
+与 [CI 失败仪表板](https://github.com/orgs/vllm-project/projects/20)进行比较。

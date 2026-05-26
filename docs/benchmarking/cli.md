@@ -1,15 +1,15 @@
-# Benchmark CLI
+# 基准测试 CLI
 
-This section guides you through running benchmark tests with the extensive datasets supported on vLLM.
+本指南将指导你使用 vLLM 支持的各种数据集运行基准测试。
 
-It's a living document, updated as new features and datasets become available.
+这是一份持续性文档，随着新功能和数据集的推出而更新。
 
 !!! tip
-    The benchmarks described on this page are mainly for evaluating specific vLLM features as well as regression testing.
+    本页描述的基准测试主要用于评估特定的 vLLM 功能以及回归测试。
 
-    For benchmarking production vLLM servers, we recommend [GuideLLM](https://github.com/vllm-project/guidellm), an established performance benchmarking framework with live progress updates and automatic report generation. It is also more flexible than `vllm bench serve` in terms of dataset loading, request formatting, and workload patterns.
+    对于生产环境 vLLM 服务器的基准测试，我们推荐使用 [GuideLLM](https://github.com/vllm-project/guidellm)，这是一个成熟的性能基准测试框架，提供实时进度更新和自动报告生成。它在数据集加载、请求格式和工作负载模式方面也比 `vllm bench serve` 更灵活。
 
-## Dataset Overview
+## 数据集概述
 
 <style>
 th {
@@ -17,15 +17,15 @@ th {
 }
 </style>
 
-| Dataset | Online | Offline | Data Path |
+| 数据集 | 在线 | 离线 | 数据路径 |
 | ------- | ------ | ------- | --------- |
 | ShareGPT | ✅ | ✅ | `wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json` |
-| ShareGPT4V (Image) | ✅ | ✅ | `wget https://huggingface.co/datasets/Lin-Chen/ShareGPT4V/resolve/main/sharegpt4v_instruct_gpt4-vision_cap100k.json`<br>Note that the images need to be downloaded separately. For example, to download COCO's 2017 Train images:<br>`wget http://images.cocodataset.org/zips/train2017.zip` |
-| ShareGPT4Video (Video) | ✅ | ✅ | `git clone https://huggingface.co/datasets/ShareGPT4Video/ShareGPT4Video` |
+| ShareGPT4V (图像) | ✅ | ✅ | `wget https://huggingface.co/datasets/Lin-Chen/ShareGPT4V/resolve/main/sharegpt4v_instruct_gpt4-vision_cap100k.json`<br>注意，图像需要单独下载。例如，下载 COCO 2017 训练图像：<br>`wget http://images.cocodataset.org/zips/train2017.zip` |
+| ShareGPT4Video (视频) | ✅ | ✅ | `git clone https://huggingface.co/datasets/ShareGPT4Video/ShareGPT4Video` |
 | BurstGPT | ✅ | ✅ | `wget https://github.com/HPMLL/BurstGPT/releases/download/v1.1/BurstGPT_without_fails_2.csv` |
-| Sonnet (deprecated) | ✅ | ✅ | Local file: `benchmarks/sonnet.txt` |
+| Sonnet (已弃用) | ✅ | ✅ | 本地文件：`benchmarks/sonnet.txt` |
 | Random | ✅ | ✅ | `synthetic` |
-| RandomMultiModal (Image/Video) | ✅ | ✅ | `synthetic` |
+| RandomMultiModal (图像/视频) | ✅ | ✅ | `synthetic` |
 | RandomForReranking | ✅ | ✅ | `synthetic` |
 | Prefix Repetition | ✅ | ✅ | `synthetic` |
 | HuggingFace-VisionArena | ✅ | ✅ | `lmarena-ai/VisionArena-Chat` |
@@ -40,80 +40,80 @@ th {
 | HuggingFace-ASR | ✅ | ✅ | `openslr/librispeech_asr`, `facebook/voxpopuli`,  `LIUM/tedlium`, `edinburghcstr/ami`,        `speechcolab/gigaspeech`,        `kensho/spgispeech` |
 | Spec Bench | ✅ | ✅ | `wget https://raw.githubusercontent.com/hemingkx/Spec-Bench/refs/heads/main/data/spec_bench/question.jsonl` |
 | SPEED-Bench | ✅ | ✅ | `curl -LsSf https://raw.githubusercontent.com/NVIDIA-NeMo/Skills/refs/heads/main/nemo_skills/dataset/speed-bench/prepare.py \| python3 -` |
-| Custom | ✅ | ✅ | Local file: `data.jsonl` |
-| Custom Audio | ✅ | ✅ | Local file: `audio_data.jsonl` |
-| Custom Image | ✅ | ✅ | Local file: `image_data.jsonl` |
+| Custom | ✅ | ✅ | 本地文件：`data.jsonl` |
+| Custom Audio | ✅ | ✅ | 本地文件：`audio_data.jsonl` |
+| Custom Image | ✅ | ✅ | 本地文件：`image_data.jsonl` |
 
-Legend:
+图例：
 
-- ✅ - supported
-- 🟡 - Partial support
-- 🚧 - to be supported
+- ✅ - 支持
+- 🟡 - 部分支持
+- 🚧 - 即将支持
 
 !!! note
-    HuggingFace dataset's `dataset-name` should be set to `hf`.
-    For local `dataset-path`, please set `hf-name` to its Hugging Face ID like
+    HuggingFace 数据集的 `dataset-name` 应设置为 `hf`。
+    对于本地 `dataset-path`，请将 `hf-name` 设置为其 HuggingFace ID，例如：
 
     ```bash
     --dataset-path /datasets/VisionArena-Chat/ --hf-name lmarena-ai/VisionArena-Chat
     ```
 
-## Examples
+## 示例
 
-### 🚀 Online Benchmark
+### 🚀 在线基准测试
 
 <details class="admonition abstract" markdown="1">
-<summary>Show more</summary>
+<summary>展开</summary>
 
-First start serving your model:
+首先启动模型服务：
 
 ```bash
 vllm serve NousResearch/Hermes-3-Llama-3.1-8B
 ```
 
-Then run the benchmarking script:
+然后运行基准测试脚本：
 
 ```bash
-# download dataset
+# 下载数据集
 # wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json
 vllm bench serve \
   --backend vllm \
   --model NousResearch/Hermes-3-Llama-3.1-8B \
   --endpoint /v1/completions \
   --dataset-name sharegpt \
-  --dataset-path <your data path>/ShareGPT_V3_unfiltered_cleaned_split.json \
+  --dataset-path <你的数据路径>/ShareGPT_V3_unfiltered_cleaned_split.json \
   --num-prompts 10
 ```
 
-If successful, you will see the following output:
+如果成功，你将看到以下输出：
 
 ```text
-============ Serving Benchmark Result ============
-Successful requests:                     10
-Benchmark duration (s):                  5.78
-Total input tokens:                      1369
-Total generated tokens:                  2212
-Request throughput (req/s):              1.73
-Output token throughput (tok/s):         382.89
-Total token throughput (tok/s):          619.85
----------------Time to First Token----------------
-Mean TTFT (ms):                          71.54
-Median TTFT (ms):                        73.88
-P99 TTFT (ms):                           79.49
------Time per Output Token (excl. 1st token)------
-Mean TPOT (ms):                          7.91
-Median TPOT (ms):                        7.96
-P99 TPOT (ms):                           8.03
----------------Inter-token Latency----------------
-Mean ITL (ms):                           7.74
-Median ITL (ms):                         7.70
-P99 ITL (ms):                            8.39
+============ 服务基准测试结果 ============
+成功请求数：                     10
+基准测试持续时间（秒）：                  5.78
+输入 token 总数：                      1369
+生成 token 总数：                  2212
+请求吞吐量（请求/秒）：              1.73
+输出 token 吞吐量（token/秒）：         382.89
+总 token 吞吐量（token/秒）：          619.85
+---------------首 token 时间----------------
+平均 TTFT（毫秒）：                          71.54
+中位数 TTFT（毫秒）：                        73.88
+P99 TTFT（毫秒）：                           79.49
+-----每输出 token 时间（排除首 token）------
+平均 TPOT（毫秒）：                          7.91
+中位数 TPOT（毫秒）：                        7.96
+P99 TPOT（毫秒）：                           8.03
+---------------token 间延迟----------------
+平均 ITL（毫秒）：                           7.74
+中位数 ITL（毫秒）：                         7.70
+P99 ITL（毫秒）：                            8.39
 ==================================================
 ```
 
-#### Results Visualization
+#### 结果可视化
 
-The `--plot-timeline` and `--plot-dataset-stats` can be used to generate respectively the requests completion timeline and dataset prompt and output tokens statistics, which can be useful for debugging purpose or for deeper analysis.
+`--plot-timeline` 和 `--plot-dataset-stats` 可分别用于生成请求完成时间线和数据集提示及输出 token 统计图，这对调试目的或深入分析非常有用。
 
 ```bash
 vllm bench serve \
@@ -121,7 +121,7 @@ vllm bench serve \
     --model meta-llama/Llama-3.1-8B-Instruct \
     --endpoint /v1/completions \
     --dataset-name sharegpt \
-    --dataset-path <your data path>/ShareGPT_V3_unfiltered_cleaned_split.json \
+    --dataset-path <你的数据路径>/ShareGPT_V3_unfiltered_cleaned_split.json \
     --num-prompts 100 \
     --plot-timeline \
     --timeline-itl-thresholds 2,5 \
@@ -129,23 +129,23 @@ vllm bench serve \
     --save-result
 ```
 
-##### Interactive Timeline
+##### 交互式时间线
 
-The generated timeline is an interactive visualization in the form of an HTML file that can be rendered in most browsers. To customize the ITL color thresholds, one can use `--timeline-itl-thresholds` flag (default: 25ms, 50ms)
+生成的时间线是一个交互式可视化的 HTML 文件，可在大多数浏览器中渲染。要自定义 ITL 颜色阈值，可以使用 `--timeline-itl-thresholds` 标志（默认值：25ms, 50ms）
 
-Example output:
+示例输出：
 
 <iframe src="../assets/contributing/vllm_bench_serve_timeline.html" width="100%" height="600" frameborder="0"></iframe>
 
-##### Dataset statistics
+##### 数据集统计
 
-The generated figure shows the input prompt and output tokens distribution.
+生成的图表显示输入提示和输出 token 的分布。
 
-Example output: ![Dataset Statistics](../assets/contributing/vllm_bench_serve_dataset_stats.png)
+示例输出：![数据集统计](../assets/contributing/vllm_bench_serve_dataset_stats.png)
 
-#### Custom Dataset
+#### 自定义数据集
 
-If the dataset you want to benchmark is not supported yet in vLLM, even then you can benchmark on it using `CustomDataset`. At inference time, use the option `--dataset-name custom`. Your data needs to be in the `.jsonl` format and needs to have "prompt" field per entry, e.g., data.jsonl
+如果你想要基准测试的数据集在 vLLM 中尚不支持，你仍然可以使用 `CustomDataset` 对其进行基准测试。推理时，使用选项 `--dataset-name custom`。你的数据需要采用 `.jsonl` 格式，并且每个条目需要包含 "prompt" 字段，例如 data.jsonl：
 
 ```json
 {"prompt": "What is the capital of India?"}
@@ -154,18 +154,18 @@ If the dataset you want to benchmark is not supported yet in vLLM, even then you
 ```
 
 ```bash
-# start server
+# 启动服务器
 vllm serve meta-llama/Llama-3.1-8B-Instruct
 ```
 
 ```bash
-# run benchmarking script
+# 运行基准测试脚本
 vllm bench serve --port 9001 --save-result --save-detailed \
   --backend vllm \
   --model meta-llama/Llama-3.1-8B-Instruct \
   --endpoint /v1/completions \
   --dataset-name custom \
-  --dataset-path <path-to-your-data-jsonl> \
+  --dataset-path <你的数据 jsonl 路径> \
   --custom-skip-chat-template \
   --num-prompts 80 \
   --max-concurrency 1 \
@@ -174,25 +174,25 @@ vllm bench serve --port 9001 --save-result --save-detailed \
   --result-dir "./log/"
 ```
 
-You can skip applying chat template if your data already has it by using `--custom-skip-chat-template`.
+如果你的数据已经包含聊天模板，可以使用 `--custom-skip-chat-template` 跳过应用聊天模板。
 
-#### Custom Audio Dataset
+#### 自定义音频数据集
 
-If the audio dataset you want to benchmark is not supported yet in vLLM, then you can benchmark on it using `CustomAudioDataset`. At inference time, use the option `--dataset-name custom_audio`. Your data needs to be in the `.jsonl` format and needs to have "prompt" and "audio" fields per entry, e.g., `audio_data.jsonl`:
+如果你想要基准测试的音频数据集在 vLLM 中尚不支持，你可以使用 `CustomAudioDataset` 对其进行基准测试。推理时，使用选项 `--dataset-name custom_audio`。你的数据需要采用 `.jsonl` 格式，并且每个条目需要包含 "prompt" 和 "audio" 字段，例如 `audio_data.jsonl`：
 
 ```json
 {"prompt": "What does this audio say?", "audio": "/path/to/audio_1.wav"}
 {"prompt": "Transcribe the audio.", "audio": "/path/to/audio_2.wav"}
 ```
 
-- **Supported models:** The `CustomAudioDataset` class supports two types of audio models: ASR models (e.g. Whisper) which do not require a "prompt" field; and multimodal audio-text chat models (e.g. Qwen2-Audio). Since these model types require different arguments at inference, we are giving two examples.
+- **支持的模型：** `CustomAudioDataset` 类支持两种类型的音频模型：ASR 模型（例如 Whisper），不需要 "prompt" 字段；以及多模态音频-文本聊天模型（例如 Qwen2-Audio）。由于这些模型类型在推理时需要不同的参数，我们提供两个示例。
 
-- **Example 1: Whisper**
+- **示例 1：Whisper**
 
-Whisper is a dedicated ASR encoder-decoder model, so it uses `--backend openai-audio` and `--endpoint /v1/audio/transcriptions`.
+Whisper 是专用的 ASR 编码器-解码器模型，因此它使用 `--backend openai-audio` 和 `--endpoint /v1/audio/transcriptions`。
 
 ```bash
-# start server
+# 启动服务器
 vllm serve openai/whisper-tiny
 ```
 
@@ -210,9 +210,9 @@ vllm bench serve \
   --result-filename whisper_bench.json
 ```
 
-- **Example 2: Qwen2-Audio**
+- **示例 2：Qwen2-Audio**
 
-Qwen2-Audio is a multimodal chat model that can do ASR and speech analysis, so it uses `--backend openai-chat`, and `--endpoint /v1/chat/completions`. It also requires `--enable-multimodal-chat` to enable multimodal chat transformation.
+Qwen2-Audio 是一个多模态聊天模型，可以执行 ASR 和语音分析，因此它使用 `--backend openai-chat` 和 `--endpoint /v1/chat/completions`。它还需要 `--enable-multimodal-chat` 来启用多模态聊天转换。
 
 ```bash
 vllm bench serve \
@@ -229,9 +229,9 @@ vllm bench serve \
   --result-filename qwen_bench.json
 ```
 
-#### Custom Image Dataset
+#### 自定义图像数据集
 
-If the image dataset you want to benchmark is not supported yet in vLLM, then you can benchmark on it using `CustomImageDataset`. At inference time, use the option `--dataset-name custom_image`. Your data needs to be in the `.jsonl` format and needs to have "prompt" and "image_files" fields per entry, e.g., `image_data.jsonl`:
+如果你想要基准测试的图像数据集在 vLLM 中尚不支持，你可以使用 `CustomImageDataset` 对其进行基准测试。推理时，使用选项 `--dataset-name custom_image`。你的数据需要采用 `.jsonl` 格式，并且每个条目需要包含 "prompt" 和 "image_files" 字段，例如 `image_data.jsonl`：
 
 ```json
 {"prompt": "How many animals are present in the given image?", "image_files": ["/path/to/image/folder/horsepony.jpg"]}
@@ -239,27 +239,27 @@ If the image dataset you want to benchmark is not supported yet in vLLM, then yo
 ```
 
 ```bash
-# need a model with vision capability here
+# 此处需要具有视觉能力的模型
 vllm serve Qwen/Qwen2-VL-7B-Instruct
 ```
 
 ```bash
-# run benchmarking script
+# 运行基准测试脚本
 vllm bench serve--save-result --save-detailed \
   --backend openai-chat \
   --model Qwen/Qwen2-VL-7B-Instruct \
   --endpoint /v1/chat/completions \
   --dataset-name custom_image \
-  --dataset-path <path-to-your-image-data-jsonl> \
+  --dataset-path <你的图像数据 jsonl 路径> \
   --allowed-local-media-path /path/to/image/folder
 ```
 
-Note that we need to use the `openai-chat` backend and `/v1/chat/completions` endpoint for multimodal inputs.
+注意，对于多模态输入，我们需要使用 `openai-chat` 后端和 `/v1/chat/completions` 端点。
 
-#### VisionArena Benchmark for Vision Language Models
+#### 视觉语言模型的 VisionArena 基准测试
 
 ```bash
-# need a model with vision capability here
+# 此处需要具有视觉能力的模型
 vllm serve Qwen/Qwen2-VL-7B-Instruct
 ```
 
@@ -274,7 +274,7 @@ vllm bench serve \
   --num-prompts 1000
 ```
 
-#### InstructCoder Benchmark with Speculative Decoding
+#### 使用推测解码的 InstructCoder 基准测试
 
 ``` bash
 vllm serve meta-llama/Meta-Llama-3-8B-Instruct \
@@ -291,7 +291,7 @@ vllm bench serve \
     --num-prompts 2048
 ```
 
-#### Spec Bench Benchmark with Speculative Decoding
+#### 使用推测解码的 Spec Bench 基准测试
 
 ``` bash
 vllm serve meta-llama/Meta-Llama-3-8B-Instruct \
@@ -300,53 +300,53 @@ vllm serve meta-llama/Meta-Llama-3-8B-Instruct \
     "prompt_lookup_min": 2}'
 ```
 
-[SpecBench dataset](https://github.com/hemingkx/Spec-Bench)
+[SpecBench 数据集](https://github.com/hemingkx/Spec-Bench)
 
-Run all categories:
+运行所有类别：
 
 ``` bash
-# Download the dataset using:
+# 使用以下命令下载数据集：
 # wget https://raw.githubusercontent.com/hemingkx/Spec-Bench/refs/heads/main/data/spec_bench/question.jsonl
 
 vllm bench serve \
     --model meta-llama/Meta-Llama-3-8B-Instruct \
     --dataset-name spec_bench \
-    --dataset-path "<YOUR_DOWNLOADED_PATH>/data/spec_bench/question.jsonl" \
+    --dataset-path "<你的下载路径>/data/spec_bench/question.jsonl" \
     --num-prompts -1
 ```
 
-Available categories include `[writing, roleplay, reasoning, math, coding, extraction, stem, humanities, translation, summarization, qa, math_reasoning, rag]`.
+可用类别包括 `[writing, roleplay, reasoning, math, coding, extraction, stem, humanities, translation, summarization, qa, math_reasoning, rag]`。
 
-Run only a specific category like "summarization":
+仅运行特定类别，例如 "summarization"：
 
 ``` bash
 vllm bench serve \
     --model meta-llama/Meta-Llama-3-8B-Instruct \
     --dataset-name spec_bench \
-    --dataset-path "<YOUR_DOWNLOADED_PATH>/data/spec_bench/question.jsonl" \
+    --dataset-path "<你的下载路径>/data/spec_bench/question.jsonl" \
     --num-prompts -1
     --spec-bench-category "summarization"
 ```
 
-#### SPEED-Bench Benchmark with Speculative Decoding
+#### 使用推测解码的 SPEED-Bench 基准测试
 
-[SPEED-Bench](https://huggingface.co/datasets/nvidia/SPEED-Bench) is a unified and diverse dataset for speculative decoding, supporting acceptance rate and length measurements using the Qualitative split and throughput measurements using the Throughput splits in 5 configuration of input sequence length (1k, 2k, 8k, 16k, 32k).
+[SPEED-Bench](https://huggingface.co/datasets/nvidia/SPEED-Bench) 是一个统一且多样化的推测解码数据集，支持使用 Qualitative 分割进行接受率和长度测量，以及使用 5 种输入序列长度配置（1k、2k、8k、16k、32k）的 Throughput 分割进行吞吐量测量。
 
 !!! note
-    This dataset is governed by the [NVIDIA Evaluation Dataset License Agreement](https://huggingface.co/datasets/nvidia/SPEED-Bench/blob/main/License.pdf). For each dataset a user elects to use, the user is responsible for checking if the dataset license is fit for the intended purpose. The `prepare.py` script automatically fetches data from all the source datasets.
+    该数据集受 [NVIDIA 评估数据集许可协议](https://huggingface.co/datasets/nvidia/SPEED-Bench/blob/main/License.pdf) 管辖。用户选择的每个数据集，用户有责任检查数据集许可证是否适合预期用途。`prepare.py` 脚本会自动从所有源数据集获取数据。
 
-First, download the dataset to a folder, using this one liner:
+首先，使用以下一行命令将数据集下载到文件夹：
 
 ```bash
 curl -LsSf https://raw.githubusercontent.com/NVIDIA-NeMo/Skills/refs/heads/main/nemo_skills/dataset/speed-bench/prepare.py \| python3 -
 ```
 
-The command supports also the following arguments:
+该命令还支持以下参数：
 
-- `--config`: download only a subset of the dataset: `qualitative`, `throughput_1k`, `throughput_2k`, `throughput_8k`, `throughput_16k` and `throughput_32k`. By default, it will download all subsets.
-- `--output_dir`: download to a specified folder. By default, it will download to the current directory.
+- `--config`：仅下载数据集的一个子集：`qualitative`、`throughput_1k`、`throughput_2k`、`throughput_8k`、`throughput_16k` 和 `throughput_32k`。默认情况下，将下载所有子集。
+- `--output_dir`：下载到指定的文件夹。默认情况下，将下载到当前目录。
 
-Start a server with speculative decoding:
+启动一个带有推测解码的服务器：
 
 ```bash
 vllm serve meta-llama/Llama-3.3-70B-Instruct \
@@ -355,49 +355,49 @@ vllm serve meta-llama/Llama-3.3-70B-Instruct \
     "model": "nvidia/Llama-3.3-70B-Instruct-Eagle3"}'
 ```
 
-Run all categories in the Qualitative split:
+运行 Qualitative 分割中的所有类别：
 
 ```bash
 vllm bench serve \
     --model meta-llama/Llama-3.3-70B-Instruct \
     --dataset-name speed_bench \
-    --dataset-path "<YOUR_DOWNLOADED_PATH>/data/speed_bench" \
+    --dataset-path "<你的下载路径>/data/speed_bench" \
     --num-prompts -1
 ```
 
-Available categories include `[writing, roleplay, reasoning, math, coding, stem, humanities, multilingual, summarization, qa, rag]`.
+可用类别包括 `[writing, roleplay, reasoning, math, coding, stem, humanities, multilingual, summarization, qa, rag]`。
 
-Run only a specific category like "multilingual":
+仅运行特定类别，例如 "multilingual"：
 
 ```bash
 vllm bench serve \
     --model meta-llama/Llama-3.3-70B-Instruct \
     --dataset-name speed_bench \
-    --dataset-path "<YOUR_DOWNLOADED_PATH>/data/speed_bench" \
+    --dataset-path "<你的下载路径>/data/speed_bench" \
     --num-prompts -1
     --speed-bench-category "multilingual"
 ```
 
-Run all categories in the Throughput split (2k ISL):
+运行 Throughput 分割（2k ISL）中的所有类别：
 
 ```bash
 vllm bench serve \
     --model meta-llama/Llama-3.3-70B-Instruct \
     --dataset-name speed_bench \
     --speed-bench-dataset-subset throughput_2k
-    --dataset-path "<YOUR_DOWNLOADED_PATH>/data/speed_bench/" \
+    --dataset-path "<你的下载路径>/data/speed_bench/" \
     --num-prompts -1
 ```
 
-Available categories include `[high_entropy, mixed, low_entropy]`, where high entropy data contains unstructued data such as creative writing while low entropy data contains more structured data such as coding, more details are in the dataset card.
+可用类别包括 `[high_entropy, mixed, low_entropy]`，其中高熵数据包含非结构化数据（如创意写作），而低熵数据包含更结构化的数据（如编码），更多细节请参见数据集卡片。
 
-#### Other HuggingFaceDataset Examples
+#### 其他 HuggingFace 数据集示例
 
 ```bash
 vllm serve Qwen/Qwen2-VL-7B-Instruct
 ```
 
-`lmms-lab/LLaVA-OneVision-Data`:
+`lmms-lab/LLaVA-OneVision-Data`：
 
 ```bash
 vllm bench serve \
@@ -411,7 +411,7 @@ vllm bench serve \
   --num-prompts 10
 ```
 
-`Aeala/ShareGPT_Vicuna_unfiltered`:
+`Aeala/ShareGPT_Vicuna_unfiltered`：
 
 ```bash
 vllm bench serve \
@@ -424,7 +424,7 @@ vllm bench serve \
   --num-prompts 10
 ```
 
-`AI-MO/aimo-validation-aime`:
+`AI-MO/aimo-validation-aime`：
 
 ``` bash
 vllm bench serve \
@@ -435,7 +435,7 @@ vllm bench serve \
     --seed 42
 ```
 
-`philschmid/mt-bench`:
+`philschmid/mt-bench`：
 
 ``` bash
 vllm bench serve \
@@ -445,7 +445,7 @@ vllm bench serve \
     --num-prompts 80
 ```
 
-`openai/openai_humaneval`:
+`openai/openai_humaneval`：
 
 ``` bash
 vllm bench serve \
@@ -455,7 +455,7 @@ vllm bench serve \
     --num-prompts 80
 ```
 
-`openai/gsm8k`:
+`openai/gsm8k`：
 
 ``` bash
 vllm bench serve \
@@ -465,7 +465,7 @@ vllm bench serve \
     --num-prompts 80
 ```
 
-`vdaita/edit_5k_char` or `vdaita/edit_10k_char`:
+`vdaita/edit_5k_char` 或 `vdaita/edit_10k_char`：
 
 ``` bash
 vllm bench serve \
@@ -477,7 +477,7 @@ vllm bench serve \
     --blazedit-max-distance 0.99
 ```
 
-`openslr/librispeech_asr`, `facebook/voxpopuli`, `LIUM/tedlium`, `edinburghcstr/ami`, `speechcolab/gigaspeech`, `kensho/spgispeech`
+`openslr/librispeech_asr`、`facebook/voxpopuli`、`LIUM/tedlium`、`edinburghcstr/ami`、`speechcolab/gigaspeech`、`kensho/spgispeech`
 
 ```bash
 vllm bench serve \
@@ -493,10 +493,9 @@ vllm bench serve \
     --max-concurrency 512
 ```
 
-#### Running With Sampling Parameters
+#### 使用采样参数运行
 
-When using OpenAI-compatible backends such as `vllm`, optional sampling
-parameters can be specified. Example client command:
+当使用 OpenAI 兼容的后端（如 `vllm`）时，可以指定可选的采样参数。客户端命令示例：
 
 ```bash
 vllm bench serve \
@@ -504,103 +503,101 @@ vllm bench serve \
   --model NousResearch/Hermes-3-Llama-3.1-8B \
   --endpoint /v1/completions \
   --dataset-name sharegpt \
-  --dataset-path <your data path>/ShareGPT_V3_unfiltered_cleaned_split.json \
+  --dataset-path <你的数据路径>/ShareGPT_V3_unfiltered_cleaned_split.json \
   --top-k 10 \
   --top-p 0.9 \
   --temperature 0.5 \
   --num-prompts 10
 ```
 
-#### Running With Ramp-Up Request Rate
+#### 使用递增请求率运行
 
-The benchmark tool also supports ramping up the request rate over the
-duration of the benchmark run. This can be useful for stress testing the
-server or finding the maximum throughput that it can handle, given some latency budget.
+基准测试工具还支持在基准测试运行期间递增请求率。这对于压力测试服务器或在给定延迟预算下找到其可处理的最大吞吐量非常有用。
 
-Two ramp-up strategies are supported:
+支持两种递增策略：
 
-- `linear`: Increases the request rate linearly from a start value to an end value.
-- `exponential`: Increases the request rate exponentially.
+- `linear`：请求率从起始值线性增加到结束值。
+- `exponential`：请求率呈指数增加。
 
-The following arguments can be used to control the ramp-up:
+以下参数可用于控制递增：
 
-- `--ramp-up-strategy`: The ramp-up strategy to use (`linear` or `exponential`).
-- `--ramp-up-start-rps`: The request rate at the beginning of the benchmark.
-- `--ramp-up-end-rps`: The request rate at the end of the benchmark.
+- `--ramp-up-strategy`：使用的递增策略（`linear` 或 `exponential`）。
+- `--ramp-up-start-rps`：基准测试开始时的请求率。
+- `--ramp-up-end-rps`：基准测试结束时的请求率。
 
-#### Load Pattern Configuration
+#### 负载模式配置
 
-vLLM's benchmark serving script provides sophisticated load pattern simulation capabilities through three key parameters that control request generation and concurrency behavior:
+vLLM 的基准测试服务脚本通过三个关键参数提供复杂的负载模式模拟能力，这些参数控制请求生成和并发行为：
 
-##### Load Pattern Control Parameters
+##### 负载模式控制参数
 
-- `--request-rate`: Controls the target request generation rate (requests per second). Set to `inf` for maximum throughput testing or finite values for controlled load simulation.
-- `--burstiness`: Controls traffic variability using a Gamma distribution (range: > 0). Lower values create bursty traffic, higher values create uniform traffic.
-- `--max-concurrency`: Limits concurrent outstanding requests. If this argument is not provided, concurrency is unlimited. Set a value to simulate backpressure.
+- `--request-rate`：控制目标请求生成速率（每秒请求数）。设置为 `inf` 可进行最大吞吐量测试，设置为有限值可进行可控负载模拟。
+- `--burstiness`：使用 Gamma 分布控制流量变异性（范围：> 0）。较低的值产生突发流量，较高的值产生均匀流量。
+- `--max-concurrency`：限制并发的未完成请求。如果未提供此参数，则并发无限制。设置一个值以模拟背压。
 
-These parameters work together to create realistic load patterns with carefully chosen defaults. The `--request-rate` parameter defaults to `inf` (infinite), which sends all requests immediately for maximum throughput testing. When set to finite values, it uses either a Poisson process (default `--burstiness=1.0`) or Gamma distribution for realistic request timing. The `--burstiness` parameter only takes effect when `--request-rate` is not infinite - a value of 1.0 creates natural Poisson traffic, while lower values (0.1-0.5) create bursty patterns and higher values (2.0-5.0) create uniform spacing. The `--max-concurrency` parameter defaults to `None` (unlimited) but can be set to simulate real-world constraints where a load balancer or API gateway limits concurrent connections. When combined, these parameters allow you to simulate everything from unrestricted stress testing (`--request-rate=inf`) to production-like scenarios with realistic arrival patterns and resource constraints.
+这些参数协同工作，通过精心选择的默认值创建逼真的负载模式。`--request-rate` 参数默认值为 `inf`（无限），会立即发送所有请求以进行最大吞吐量测试。当设置为有限值时，它使用泊松过程（默认 `--burstiness=1.0`）或 Gamma 分布来实现逼真的请求计时。`--burstiness` 参数仅在 `--request-rate` 不是无限时生效 - 值为 1.0 时产生自然泊松流量，较低的值（0.1-0.5）产生突发模式，较高的值（2.0-5.0）产生均匀间隔。`--max-concurrency` 参数默认为 `None`（无限制），但可以设置以模拟负载均衡器或 API 网关限制并发连接的真实场景。当组合使用时，这些参数允许你模拟从无限制压力测试（`--request-rate=inf`）到具有逼真到达模式和资源限制的生产场景的一切情况。
 
-The `--burstiness` parameter mathematically controls request arrival patterns using a Gamma distribution where:
+`--burstiness` 参数在数学上使用 Gamma 分布控制请求到达模式，其中：
 
-- Shape parameter: `burstiness` value
-- Coefficient of Variation (CV): $\frac{1}{\sqrt{burstiness}}$
-- Traffic characteristics:
-    - `burstiness = 0.1`: Highly bursty traffic (CV ≈ 3.16) - stress testing
-    - `burstiness = 1.0`: Natural Poisson traffic (CV = 1.0) - realistic simulation  
-    - `burstiness = 5.0`: Uniform traffic (CV ≈ 0.45) - controlled load testing
+- 形状参数：`burstiness` 值
+- 变异系数 (CV)：$\frac{1}{\sqrt{burstiness}}$
+- 流量特征：
+    - `burstiness = 0.1`：高突发流量 (CV ≈ 3.16) - 压力测试
+    - `burstiness = 1.0`：自然泊松流量 (CV = 1.0) - 逼真模拟
+    - `burstiness = 5.0`：均匀流量 (CV ≈ 0.45) - 可控负载测试
 
-![Load Pattern Examples](../assets/contributing/load-pattern-examples.png)
+![负载模式示例](../assets/contributing/load-pattern-examples.png)
 
-*Figure: Load pattern examples for each use case. Top row: Request arrival timelines showing cumulative requests over time. Bottom row: Inter-arrival time distributions showing traffic variability patterns. Each column represents a different use case with its specific parameter settings and resulting traffic characteristics.*
+*图：每种用例的负载模式示例。顶行：请求到达时间线，显示随时间累积的请求数。底行：到达间隔时间分布，显示流量变化模式。每列代表不同的用例及其特定参数设置和产生的流量特征。*
 
-Load Pattern Recommendations by Use Case:
+按用例的负载模式建议：
 
-| Use Case           | Burstiness   | Request Rate    | Max Concurrency | Description                                                                        |
+| 用例             | Burstiness   | 请求率      | 最大并发数 | 描述                                                                              |
 | ---                | ---          | ---             | ---             | ---                                                                                |
-| Maximum Throughput | N/A          | Infinite        | Limited         | **Most common**: Simulates load balancer/gateway limits with unlimited user demand |
-| Realistic Testing  | 1.0          | Moderate (5-20) | Infinite        | Natural Poisson traffic patterns for baseline performance                          |
-| Stress Testing     | 0.1-0.5      | High (20-100)   | Infinite        | Challenging burst patterns to test resilience                                      |
-| Latency Profiling  | 2.0-5.0      | Low (1-10)      | Infinite        | Uniform load for consistent timing analysis                                        |
-| Capacity Planning  | 1.0          | Variable        | Limited         | Test resource limits with realistic constraints                                    |
-| SLA Validation     | 1.0          | Target rate     | SLA limit       | Production-like constraints for compliance testing                                 |
+| 最大吞吐量         | 不适用          | 无限            | 有限            | **最常见**：在无限用户需求下模拟负载均衡器/网关限制                                |
+| 逼真测试           | 1.0          | 中等 (5-20)     | 无限            | 用于基准性能的自然泊松流量模式                                                     |
+| 压力测试           | 0.1-0.5      | 高 (20-100)     | 无限            | 测试弹性的挑战性突发模式                                                           |
+| 延迟分析           | 2.0-5.0      | 低 (1-10)       | 无限            | 用于一致时序分析的均匀负载                                                         |
+| 容量规划           | 1.0          | 可变            | 有限            | 在现实约束下测试资源限制                                                           |
+| SLA 验证           | 1.0          | 目标速率        | SLA 限制        | 用于合规性测试的生产级约束                                                         |
 
-These load patterns help evaluate different aspects of your vLLM deployment, from basic performance characteristics to resilience under challenging traffic conditions.
+这些负载模式有助于评估 vLLM 部署的不同方面，从基本性能特征到在挑战性流量条件下的弹性。
 
-The **Maximum Throughput** pattern (`--request-rate=inf --max-concurrency=<limit>`) is the most commonly used configuration for production benchmarking. This simulates real-world deployment architectures where:
+**最大吞吐量**模式（`--request-rate=inf --max-concurrency=<限制>`）是生产基准测试中最常用的配置。这模拟了实际部署架构，其中：
 
-- Users send requests as fast as they can (infinite rate)
-- A load balancer or API gateway controls the maximum concurrent connections
-- The system operates at its concurrency limit, revealing true throughput capacity
-- `--burstiness` has no effect since request timing is not controlled when rate is infinite
+- 用户尽可能快地发送请求（无限速率）
+- 负载均衡器或 API 网关控制最大并发连接数
+- 系统在其并发限制下运行，揭示真实的吞吐量能力
+- `--burstiness` 无效，因为当速率为无限时不控制请求时序
 
-This pattern helps determine optimal concurrency settings for your production load balancer configuration.
+此模式有助于确定生产负载均衡器配置的最佳并发设置。
 
-To effectively configure load patterns, especially for **Capacity Planning** and **SLA Validation** use cases, you need to understand your system's resource limits. During startup, vLLM reports KV cache configuration that directly impacts your load testing parameters:
+为了有效配置负载模式，特别是对于**容量规划**和**SLA 验证**用例，你需要了解系统的资源限制。在启动时，vLLM 报告直接影响到负载测试参数的 KV 缓存配置：
 
 ```text
-GPU KV cache size: 15,728,640 tokens
-Maximum concurrency for 8,192 tokens per request: 1920
+GPU KV 缓存大小：15,728,640 tokens
+每请求 8,192 tokens 的最大并发数：1920
 ```
 
-Where:
+其中：
 
-- GPU KV cache size: Total tokens that can be cached across all concurrent requests
-- Maximum concurrency: Theoretical maximum concurrent requests for the given `max_model_len`
-- Calculation: `max_concurrency = kv_cache_size / max_model_len`
+- GPU KV 缓存大小：可以在所有并发请求之间缓存的总 token 数
+- 最大并发数：在给定 `max_model_len` 下的理论最大并发请求数
+- 计算方式：`max_concurrency = kv_cache_size / max_model_len`
 
-Using KV cache metrics for load pattern configuration:
+使用 KV 缓存指标进行负载模式配置：
 
-- For Capacity Planning: Set `--max-concurrency` to 80-90% of the reported maximum to test realistic resource constraints
-- For SLA Validation: Use the reported maximum as your SLA limit to ensure compliance testing matches production capacity
-- For Realistic Testing: Monitor memory usage when approaching theoretical limits to understand sustainable request rates
-- Request rate guidance: Use the KV cache size to estimate sustainable request rates for your specific workload and sequence lengths
+- 容量规划：将 `--max-concurrency` 设置为报告最大值的 80-90%，以测试现实资源限制
+- SLA 验证：使用报告的最大值作为你的 SLA 限制，以确保合规性测试与生产容量匹配
+- 逼真测试：接近理论极限时监控内存使用情况，以了解可持续的请求率
+- 请求率指南：使用 KV 缓存大小来估算特定工作负载和序列长度的可持续请求率
 
 </details>
 
-### 📈 Offline Throughput Benchmark
+### 📈 离线吞吐量基准测试
 
 <details class="admonition abstract" markdown="1">
-<summary>Show more</summary>
+<summary>展开</summary>
 
 ```bash
 vllm bench throughput \
@@ -610,15 +607,15 @@ vllm bench throughput \
   --num-prompts 10
 ```
 
-If successful, you will see the following output
+如果成功，你将看到以下输出：
 
 ```text
-Throughput: 7.15 requests/s, 4656.00 total tokens/s, 1072.15 output tokens/s
-Total num prompt tokens:  5014
-Total num output tokens:  1500
+吞吐量：7.15 请求/秒，4656.00 总 token/秒，1072.15 输出 token/秒
+提示 token 总数：  5014
+输出 token 总数：  1500
 ```
 
-#### VisionArena Benchmark for Vision Language Models
+#### 视觉语言模型的 VisionArena 基准测试
 
 ```bash
 vllm bench throughput \
@@ -630,15 +627,15 @@ vllm bench throughput \
   --hf-split train
 ```
 
-The `num prompt tokens` now includes image token counts
+`num prompt tokens` 现在包括图像 token 计数
 
 ```text
-Throughput: 2.55 requests/s, 4036.92 total tokens/s, 326.90 output tokens/s
-Total num prompt tokens:  14527
-Total num output tokens:  1280
+吞吐量：2.55 请求/秒，4036.92 总 token/秒，326.90 输出 token/秒
+提示 token 总数：  14527
+输出 token 总数：  1280
 ```
 
-#### InstructCoder Benchmark with Speculative Decoding
+#### 使用推测解码的 InstructCoder 基准测试
 
 ``` bash
 VLLM_WORKER_MULTIPROC_METHOD=spawn \
@@ -656,14 +653,14 @@ vllm bench throughput \
 ```
 
 ```text
-Throughput: 104.77 requests/s, 23836.22 total tokens/s, 10477.10 output tokens/s
-Total num prompt tokens:  261136
-Total num output tokens:  204800
+吞吐量：104.77 请求/秒，23836.22 总 token/秒，10477.10 输出 token/秒
+提示 token 总数：  261136
+输出 token 总数：  204800
 ```
 
-#### Other HuggingFaceDataset Examples
+#### 其他 HuggingFace 数据集示例
 
-`lmms-lab/LLaVA-OneVision-Data`:
+`lmms-lab/LLaVA-OneVision-Data`：
 
 ```bash
 vllm bench throughput \
@@ -676,7 +673,7 @@ vllm bench throughput \
   --num-prompts 10
 ```
 
-`Aeala/ShareGPT_Vicuna_unfiltered`:
+`Aeala/ShareGPT_Vicuna_unfiltered`：
 
 ```bash
 vllm bench throughput \
@@ -688,7 +685,7 @@ vllm bench throughput \
   --num-prompts 10
 ```
 
-`AI-MO/aimo-validation-aime`:
+`AI-MO/aimo-validation-aime`：
 
 ```bash
 vllm bench throughput \
@@ -700,15 +697,15 @@ vllm bench throughput \
   --num-prompts 10
 ```
 
-Benchmark with LoRA adapters:
+使用 LoRA 适配器进行基准测试：
 
 ``` bash
-# download dataset
+# 下载数据集
 # wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json
 vllm bench throughput \
   --model meta-llama/Llama-2-7b-hf \
   --backend vllm \
-  --dataset_path <your data path>/ShareGPT_V3_unfiltered_cleaned_split.json \
+  --dataset_path <你的数据路径>/ShareGPT_V3_unfiltered_cleaned_split.json \
   --dataset_name sharegpt \
   --num-prompts 10 \
   --max-loras 2 \
@@ -717,10 +714,9 @@ vllm bench throughput \
   --lora-path yard1/llama-2-7b-sql-lora-test
 ```
 
-#### Synthetic Random Multimodal (random-mm)
+#### 合成随机多模态 (random-mm)
 
-Generate synthetic multimodal inputs for offline throughput testing without external datasets.
-Use `--backend vllm-chat` so that image tokens are counted correctly.
+生成合成多模态输入用于离线吞吐量测试，无需外部数据集。使用 `--backend vllm-chat` 以确保正确计算图像 token。
 
 ```bash
 vllm bench throughput \
@@ -737,20 +733,20 @@ vllm bench throughput \
 
 </details>
 
-### 🛠️ Structured Output Benchmark
+### 🛠️ 结构化输出基准测试
 
 <details class="admonition abstract" markdown="1">
-<summary>Show more</summary>
+<summary>展开</summary>
 
-Benchmark the performance of structured output generation (JSON, grammar, regex).
+对结构化输出生成（JSON、grammar、regex）的性能进行基准测试。
 
-#### Server Setup
+#### 服务器设置
 
 ```bash
 vllm serve NousResearch/Hermes-3-Llama-3.1-8B
 ```
 
-#### JSON Schema Benchmark
+#### JSON Schema 基准测试
 
 ```bash
 python3 benchmarks/benchmark_serving_structured_output.py \
@@ -762,7 +758,7 @@ python3 benchmarks/benchmark_serving_structured_output.py \
   --num-prompts 1000
 ```
 
-#### Grammar-based Generation Benchmark
+#### 基于 Grammar 的生成基准测试
 
 ```bash
 python3 benchmarks/benchmark_serving_structured_output.py \
@@ -774,7 +770,7 @@ python3 benchmarks/benchmark_serving_structured_output.py \
   --num-prompts 1000
 ```
 
-#### Regex-based Generation Benchmark
+#### 基于正则表达式的生成基准测试
 
 ```bash
 python3 benchmarks/benchmark_serving_structured_output.py \
@@ -785,7 +781,7 @@ python3 benchmarks/benchmark_serving_structured_output.py \
   --num-prompts 1000
 ```
 
-#### Choice-based Generation Benchmark
+#### 基于选择的生成基准测试
 
 ```bash
 python3 benchmarks/benchmark_serving_structured_output.py \
@@ -796,7 +792,7 @@ python3 benchmarks/benchmark_serving_structured_output.py \
   --num-prompts 1000
 ```
 
-#### XGrammar Benchmark Dataset
+#### XGrammar 基准测试数据集
 
 ```bash
 python3 benchmarks/benchmark_serving_structured_output.py \
@@ -809,14 +805,14 @@ python3 benchmarks/benchmark_serving_structured_output.py \
 
 </details>
 
-### 📚 Long Document QA Benchmark
+### 📚 长文档问答基准测试
 
 <details class="admonition abstract" markdown="1">
-<summary>Show more</summary>
+<summary>展开</summary>
 
-Benchmark the performance of long document question-answering with prefix caching.
+对带有前缀缓存的长文档问答性能进行基准测试。
 
-#### Basic Long Document QA Test
+#### 基本长文档问答测试
 
 ```bash
 python3 benchmarks/benchmark_long_document_qa_throughput.py \
@@ -828,10 +824,10 @@ python3 benchmarks/benchmark_long_document_qa_throughput.py \
   --repeat-count 5
 ```
 
-#### Different Repeat Modes
+#### 不同的重复模式
 
 ```bash
-# Random mode (default) - shuffle prompts randomly
+# 随机模式（默认）- 随机打乱提示
 python3 benchmarks/benchmark_long_document_qa_throughput.py \
   --model meta-llama/Llama-2-7b-chat-hf \
   --enable-prefix-caching \
@@ -840,7 +836,7 @@ python3 benchmarks/benchmark_long_document_qa_throughput.py \
   --repeat-count 3 \
   --repeat-mode random
 
-# Tile mode - repeat entire prompt list in sequence
+# Tile 模式 - 按顺序重复整个提示列表
 python3 benchmarks/benchmark_long_document_qa_throughput.py \
   --model meta-llama/Llama-2-7b-chat-hf \
   --enable-prefix-caching \
@@ -849,7 +845,7 @@ python3 benchmarks/benchmark_long_document_qa_throughput.py \
   --repeat-count 3 \
   --repeat-mode tile
 
-# Interleave mode - repeat each prompt consecutively
+# 交错模式 - 连续重复每个提示
 python3 benchmarks/benchmark_long_document_qa_throughput.py \
   --model meta-llama/Llama-2-7b-chat-hf \
   --enable-prefix-caching \
@@ -861,14 +857,14 @@ python3 benchmarks/benchmark_long_document_qa_throughput.py \
 
 </details>
 
-### 🗂️ Prefix Caching Benchmark
+### 🗂️ 前缀缓存基准测试
 
 <details class="admonition abstract" markdown="1">
-<summary>Show more</summary>
+<summary>展开</summary>
 
-Benchmark the efficiency of automatic prefix caching.
+对自动前缀缓存的效率进行基准测试。
 
-#### Fixed Prompt with Prefix Caching
+#### 固定提示与前缀缓存
 
 ```bash
 python3 benchmarks/benchmark_prefix_caching.py \
@@ -879,10 +875,10 @@ python3 benchmarks/benchmark_prefix_caching.py \
   --input-length-range 128:256
 ```
 
-#### ShareGPT Dataset with Prefix Caching
+#### ShareGPT 数据集与前缀缓存
 
 ```bash
-# download dataset
+# 下载数据集
 # wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json
 
 python3 benchmarks/benchmark_prefix_caching.py \
@@ -894,7 +890,7 @@ python3 benchmarks/benchmark_prefix_caching.py \
   --input-length-range 128:256
 ```
 
-##### Prefix Repetition Dataset
+##### 前缀重复数据集
 
 ```bash
 vllm bench serve \
@@ -910,43 +906,43 @@ vllm bench serve \
 
 </details>
 
-### 🧪 Hashing Benchmarks
+### 🧪 哈希基准测试
 
 <details class="admonition abstract" markdown="1">
-<summary>Show more</summary>
+<summary>展开</summary>
 
-Two helper scripts live in `benchmarks/` to compare hashing options used by prefix caching and related utilities. They are standalone (no server required) and help choose a hash algorithm before enabling prefix caching in production.
+`benchmarks/` 目录下有两个辅助脚本，用于比较前缀缓存和相关工具使用的哈希选项。它们是独立的（无需服务器），有助于在生产环境中启用前缀缓存之前选择哈希算法。
 
-- `benchmarks/benchmark_hash.py`: Micro-benchmark that measures per-call latency of three implementations on a representative `(bytes, tuple[int])` payload.
+- `benchmarks/benchmark_hash.py`：微基准测试，测量三种实现在代表性 `(bytes, tuple[int])` 负载上的每次调用延迟。
 
 ```bash
 python benchmarks/benchmark_hash.py --iterations 20000 --seed 42
 ```
 
-- `benchmarks/benchmark_prefix_block_hash.py`: End-to-end block hashing benchmark that runs the full prefix-cache hash pipeline (`hash_block_tokens`) across many fake blocks and reports throughput.
+- `benchmarks/benchmark_prefix_block_hash.py`：端到端块哈希基准测试，跨多个伪块运行完整的前缀缓存哈希流水线（`hash_block_tokens`）并报告吞吐量。
 
 ```bash
 python benchmarks/benchmark_prefix_block_hash.py --num-blocks 20000 --block-size 32 --trials 5
 ```
 
-Supported algorithms: `sha256`, `sha256_cbor`, `xxhash`, `xxhash_cbor`. Install optional deps to exercise all variants:
+支持的算法：`sha256`、`sha256_cbor`、`xxhash`、`xxhash_cbor`。安装可选依赖以测试所有变体：
 
 ```bash
 uv pip install xxhash cbor2
 ```
 
-If an algorithm’s dependency is missing, the script will skip it and continue.
+如果某个算法的依赖缺失，脚本将跳过它并继续运行。
 
 </details>
 
-### ⚡ Request Prioritization Benchmark
+### ⚡ 请求优先级基准测试
 
 <details class="admonition abstract" markdown="1">
-<summary>Show more</summary>
+<summary>展开</summary>
 
-Benchmark the performance of request prioritization in vLLM.
+对 vLLM 中请求优先级调度的性能进行基准测试。
 
-#### Basic Prioritization Test
+#### 基本优先级测试
 
 ```bash
 python3 benchmarks/benchmark_prioritization.py \
@@ -957,7 +953,7 @@ python3 benchmarks/benchmark_prioritization.py \
   --scheduling-policy priority
 ```
 
-#### Multiple Sequences per Prompt
+#### 每个提示多个序列
 
 ```bash
 python3 benchmarks/benchmark_prioritization.py \
@@ -971,16 +967,16 @@ python3 benchmarks/benchmark_prioritization.py \
 
 </details>
 
-### 👁️ Multi-Modal Benchmark
+### 👁️ 多模态基准测试
 
 <details class="admonition abstract" markdown="1">
-<summary>Show more</summary>
+<summary>展开</summary>
 
-Benchmark the performance of multi-modal requests in vLLM.
+对 vLLM 中多模态请求的性能进行基准测试。
 
-#### Images (ShareGPT4V)
+#### 图像 (ShareGPT4V)
 
-Start vLLM:
+启动 vLLM：
 
 ```bash
 vllm serve Qwen/Qwen2.5-VL-7B-Instruct \
@@ -989,7 +985,7 @@ vllm serve Qwen/Qwen2.5-VL-7B-Instruct \
   --allowed-local-media-path /path/to/sharegpt4v/images
 ```
 
-Send requests with images:
+发送带有图像的请求：
 
 ```bash
 vllm bench serve \
@@ -1004,9 +1000,9 @@ vllm bench serve \
   --endpoint /v1/chat/completions
 ```
 
-#### Videos (ShareGPT4Video)
+#### 视频 (ShareGPT4Video)
 
-Start vLLM:
+启动 vLLM：
 
 ```bash
 vllm serve Qwen/Qwen2.5-VL-7B-Instruct \
@@ -1015,7 +1011,7 @@ vllm serve Qwen/Qwen2.5-VL-7B-Instruct \
   --allowed-local-media-path /path/to/sharegpt4video/videos
 ```
 
-Send requests with videos:
+发送带有视频的请求：
 
 ```bash
 vllm bench serve \
@@ -1030,16 +1026,16 @@ vllm bench serve \
   --endpoint /v1/chat/completions
 ```
 
-#### Synthetic Random Images (random-mm)
+#### 合成随机图像 (random-mm)
 
-Generate synthetic image inputs alongside random text prompts to stress-test vision models without external datasets.
+生成合成图像输入以及随机文本提示，用于在无需外部数据集的情况下压力测试视觉模型。
 
-Notes:
+注意：
 
-- For online benchmarks, use `--backend openai-chat` with endpoint `/v1/chat/completions`.
-- For offline benchmarks, use `--backend vllm-chat` (see [Offline Throughput Benchmark](#-offline-throughput-benchmark) for an example).
+- 对于在线基准测试，使用 `--backend openai-chat` 和端点 `/v1/chat/completions`。
+- 对于离线基准测试，使用 `--backend vllm-chat`（参见[离线吞吐量基准测试](#-离线吞吐量基准测试)的示例）。
 
-Start the server (example):
+启动服务器（示例）：
 
 ```bash
 vllm serve Qwen/Qwen2.5-VL-3B-Instruct \
@@ -1049,9 +1045,9 @@ vllm serve Qwen/Qwen2.5-VL-3B-Instruct \
   --mm-processor-kwargs max_pixels=1003520
 ```
 
-Benchmark. It is recommended to use the flag `--ignore-eos` to simulate real responses. You can set the size of the output via the arg `random-output-len`.
+基准测试。建议使用 `--ignore-eos` 标志来模拟真实响应。你可以通过 `random-output-len` 参数设置输出的大小。
 
-Ex.1: Fixed number of items and a single image resolution, enforcing generation of approx 40 tokens:
+示例 1：固定数量的项目和单一图像分辨率，强制生成约 40 个 token：
 
 ```bash
 vllm bench serve \
@@ -1073,7 +1069,7 @@ vllm bench serve \
   --seed 42
 ```
 
-The number of items per request can be controlled by passing multiple image buckets:
+每个请求的项目数可以通过传递多个图像桶来控制：
 
 ```bash
   --random-mm-base-items-per-request 2 \
@@ -1082,52 +1078,49 @@ The number of items per request can be controlled by passing multiple image buck
   --random-mm-bucket-config '{(256, 256, 1): 0.7, (720, 1280, 1): 0.3}' \
 ```
 
-Flags specific to `random-mm`:
+`random-mm` 特定的标志：
 
-- `--random-mm-base-items-per-request`: base number of multimodal items per request.
-- `--random-mm-num-mm-items-range-ratio`: vary item count uniformly in the closed integer range [floor(n·(1−r)), ceil(n·(1+r))]. Set r=0 to keep it fixed; r=1 allows 0 items.
-- `--random-mm-limit-mm-per-prompt`: per-modality hard caps, e.g. '{"image": 3, "video": 0}'.
-- `--random-mm-bucket-config`: dict mapping (H, W, T) → probability. Entries with probability 0 are removed; remaining probabilities are renormalized to sum to 1. Use T=1 for images. Set any T>1 for videos (video sampling not yet supported).
+- `--random-mm-base-items-per-request`：每个请求的多模态项目基础数量。
+- `--random-mm-num-mm-items-range-ratio`：在闭整数范围 [floor(n·(1−r)), ceil(n·(1+r))] 内均匀变化项目计数。设置 r=0 保持固定；r=1 允许 0 个项目。
+- `--random-mm-limit-mm-per-prompt`：按模态的硬限制，例如 '{"image": 3, "video": 0}'。
+- `--random-mm-bucket-config`：映射 (H, W, T) → 概率的字典。概率为 0 的条目被移除；剩余概率重新归一化以和为 1。图像使用 T=1。设置任何 T>1 用于视频（视频采样尚未支持）。
 
-Behavioral notes:
+行为说明：
 
-- If the requested base item count cannot be satisfied under the provided per-prompt limits, the tool raises an error rather than silently clamping.
+- 如果请求的基础项目数在提供的每个提示限制下无法满足，工具将报错而非静默截断。
 
-How sampling works:
+采样工作原理：
 
-- Determine per-request item count k by sampling uniformly from the integer range defined by `--random-mm-base-items-per-request` and `--random-mm-num-mm-items-range-ratio`, then clamp k to at most the sum of per-modality limits.
-- For each of the k items, sample a bucket (H, W, T) according to the normalized probabilities in `--random-mm-bucket-config`, while tracking how many items of each modality have been added.
-- If a modality (e.g., image) reaches its limit from `--random-mm-limit-mm-per-prompt`, all buckets of that modality are excluded and the remaining bucket probabilities are renormalized before continuing.
-This should be seen as an edge case, and if this behavior can be avoided by setting `--random-mm-limit-mm-per-prompt` to a large number. Note that this might result in errors due to engine config `--limit-mm-per-prompt`.
-- The resulting request contains synthetic image data in `multi_modal_data` (OpenAI Chat format). When `random-mm` is used with the OpenAI Chat backend, prompts remain text and MM content is attached via `multi_modal_data`.
+- 通过从 `--random-mm-base-items-per-request` 和 `--random-mm-num-mm-items-range-ratio` 定义的整数范围中均匀采样来确定每个请求的项目数 k，然后将 k 限制为不超过每个模态限制的总和。
+- 对于 k 个项目中的每一个，根据 `--random-mm-bucket-config` 中的归一化概率采样一个桶 (H, W, T)，同时跟踪已添加的每种模态的项目数。
+- 如果某个模态（例如，图像）达到了 `--random-mm-limit-mm-per-prompt` 的限制，则排除该模态的所有桶，并在继续前重新归一化剩余的桶概率。这应被视为一种边缘情况，如果可以通过将 `--random-mm-limit-mm-per-prompt` 设置为一个大数字来避免此行为。注意，这可能会由于引擎配置 `--limit-mm-per-prompt` 而导致错误。
+- 生成的请求包含 `multi_modal_data`（OpenAI Chat 格式）中的合成图像数据。当 `random-mm` 与 OpenAI Chat 后端一起使用时，提示保持为文本，MM 内容通过 `multi_modal_data` 附加。
 
 </details>
 
-### 🔬 Multimodal Processor Benchmark
+### 🔬 多模态处理器基准测试
 
-Benchmark per-stage latency of the multimodal (MM) input processor pipeline, including the encoder forward pass. This is useful for profiling preprocessing bottlenecks in vision-language models.
+对多模态（MM）输入处理器流水线的每个阶段延迟进行基准测试，包括编码器前向传递。这对于分析视觉语言模型中的预处理瓶颈很有用。
 
 <details class="admonition abstract" markdown="1">
-<summary>Show more</summary>
+<summary>展开</summary>
 
-The benchmark measures the following stages for each request:
+该基准测试测量每个请求的以下阶段：
 
-| Stage | Description |
+| 阶段 | 描述 |
 | ----- | ----------- |
-| `get_mm_hashes_secs` | Time spent hashing multimodal inputs |
-| `get_cache_missing_items_secs` | Time spent looking up the processor cache |
-| `apply_hf_processor_secs` | Time spent in the HuggingFace processor |
-| `merge_mm_kwargs_secs` | Time spent merging multimodal kwargs |
-| `apply_prompt_updates_secs` | Time spent updating prompt tokens |
-| `preprocessor_total_secs` | Total preprocessing time |
-| `encoder_forward_secs` | Time spent in the encoder model forward pass |
-| `num_encoder_calls` | Number of encoder invocations per request |
+| `get_mm_hashes_secs` | 对多模态输入进行哈希处理的时间 |
+| `get_cache_missing_items_secs` | 查找处理器缓存的时间 |
+| `apply_hf_processor_secs` | HuggingFace 处理器中的处理时间 |
+| `merge_mm_kwargs_secs` | 合并多模态 kwargs 的时间 |
+| `apply_prompt_updates_secs` | 更新提示 token 的时间 |
+| `preprocessor_total_secs` | 预处理总时间 |
+| `encoder_forward_secs` | 编码器模型前向传递时间 |
+| `num_encoder_calls` | 每个请求的编码器调用次数 |
 
-The benchmark also reports end-to-end latency (TTFT + decode time) per
-request. Use `--metric-percentiles` to select which percentiles to report
-(default: p99) and `--output-json` to save results.
+该基准测试还会报告每个请求的端到端延迟（TTFT + 解码时间）。使用 `--metric-percentiles` 选择要报告的百分位数（默认：p99），使用 `--output-json` 保存结果。
 
-#### Basic Example with Synthetic Data (random-mm)
+#### 合成数据基本示例 (random-mm)
 
 ```bash
 vllm bench mm-processor \
@@ -1141,7 +1134,7 @@ vllm bench mm-processor \
   --random-mm-bucket-config '{(256, 256, 1): 0.7, (720, 1280, 1): 0.3}'
 ```
 
-#### Using a HuggingFace Dataset
+#### 使用 HuggingFace 数据集
 
 ```bash
 vllm bench mm-processor \
@@ -1152,7 +1145,7 @@ vllm bench mm-processor \
   --num-prompts 100
 ```
 
-#### Warmup, Custom Percentiles, and JSON Output
+#### 预热、自定义百分位数和 JSON 输出
 
 ```bash
 vllm bench mm-processor \
@@ -1167,71 +1160,68 @@ vllm bench mm-processor \
   --output-json results.json
 ```
 
-See [`vllm bench mm-processor`](../cli/bench/mm_processor.md) for the full argument reference.
+参见 [`vllm bench mm-processor`](../cli/bench/mm_processor.md) 获取完整参数参考。
 
 </details>
 
-### Embedding Benchmark
+### 嵌入基准测试
 
-Benchmark the performance of embedding requests in vLLM.
+对 vLLM 中嵌入请求的性能进行基准测试。
 
 <details class="admonition abstract" markdown="1">
-<summary>Show more</summary>
+<summary>展开</summary>
 
-#### Text Embeddings
+#### 文本嵌入
 
-Unlike generative models which use Completions API or Chat Completions API,
-you should set `--backend openai-embeddings` and `--endpoint /v1/embeddings` to use the Embeddings API.
+与使用 Completions API 或 Chat Completions API 的生成模型不同，你应该设置 `--backend openai-embeddings` 和 `--endpoint /v1/embeddings` 来使用 Embeddings API。
 
-You can use any text dataset to benchmark the model, such as ShareGPT.
+你可以使用任何文本数据集对模型进行基准测试，例如 ShareGPT。
 
-Start the server:
+启动服务器：
 
 ```bash
 vllm serve jinaai/jina-embeddings-v3 --trust-remote-code
 ```
 
-Run the benchmark:
+运行基准测试：
 
 ```bash
-# download dataset
+# 下载数据集
 # wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json
 vllm bench serve \
   --model jinaai/jina-embeddings-v3 \
   --backend openai-embeddings \
   --endpoint /v1/embeddings \
   --dataset-name sharegpt \
-  --dataset-path <your data path>/ShareGPT_V3_unfiltered_cleaned_split.json
+  --dataset-path <你的数据路径>/ShareGPT_V3_unfiltered_cleaned_split.json
 ```
 
-#### Multi-modal Embeddings
+#### 多模态嵌入
 
-Unlike generative models which use Completions API or Chat Completions API,
-you should set `--endpoint /v1/embeddings` to use the Embeddings API. The backend to use depends on the model:
+与使用 Completions API 或 Chat Completions API 的生成模型不同，你应该设置 `--endpoint /v1/embeddings` 来使用 Embeddings API。使用的后端取决于模型：
 
-- CLIP: `--backend openai-embeddings-clip`
-- VLM2Vec: `--backend openai-embeddings-vlm2vec`
+- CLIP：`--backend openai-embeddings-clip`
+- VLM2Vec：`--backend openai-embeddings-vlm2vec`
 
-For other models, please add your own implementation inside [vllm/benchmarks/lib/endpoint_request_func.py](../../vllm/benchmarks/lib/endpoint_request_func.py) to match the expected instruction format.
+对于其他模型，请在 [vllm/benchmarks/lib/endpoint_request_func.py](../../vllm/benchmarks/lib/endpoint_request_func.py) 中添加你自己的实现以匹配预期的指令格式。
 
-You can use any text or multi-modal dataset to benchmark the model, as long as the model supports it.
-For example, you can use ShareGPT and VisionArena to benchmark vision-language embeddings.
+你可以使用任何文本或多模态数据集对模型进行基准测试，只要模型支持即可。例如，你可以使用 ShareGPT 和 VisionArena 对视觉语言嵌入进行基准测试。
 
-Serve and benchmark CLIP:
+服务并基准测试 CLIP：
 
 ```bash
-# Run this in another process
+# 在另一个进程中运行
 vllm serve openai/clip-vit-base-patch32
 
-# Run these one by one after the server is up
-# download dataset
+# 服务器启动后逐个运行
+# 下载数据集
 # wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json
 vllm bench serve \
   --model openai/clip-vit-base-patch32 \
   --backend openai-embeddings-clip \
   --endpoint /v1/embeddings \
   --dataset-name sharegpt \
-  --dataset-path <your data path>/ShareGPT_V3_unfiltered_cleaned_split.json
+  --dataset-path <你的数据路径>/ShareGPT_V3_unfiltered_cleaned_split.json
 
 vllm bench serve \
   --model openai/clip-vit-base-patch32 \
@@ -1241,23 +1231,23 @@ vllm bench serve \
   --dataset-path lmarena-ai/VisionArena-Chat
 ```
 
-Serve and benchmark VLM2Vec:
+服务并基准测试 VLM2Vec：
 
 ```bash
-# Run this in another process
+# 在另一个进程中运行
 vllm serve TIGER-Lab/VLM2Vec-Full --runner pooling \
   --trust-remote-code \
   --chat-template examples/template_vlm2vec_phi3v.jinja
 
-# Run these one by one after the server is up
-# download dataset
+# 服务器启动后逐个运行
+# 下载数据集
 # wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json
 vllm bench serve \
   --model TIGER-Lab/VLM2Vec-Full \
   --backend openai-embeddings-vlm2vec \
   --endpoint /v1/embeddings \
   --dataset-name sharegpt \
-  --dataset-path <your data path>/ShareGPT_V3_unfiltered_cleaned_split.json
+  --dataset-path <你的数据路径>/ShareGPT_V3_unfiltered_cleaned_split.json
 
 vllm bench serve \
   --model TIGER-Lab/VLM2Vec-Full \
@@ -1269,25 +1259,24 @@ vllm bench serve \
 
 </details>
 
-### Reranker Benchmark
+### 重排序器基准测试
 
-Benchmark the performance of rerank requests in vLLM.
+对 vLLM 中重排序请求的性能进行基准测试。
 
 <details class="admonition abstract" markdown="1">
-<summary>Show more</summary>
+<summary>展开</summary>
 
-Unlike generative models which use Completions API or Chat Completions API,
-you should set `--backend vllm-rerank` and `--endpoint /v1/rerank` to use the Reranker API.
+与使用 Completions API 或 Chat Completions API 的生成模型不同，你应该设置 `--backend vllm-rerank` 和 `--endpoint /v1/rerank` 来使用 Reranker API。
 
-For reranking, the only supported dataset is `--dataset-name random-rerank`
+对于重排序，唯一支持的数据集是 `--dataset-name random-rerank`
 
-Start the server:
+启动服务器：
 
 ```bash
 vllm serve BAAI/bge-reranker-v2-m3
 ```
 
-Run the benchmark:
+运行基准测试：
 
 ```bash
 vllm bench serve \
@@ -1301,15 +1290,8 @@ vllm bench serve \
   --random-batch-size 5
 ```
 
-For reranker models, this will create `num_prompts / random_batch_size` requests with
-`random_batch_size` "documents" where each one has close to `random_input_len` tokens.
-In the example above, this results in 2 rerank requests with 5 "documents" each where
-each document has close to 512 tokens.
+对于重排序器模型，这将创建 `num_prompts / random_batch_size` 个请求，每个请求包含 `random_batch_size` 个"文档"，每个文档大约有 `random_input_len` 个 token。在上面的示例中，这将产生 2 个重排序请求，每个请求包含 5 个"文档"，每个文档大约有 512 个 token。
 
-Please note that the `/v1/rerank` is also supported by embedding models. So if you're running
-with an embedding model, also set `--no_reranker`. Because in this case the query is
-treated as an individual prompt by the server, here we send `random_batch_size - 1` documents
-to account for the extra prompt which is the query. The token accounting to report the
-throughput numbers correctly is also adjusted.
+请注意，`/v1/rerank` 也支持嵌入模型。因此，如果你使用嵌入模型运行，还要设置 `--no_reranker`。因为在这种情况下，查询被服务器视为单独的提示，我们发送 `random_batch_size - 1` 个文档以考虑作为查询的额外提示。用于正确报告吞吐量数字的 token 统计也会相应调整。
 
 </details>

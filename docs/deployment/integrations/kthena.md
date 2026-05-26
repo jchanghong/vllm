@@ -1,28 +1,28 @@
 # Kthena
 
-[**Kthena**](https://github.com/volcano-sh/kthena) is a Kubernetes-native LLM inference platform that transforms how organizations deploy and manage Large Language Models in production. Built with declarative model lifecycle management and intelligent request routing, it provides high performance and enterprise-grade scalability for LLM inference workloads.
+[**Kthena**](https://github.com/volcano-sh/kthena) 是一个 Kubernetes 原生的 LLM 推理平台，改变了组织在生产环境中部署和管理大语言模型的方式。它基于声明式模型生命周期管理和智能请求路由构建，为 LLM 推理工作负载提供高性能和企业级可扩展性。
 
-This guide shows how to deploy a production-grade, **multi-node vLLM** service on Kubernetes.
+本指南展示了如何在 Kubernetes 上部署一个生产级的、**多节点 vLLM** 服务。
 
-We’ll:
+我们将：
 
-- Install the required components (Kthena + Volcano).
-- Deploy a multi-node vLLM model via Kthena’s `ModelServing` CR.
-- Validate the deployment.
+- 安装所需的组件（Kthena + Volcano）。
+- 通过 Kthena 的 `ModelServing` CR 部署一个多节点 vLLM 模型。
+- 验证部署。
 
 ---
 
-## 1. Prerequisites
+## 1. 前提条件
 
-You need:
+您需要：
 
-- A Kubernetes cluster with **GPU nodes**.
-- `kubectl` access with cluster-admin or equivalent permissions.
-- **Volcano** installed for gang scheduling.
-- **Kthena** installed with the `ModelServing` CRD available.
-- A valid **Hugging Face token** if loading models from Hugging Face Hub.
+- 一个带有 **GPU 节点**的 Kubernetes 集群。
+- 具有 cluster-admin 或同等权限的 `kubectl` 访问权限。
+- 安装 **Volcano** 用于组调度。
+- 安装 **Kthena**，且 `ModelServing` CRD 可用。
+- 如果从 Hugging Face Hub 加载模型，需要有效的 **Hugging Face 令牌**。
 
-### 1.1 Install Volcano
+### 1.1 安装 Volcano
 
 ```bash
 helm repo add volcano-sh https://volcano-sh.github.io/helm-charts
@@ -30,24 +30,24 @@ helm repo update
 helm install volcano volcano-sh/volcano -n volcano-system --create-namespace
 ```
 
-This provides the gang-scheduling and network topology features used by Kthena.
+这提供了 Kthena 使用的组调度和网络拓扑功能。
 
-### 1.2 Install Kthena
+### 1.2 安装 Kthena
 
 ```bash
 helm install kthena oci://ghcr.io/volcano-sh/charts/kthena --version v0.1.0 --namespace kthena-system --create-namespace
 ```
 
-- The `kthena-system` namespace is created.
-- Kthena controllers and CRDs, including `ModelServing`, are installed and healthy.
+- 将创建 `kthena-system` 命名空间。
+- Kthena 控制器和 CRD（包括 `ModelServing`）将被安装并运行正常。
 
-Validate:
+验证：
 
 ```bash
 kubectl get crd | grep modelserving
 ```
 
-You should see:
+您应该看到：
 
 ```text
 modelservings.workload.serving.volcano.sh   ...
@@ -55,23 +55,23 @@ modelservings.workload.serving.volcano.sh   ...
 
 ---
 
-## 2. The Multi-Node vLLM `ModelServing` Example
+## 2. 多节点 vLLM `ModelServing` 示例
 
-Kthena provides an example manifest to deploy a **multi-node vLLM cluster running Llama**. Conceptually this is equivalent to the vLLM production stack Helm deployment, but expressed with `ModelServing`.
+Kthena 提供了一个示例清单，用于部署一个**运行 Llama 的多节点 vLLM 集群**。从概念上讲，这相当于 vLLM 生产栈的 Helm 部署，但使用 `ModelServing` 来表达。
 
-A simplified version of the example (`llama-multinode`) looks like:
+该示例（`llama-multinode`）的简化版本如下所示：
 
-- `spec.replicas: 1` – one `ServingGroup` (one logical model deployment).
-- `roles`:
-    - `entryTemplate` – defines **leader** pods that run:
-        - vLLM’s **multi-node cluster bootstrap script** (Ray cluster).
-        - vLLM **OpenAI-compatible API server**.
-    - `workerTemplate` – defines **worker** pods that join the leader’s Ray cluster.
+- `spec.replicas: 1` – 一个 `ServingGroup`（一个逻辑模型部署）。
+- `roles`：
+    - `entryTemplate` – 定义 **leader** Pod，运行：
+        - vLLM 的 **多节点集群引导脚本**（Ray 集群）。
+        - vLLM **OpenAI 兼容的 API 服务器**。
+    - `workerTemplate` – 定义 **worker** Pod，加入 leader 的 Ray 集群。
 
-Key points from the example YAML:
+示例 YAML 的关键点：
 
-- **Image**: `vllm/vllm-openai:latest` (matches upstream vLLM images).
-- **Command** (leader):
+- **镜像**：`vllm/vllm-openai:latest`（与上游 vLLM 镜像一致）。
+- **命令**（leader）：
 
   ```yaml
   command:
@@ -85,7 +85,7 @@ Key points from the example YAML:
         --pipeline-parallel-size 2
   ```
 
-- **Command** (worker):
+- **命令**（worker）：
 
   ```yaml
   command:
@@ -97,11 +97,11 @@ Key points from the example YAML:
 
 ---
 
-## 3. Deploying Multi-Node llama vLLM via Kthena
+## 3. 通过 Kthena 部署多节点 Llama vLLM
 
-### 3.1 Prepare the Manifest
+### 3.1 准备清单
 
-**Recommended**: use a Secret instead of a raw env var:
+**推荐**：使用 Secret 而不是原始环境变量：
 
 ```bash
 kubectl create secret generic hf-token \
@@ -109,7 +109,7 @@ kubectl create secret generic hf-token \
   --from-literal=HUGGING_FACE_HUB_TOKEN='<your-token>'
 ```
 
-### 3.2 Apply the `ModelServing`
+### 3.2 应用 `ModelServing`
 
 ```bash
 cat  <<EOF | kubectl apply -f -
@@ -203,25 +203,25 @@ spec:
 EOF
 ```
 
-Kthena will:
+Kthena 将：
 
-- Create a `ModelServing` object.
-- Derive a `PodGroup` for Volcano gang scheduling.
-- Create the leader and worker pods for each `ServingGroup` and `Role`.
+- 创建一个 `ModelServing` 对象。
+- 派生一个用于 Volcano 组调度的 `PodGroup`。
+- 为每个 `ServingGroup` 和 `Role` 创建 leader 和 worker Pod。
 
 ---
 
-## 4. Verifying the Deployment
+## 4. 验证部署
 
-### 4.1 Check ModelServing Status
+### 4.1 检查 ModelServing 状态
 
-Use the snippet from the Kthena docs:
+使用来自 Kthena 文档的代码片段：
 
 ```bash
 kubectl get modelserving -oyaml | grep status -A 10
 ```
 
-You should see something like:
+您应该看到类似以下内容：
 
 ```yaml
 status:
@@ -238,15 +238,15 @@ status:
   updatedReplicas: 1
 ```
 
-### 4.2 Check Pods
+### 4.2 检查 Pod
 
-List pods for your deployment:
+列出您部署的 Pod：
 
 ```bash
 kubectl get pod -owide -l modelserving.volcano.sh/name=llama-multinode
 ```
 
-Example output (from docs):
+示例输出（来自文档）：
 
 ```text
 NAMESPACE   NAME                          READY   STATUS    RESTARTS   AGE   IP            NODE           ...
@@ -256,17 +256,17 @@ default     llama-multinode-0-405b-1-0    1/1     Running   0          15m   10.
 default     llama-multinode-0-405b-1-1    1/1     Running   0          15m   10.244.0.53   192.168.5.36   ...
 ```
 
-Pod name pattern:
+Pod 名称模式：
 
-- `llama-multinode-<group-idx>-<role-name>-<replica-idx>-<ordinal>`.
+- `llama-multinode-<group-idx>-<role-name>-<replica-idx>-<ordinal>`。
 
-The first number indicates `ServingGroup`. The second (`405b`) is the `Role`. The remaining indices identify the pod within the role.
+第一个数字表示 `ServingGroup`。第二个（`405b`）是 `Role`。其余索引标识角色内的 Pod。
 
 ---
 
-## 6. Accessing the vLLM OpenAI-Compatible API
+## 6. 访问 vLLM OpenAI 兼容 API
 
-Expose the entry via a Service:
+通过 Service 暴露入口：
 
 ```yaml
 apiVersion: v1
@@ -278,7 +278,7 @@ spec:
   selector:
     modelserving.volcano.sh/name: llama-multinode
     modelserving.volcano.sh/entry: "true"
-    # optionally further narrow to leader role if you label it
+    # 如果需要，可进一步缩小到 leader 角色范围
   ports:
     - name: http
       port: 80
@@ -286,21 +286,21 @@ spec:
   type: ClusterIP
 ```
 
-Port-forward from your local machine:
+从本地机器进行端口转发：
 
 ```bash
 kubectl port-forward svc/llama-multinode-openai 30080:80 -n default
 ```
 
-Then:
+然后：
 
-- List models:
+- 列出模型：
 
   ```bash
   curl -s http://localhost:30080/v1/models
   ```
 
-- Send a completion request (mirroring vLLM production stack docs):
+- 发送补全请求（与 vLLM 生产栈文档相同）：
 
   ```bash
   curl -X POST http://localhost:30080/v1/completions \
@@ -312,21 +312,21 @@ Then:
     }'
   ```
 
-You should see an OpenAI-style response from vLLM.
+您应该会看到来自 vLLM 的 OpenAI 风格响应。
 
 ---
 
-## 7. Clean Up
+## 7. 清理
 
-To remove the deployment and its resources:
+要移除部署及其资源：
 
 ```bash
 kubectl delete modelserving llama-multinode -n default
 ```
 
-If you’re done with the entire stack:
+如果您已完成整个栈的操作：
 
 ```bash
-helm uninstall kthena -n kthena-system   # or your Kthena release name
+helm uninstall kthena -n kthena-system   # 或您的 Kthena 发布名称
 helm uninstall volcano -n volcano-system
 ```

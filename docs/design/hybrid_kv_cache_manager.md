@@ -1,245 +1,243 @@
-# Hybrid KV Cache Manager
+# 混合 KV 缓存管理器
 
 !!! warning
-    This document was written based on commit [458e74](https://github.com/vllm-project/vllm/commit/458e74eb907f96069e6d8a4f3c9f457001fef2ea). This feature is still in its early stage and things may change.
+    本文档基于 commit [458e74](https://github.com/vllm-project/vllm/commit/458e74eb907f96069e6d8a4f3c9f457001fef2ea) 编写。此功能仍处于早期阶段，可能会有变化。
 
-## What is a hybrid model?
+## 什么是混合模型？
 
-Many recent "hybrid" LLMs combine multiple attention types within one model. For example:
+许多最近的"混合"LLM 在一个模型中组合了多种注意力类型。例如：
 
-1. Sliding window attention (sw) + full attention (full): gpt-oss, Gemma 2/3, Ministral, cohere, etc.
-2. Mamba + full: Bamba, Jamba, Minimax, etc.
-3. Local chunked attention + full: Llama4
+1. 滑动窗口注意力（sw）+ 全注意力（full）：gpt-oss、Gemma 2/3、Ministral、cohere 等。
+2. Mamba + full：Bamba、Jamba、Minimax 等。
+3. 局部分块注意力 + full：Llama4
 
-To serve these models efficiently, our [KVCacheManager][vllm.v1.core.kv_cache_manager.KVCacheManager] must:
+为了高效地服务这些模型，我们的 [KVCacheManager][vllm.v1.core.kv_cache_manager.KVCacheManager] 必须：
 
-1. Allocate different slots to different layer type, for example:
-    - Full attention layers: reserve slots for **all** tokens.
-    - Sliding window layers: reserve slots only for the most recent **`sliding_window_size`** tokens.
-2. Support layer-specific prefix-cache rules, for example:
-    - Full attention: a cache hit prefix requires **all** tokens remain in the KV cache.
-    - Sliding window: a cache hit prefix only requires the last **`sliding_window_size`** tokens remain in the KV cache.
+1. 为不同的层类型分配不同的槽位，例如：
+    - 全注意力层：为**所有** token 预留槽位。
+    - 滑动窗口层：仅为最近的 **`sliding_window_size`** 个 token 预留槽位。
+2. 支持特定于层的前缀缓存规则，例如：
+    - 全注意力：缓存命中的前缀要求**所有** token 保留在 KV 缓存中。
+    - 滑动窗口：缓存命中的前缀仅要求最近的 **`sliding_window_size`** 个 token 保留在 KV 缓存中。
 
-## Definitions
+## 定义
 
-1. **kv hidden size**: The number of bytes to store one token's KV cache for a single layer.
-2. **block**: the memory reserved for kv cache are divided into multiple *blocks* with the same *page size* (defined below)
-3. **block size**: number of tokens inside a block
-4. **page size**: the physical memory size of a block, defined as:
+1. **kv hidden size**：为单个层存储一个 token 的 KV 缓存所需的字节数。
+2. **block**：为 KV 缓存预留的内存被划分为多个具有相同页面大小的*块*（如下所定义）。
+3. **block size**：一个块中包含的 token 数量。
+4. **page size**：一个块的物理内存大小，定义为：
 
     $$
     \text{num_layers} \times \text{block_size} \times \text{kv_hidden_size}
     $$
 
-    `num_layers` doesn't mean the total number of layers in the model. The exact number depends on the context in this doc.
+    `num_layers` 不表示模型中层的总数。具体数字取决于本文档中的上下文。
 
     !!! note
-        This is different from `KVCacheSpec.page_size_bytes` in the code, which is defined as:
+        这与代码中的 `KVCacheSpec.page_size_bytes` 不同，后者定义为：
 
         $$
         \text{block_size} \times \text{kv_hidden_size}
         $$
 
-## Allocation
+## 分配
 
-### High level idea
+### 高层思路
 
-We use a single memory pool for all layer types. The memory pool is split into multiple blocks with the same page size. [KVCacheManager][vllm.v1.core.kv_cache_manager.KVCacheManager] allocates different numbers of blocks to different layers according to its attention type.
+我们对所有层类型使用单个内存池。内存池被划分为多个具有相同页面大小的块。[KVCacheManager][vllm.v1.core.kv_cache_manager.KVCacheManager] 根据其注意力类型为不同层分配不同数量的块。
 
-The core challenge is ensuring every layer type uses the same **page size**.  For full-attention-only models, the page size is straightforward, defined as:
+核心挑战是确保每种层类型使用相同的**页面大小**。对于仅使用全注意力的模型，页面大小很简单，定义为：
 
 $$
 \text{page_size} = \text{block_size} \times \text{num_hidden_layers} \times \text{kv_hidden_size}
 $$
 
-However, in hybrid models, `num_hidden_layers` varies by attention type, which would normally produce mismatched page sizes. The cases below show how we unify them.
+然而，在混合模型中，`num_hidden_layers` 因注意力类型而异，这通常会产生不匹配的页面大小。下面的案例展示了我们如何统一它们。
 
-### Case 1: toy model
+### 案例 1：玩具模型
 
-Let's start with a toy example: a model has 1 full attention layer and 3 sliding window attention layers. All layers have the same `kv_hidden_size`.
+让我们从一个玩具示例开始：一个模型有 1 个全注意力层和 3 个滑动窗口注意力层。所有层具有相同的 `kv_hidden_size`。
 
-We let each block to hold `block_size` tokens for one layer, so:
+我们让每个块为一个层保存 `block_size` 个 token，因此：
 
 $$
 \text{page_size} = \text{kv_hidden_size} \times \text{block_size}
 $$
 
-[KVCacheManager][vllm.v1.core.kv_cache_manager.KVCacheManager] allocates a different number of blocks to each layer.
+[KVCacheManager][vllm.v1.core.kv_cache_manager.KVCacheManager] 为每个层分配不同数量的块。
 
-This case is only a toy example. For real models, please refer to the following cases.
+这个案例只是一个玩具示例。对于真实模型，请参考以下案例。
 
-### Case 2: same `kv_hidden_size` and a regular pattern
+### 案例 2：相同的 `kv_hidden_size` 和规则的模式
 
-When the model has more layers, e.g., 20 sliding window attention layers and 10 full attention layers with the same `kv_hidden_size`. Calling the allocator once per layer (30 calls) is OK but becomes inefficient. As a solution, we group the allocation of layers that need the same number of blocks to reduce the number of calls.
+当模型有更多层时，例如 20 个滑动窗口注意力层和 10 个具有相同 `kv_hidden_size` 的全注意力层。为每个层调用一次分配器（30 次调用）是可以的，但效率不高。作为解决方案，我们将需要相同数量块的层分组，以减少调用次数。
 
-The grouping is feasible because there is usually a beautiful ratio between the number of different types of layers. For example:
+这种分组是可行的，因为不同类型的层之间通常存在一个良好的比例。例如：
 
-- Gemma-2: 1 sw : 1 full
-- Llama 4: 3 local : 1 full
+- Gemma-2：1 sw : 1 full
+- Llama 4：3 local : 1 full
 
-Our example can be regarded as 2 sw : 1 full. We can allocate blocks as if there are 2 sw and 1 full in the model, and repeat the result by 10 times to generate the `block_ids` for the 30 layers. The page size becomes:
-
-$$
-10 \times \text{kv_hidden_size} \times \text{block_size}
-$$
-
-Assume `block_size` 16, sliding window size 32, request length 112, then for the above example model, we need to allocate 11 blocks (0-6 for full, 7-8 for sw group 1, 9-10 for sw group 2).
-
-![Allocation Result](../assets/design/hybrid_kv_cache_manager/basic_grouping_example.png)
-
-Here, "/" denotes no block needed (sliding‑window layers don't need slots for early tokens).
-
-See the formal definition below. The layers are divided into multiple *KV Cache Groups* so that there is:
-
-1. **Identical attention type inside each group**: Each group only contains layers with the same attention type and thus need the same number of blocks for a given request. This enables layers in the same group share the same block ids without memory waste.
-2. **Identical page size across groups**: Because our memory pool only have one page size.
-
-Our example model is divided into 3 KV cache groups:
-
-- Group 0: 10 full attention layers (full.0 - full.9)
-- Group 1: 10 sliding window attention layers (sw.0 - sw.9)
-- Group 2: 10 sliding window attention layers (sw.10 - sw.19)
-
-Obviously, it satisfies rule 1. For rule 2, all 3 groups have
+我们的示例可以视为 2 sw : 1 full。我们可以分配块，就好像模型中有 2 个 sw 和 1 个 full，并将结果重复 10 次，为 30 个层生成 `block_ids`。页面大小变为：
 
 $$
 10 \times \text{kv_hidden_size} \times \text{block_size}
 $$
 
-as their page size.
+假设 `block_size` 为 16，滑动窗口大小为 32，请求长度为 112，那么对于上述示例模型，我们需要分配 11 个块（0-6 给 full，7-8 给 sw 组 1，9-10 给 sw 组 2）。
 
-### Case 3: same `kv_hidden_size` and no regular pattern
+![分配结果](../assets/design/hybrid_kv_cache_manager/basic_grouping_example.png)
 
-Unfortunately, not all models have such a beautiful ratio, and approach in Case 2 will produce too many small groups. For example, Gemma-3-27b has 52 sliding window attention layers and 10 full attention layers. With the constraints in case 2, it would be 26 sliding window groups and 5 full attention groups, each contains 2 layers. The allocation is still inefficient. To reduce the number of kv cache groups, we group layers using the smallest layer count among all attention types. For example, min(52, 10)=10 layers per group in Gemma-3-27b. Then the grouping result is:
+这里，"/" 表示不需要块（滑动窗口层不需要早期 token 的槽位）。
 
-- Group 0: 10 full attention layers (full.0 - full.9)
-- Group 1: 10 sliding window attention layers (sw.0 - sw.9)
-- Group 2: 10 sliding window attention layers (sw.10 - sw.19)
+请参见下面的正式定义。这些层被分为多个 *KV 缓存组*，以便满足：
+
+1. **每组内部具有相同的注意力类型**：每个组只包含具有相同注意力类型的层，因此对于给定的请求需要相同数量的块。这使得同一组中的层可以共享相同的块 ID，而不会浪费内存。
+2. **各组之间具有相同的页面大小**：因为我们的内存池只有一个页面大小。
+
+我们的示例模型被分为 3 个 KV 缓存组：
+
+- 组 0：10 个全注意力层（full.0 - full.9）
+- 组 1：10 个滑动窗口注意力层（sw.0 - sw.9）
+- 组 2：10 个滑动窗口注意力层（sw.10 - sw.19）
+
+显然，它满足规则 1。对于规则 2，所有 3 个组都有
+
+$$
+10 \times \text{kv_hidden_size} \times \text{block_size}
+$$
+
+作为它们的页面大小。
+
+### 案例 3：相同的 `kv_hidden_size` 且无规则模式
+
+不幸的是，并非所有模型都有如此良好的比例，案例 2 中的方法会产生太多的小组。例如，Gemma-3-27b 有 52 个滑动窗口注意力层和 10 个全注意力层。使用案例 2 的约束条件，将有 26 个滑动窗口组和 5 个全注意力组，每个组包含 2 个层。分配仍然效率低下。为了减少 KV 缓存组的数量，我们使用所有注意力类型中最小的层数来分组。例如，Gemma-3-27b 中 min(52, 10)=10 层每组的层数。那么分组结果为：
+
+- 组 0：10 个全注意力层（full.0 - full.9）
+- 组 1：10 个滑动窗口注意力层（sw.0 - sw.9）
+- 组 2：10 个滑动窗口注意力层（sw.10 - sw.19）
 - ...
-- Group 6: 10 sliding window attention layers (sw.40 - sw.49)
-- Group 7: 2 sliding window attention layers (sw.50 - sw.51) and 8 padding layers
+- 组 6：10 个滑动窗口注意力层（sw.40 - sw.49）
+- 组 7：2 个滑动窗口注意力层（sw.50 - sw.51）和 8 个填充层
 
-We will update this algorithm if this heuristic leads to a bad result when a new model comes out (e.g., 20 full + 30 sw, the group size should be 10 instead of 20).
+如果在出现新模型时此启发式方法导致不良结果（例如 20 full + 30 sw，组大小应为 10 而不是 20），我们将更新此算法。
 
-This case happens in Gemma-3 series models, and models in case 2 but with eagle speculative decoding which introduce one full attention layer. The solution has some memory waste and is not perfect. Please report any cases where padding overhead becomes unacceptable so we can refine the algorithm.
+这种情况发生在 Gemma-3 系列模型中，以及案例 2 中带有 eagle 推测解码的模型（引入了一个全注意力层）。该方案有一些内存浪费，并不完美。请报告任何填充开销变得不可接受的情况，以便我们改进算法。
 
-### Case 4: different `kv_hidden_size` (mainly hybrid mamba models)
+### 案例 4：不同的 `kv_hidden_size`（主要是混合 mamba 模型）
 
-Some architectures (e.g., Bamba, Jamba, Minimax) interleave standard attention layers with Mamba layers, where each Mamba layer's state size per token can be much larger than the attention layers' `kv_hidden_size`. Because we only support a single page size across all groups, we must reconcile these differing hidden sizes.
+一些架构（例如 Bamba、Jamba、Minimax）将标准注意力层与 Mamba 层交错，其中每个 Mamba 层的每个 token 的状态大小可能远大于注意力层的 `kv_hidden_size`。因为我们只支持所有组之间的单一页面大小，我们必须调和这些不同的隐藏大小。
 
-The current algorithm is:
+当前的算法是：
 
-1. Increase the `block_size` of attention layers until
+1. 增加注意力层的 `block_size`，直到
     $$
     \text{block_size} \times \text{kv_hidden_size}_{\text{att}} \ge \text{state_size}_{\text{mamba}}
     $$
-2. Pad the mamba state per layer to
+2. 将每层的 mamba 状态填充到
     $$
     \text{block_size} \times \text{kv_hidden_size}_{\text{att}}
     $$
-3. Apply the grouping strategy in case 3.
+3. 应用案例 3 中的分组策略。
 
 !!! note
-    This can lead to more than 400 `block_size` for attention layers, which is too large. Another padding strategy is to increase `block_size` until
+    这可能导致注意力层的 `block_size` 超过 400，这太大了。另一种填充策略是增加 `block_size`，直到
 
     $$
     \text{block_size} \times \text{kv_hidden_size}_{\text{att}} \times \text{num_attn_layers} \ge \text{state_size}_{\text{mamba}}
     $$
 
-    This padding strategy is still a work in progress.
+    此填充策略仍在进行中。
 
-### Case 5: KV sharing
+### 案例 5：KV 共享
 
-KV sharing refers to a layer using the KV cache of another layer, e.g., gemma-3n.
-In these models, [KVCacheManager][vllm.v1.core.kv_cache_manager.KVCacheManager] ignores all layers with kv sharing and only allocates KV cache for layers that need kv cache, and some patches are made in model runner to apply the allocation result to kv sharing layers.
+KV 共享指的是一个层使用另一个层的 KV 缓存，例如 gemma-3n。在这些模型中，[KVCacheManager][vllm.v1.core.kv_cache_manager.KVCacheManager] 忽略所有具有 KV 共享的层，仅为需要 KV 缓存的层分配 KV 缓存，并在模型运行器中进行一些修补，将分配结果应用于 KV 共享层。
 
-## Prefix caching
+## 前缀缓存
 
-For simplicity, we assume `block_size=1` in this section.
+为简单起见，我们在本节中假设 `block_size=1`。
 
-### High level idea
+### 高层思路
 
-The block pool uses a dict similar to `tuple(block_hash, group_id) -> block` to catch the full blocks. That means the same tokens of different groups are cached and evicted independently.
+块池使用类似于 `tuple(block_hash, group_id) -> block` 的字典来捕获完整的块。这意味着不同组的相同 token 被独立缓存和驱逐。
 
-When a new request comes in, we check the cache hit prefix of each group, and return the intersection of these groups as the cached prefix of the request. See below for the detailed algorithm for checking the cache hit of one group & performing the intersection.
+当新请求到来时，我们检查组的前缀缓存命中，然后返回这些组的交集作为请求的缓存前缀。请参见下文，了解检查一个组的缓存命中及执行交集的详细算法。
 
-### Case 0: full attention only models
+### 案例 0：仅全注意力模型
 
-For full attention layers, blocks are allocated for all tokens in the request. For details on the underlying design, see [Prefix Caching](prefix_caching.md)
+对于全注意力层，为请求中的所有 token 分配块。关于底层设计的详细信息，请参见[前缀缓存](prefix_caching.md)。
 
-To find the longest cache hit prefix of a request, we enumerate from left (the first block) to right (the last block), checking whether the block is cached, and exit when cache misses. For example, we will return the first 7 tokens (0-6) as the cache hit prefix in the below example (blue blocks are cached):
+要找到请求的最长缓存命中前缀，我们从左（第一个块）到右（最后一个块）枚举，检查块是否被缓存，当缓存未命中时退出。例如，在下面的示例中，我们将返回前 7 个 token（0-6）作为缓存命中前缀（蓝色块已缓存）：
 
-![Prefix Caching of Full Attention](../assets/design/hybrid_kv_cache_manager/full_attn.png)
+![全注意力的前缀缓存](../assets/design/hybrid_kv_cache_manager/full_attn.png)
 
-### Case 1: sliding window attention only models
+### 案例 1：仅滑动窗口注意力模型
 
-For sliding window attention layers, a naive implementation for memory allocation is to allocate `sliding_window_size` blocks and fill in the blocks in a round-robin way. But this naive implementation is not compatible with prefix caching so we didn't pick this design. In vLLM,  we allocate different blocks for different tokens and free blocks that are outside the sliding window.
+对于滑动窗口注意力层，一种朴素的内存分配实现是分配 `sliding_window_size` 个块，并以轮询方式填充这些块。但这种朴素实现与前缀缓存不兼容，因此我们没有选择这种设计。在 vLLM 中，我们为不同的 token 分配不同的块，并释放滑动窗口之外的块。
 
-For a new request, the cache hit prefix only requires the last `sliding_window_size - 1` tokens being cached.
-Let's say `sliding_window_size = 4` and `block_size = 1`, and the request is a 15-token prompt (blue blocks are cached):
+对于新请求，缓存命中前缀仅要求最后 `sliding_window_size - 1` 个 token 被缓存。假设 `sliding_window_size = 4` 且 `block_size = 1`，请求是一个 15 token 的提示（蓝色块已缓存）：
 
-![Prefix Caching of Sliding Window Attention](../assets/design/hybrid_kv_cache_manager/sw_attn.png)
+![滑动窗口注意力的前缀缓存](../assets/design/hybrid_kv_cache_manager/sw_attn.png)
 
-There are 3 possible cache hit prefixes:
+有 3 种可能的缓存命中前缀：
 
-- cache hit length 5, compute prefill with [2, 3, 4] → [5, 6, …, 14]
-- cache hit length 6, compute prefill with [3, 4, 5] → [6, 7, …, 14]
-- cache hit length 14, compute prefill with [11, 12, 13] → [14] (most efficient)
+- 缓存命中长度 5，使用 [2, 3, 4] → [5, 6, …, 14] 计算预填充
+- 缓存命中长度 6，使用 [3, 4, 5] → [6, 7, …, 14] 计算预填充
+- 缓存命中长度 14，使用 [11, 12, 13] → [14] 计算预填充（最高效）
 
-We can check the cache hit from right to left, and early exit when we find a match.This is opposite from full attention, where we check from left to right and early exit when the match fails. One potential cons (compared to full attention) is that we end up iterating over the entire list of tokens when there's no match, which is often a common case. This could potentially cause non-negligible overheads, but fine with full + swa, as discussed below.
+我们可以从右到左检查缓存命中，并在找到匹配时提前退出。这与全注意力相反，全注意力从左到右检查并在匹配失败时提前退出。一个潜在的缺点（与全注意力相比）是，当没有匹配时，我们最终会遍历整个 token 列表，这通常是常见情况。这可能导致不可忽视的开销，但对于 full + swa 来说可以接受，如下所述。
 
-### Case 2: sliding window attention + full attention models
+### 案例 2：滑动窗口注意力 + 全注意力模型
 
-The first problem is how to find the cache hit prefix. We need to "intersect" the cache hits of global and sliding window attention layers by:
+第一个问题是如何找到缓存命中前缀。我们需要通过以下方式"求交"全局和滑动窗口注意力层的缓存命中：
 
-1. Get the longest cache hit for full attention (scanning from left to right)
-2. Get the longest cache hit for sliding window attention that is within that length. Implemented by checking cache hits from right to left starting from the cache hit length of full attention.
+1. 获取全注意力的最长缓存命中（从左到右扫描）
+2. 获取在该长度内的滑动窗口注意力的最长缓存命中。通过从右到左从全注意力的缓存命中长度开始检查缓存命中来实现。
 
-It can be ensured that the resulting cache hit of sliding window attention layers is also a cache hit of full attention layers. This is more efficient than finding all possible prefixes of each group and doing the intersection, because our approach can exit early if there is no cache hit.
+可以确保滑动窗口注意力层的缓存命中结果也是全注意力层的缓存命中。这比找出每个组的所有可能前缀并求交集更高效，因为如果没有任何缓存命中，我们的方法可以提前退出。
 
-The algorithm applies to models with exactly two attention types full attention + X, where X can be an arbitrary efficient attention algorithm like sliding window, llama 4 local attention, and mamba. It doesn't support models without full attention layers, and models with more than 2 types of attention. This is enough for most hybrid models at the moment of writing this doc.
+该算法适用于恰好有两种注意力类型的模型：全注意力 + X，其中 X 可以是任意高效的注意力算法，如滑动窗口、llama 4 局部注意力和 mamba。它不支持没有全注意力层的模型，以及具有超过 2 种注意力类型的模型。在撰写本文档时，这对大多数混合模型来说已经足够。
 
-The second question is the cache eviction policy. For now, we use one LRU queue for all kv cache groups. The blocks are added to the LRU queue when freed, either because the request is finished or the block is out of the sliding window.
+第二个问题是缓存驱逐策略。目前，我们对所有 KV 缓存组使用一个 LRU 队列。当块被释放时（因为请求完成或块超出滑动窗口），它们被添加到 LRU 队列。
 
-### Case 3: mamba models
+### 案例 3：mamba 模型
 
-The prefix caching support of the mamba model is work in progress. Once implemented, models with mamba layer + full attention layer can be supported via the full attention + X algorithm in case 2.
+Mamba 模型的前缀缓存支持正在进行中。一旦实现，可以通过案例 2 中的全注意力 + X 算法支持具有 mamba 层 + 全注意力层的模型。
 
-## Implementation
+## 实现
 
-### Overview
+### 概览
 
-![Overview of Hybrid KV Cache Manager](../assets/design/hybrid_kv_cache_manager/overview.png)
+![混合 KV 缓存管理器概览](../assets/design/hybrid_kv_cache_manager/overview.png)
 
-The `KVCacheManager` is organized into 3 layers:
+`KVCacheManager` 分为 3 层：
 
-- **[KVCacheManager][vllm.v1.core.kv_cache_manager.KVCacheManager]**: The interface between the scheduler and kv cache management system.
-- **[KVCacheCoordinator][vllm.v1.core.kv_cache_coordinator.KVCacheCoordinator]**: coordinate per-group SingleTypeKVCacheManagers to generate the allocation result of a request. Depending on the model's configuration, one of these coordinators is chosen:
-    - **[KVCacheCoordinatorNoPrefixCache][vllm.v1.core.kv_cache_coordinator.KVCacheCoordinatorNoPrefixCache]**: Used when prefix caching is disabled.
-    - **[UnitaryKVCacheCoordinator][vllm.v1.core.kv_cache_coordinator.UnitaryKVCacheCoordinator]**: If only one KV cache group. The prefix caching logic is simplified as no intersection is needed.
-    - **[HybridKVCacheCoordinator][vllm.v1.core.kv_cache_coordinator.HybridKVCacheCoordinator]**: Handles exactly two KV cache groups (must include one full‑attention group plus one other efficient‑attention group). Other cases are not implemented. You can disable prefix caching to use the KVCacheCoordinatorNoPrefixCache.
-- **[SingleTypeKVCacheManager][vllm.v1.core.single_type_kv_cache_manager.SingleTypeKVCacheManager]**: Each instance manages allocation and prefix caching for one KV cache group, implementing the attention‑type–specific logic (e.g., full attention, sliding window, Mamba).
+- **[KVCacheManager][vllm.v1.core.kv_cache_manager.KVCacheManager]**：调度器和 KV 缓存管理系统之间的接口。
+- **[KVCacheCoordinator][vllm.v1.core.kv_cache_coordinator.KVCacheCoordinator]**：协调每个组的 SingleTypeKVCacheManager 以生成请求的分配结果。根据模型的配置，选择以下协调器之一：
+    - **[KVCacheCoordinatorNoPrefixCache][vllm.v1.core.kv_cache_coordinator.KVCacheCoordinatorNoPrefixCache]**：当前缀缓存禁用时使用。
+    - **[UnitaryKVCacheCoordinator][vllm.v1.core.kv_cache_coordinator.UnitaryKVCacheCoordinator]**：如果仅有一个 KV 缓存组。前缀缓存逻辑被简化，因为不需要求交集。
+    - **[HybridKVCacheCoordinator][vllm.v1.core.kv_cache_coordinator.HybridKVCacheCoordinator]**：处理恰好两个 KV 缓存组（必须包括一个全注意力组加上另一个高效注意力组）。其他情况尚未实现。您可以禁用前缀缓存以使用 KVCacheCoordinatorNoPrefixCache。
+- **[SingleTypeKVCacheManager][vllm.v1.core.single_type_kv_cache_manager.SingleTypeKVCacheManager]**：每个实例管理一个 KV 缓存组的分配和前缀缓存，实现特定于注意力类型的逻辑（例如全注意力、滑动窗口、Mamba）。
 
-The blue box in the above figure shows the case with 10 full attention layers and 20 sliding window attention layers, thus:
+上图中的蓝色框显示了具有 10 个全注意力层和 20 个滑动窗口注意力层的情况，因此：
 
-- use `HybridKVCacheCoordinator`
-- use 1 `FullAttentionManager` and 2 `SlidingWindowManager` for the 3 `KVCacheGroup`s.
+- 使用 `HybridKVCacheCoordinator`
+- 为 3 个 `KVCacheGroup` 使用 1 个 `FullAttentionManager` 和 2 个 `SlidingWindowManager`
 
-### Memory Layout
+### 内存布局
 
-For a model with n `KVCacheGroup`s, each with m layers, we allocate m buffers. Each buffer is shared by n layers, one from each group.
+对于一个具有 n 个 `KVCacheGroup`（每个包含 m 个层）的模型，我们分配 m 个缓冲区。每个缓冲区由 n 个层共享（每个组一个）。
 
-The following figure is for a model with 10 full attention layers (full.0 - full.9) and 20 sliding window attention layers (sw.0-sw.19). It follows "case 2" in "Allocation" section and is divided into 3 groups:
+下图适用于一个具有 10 个全注意力层（full.0 - full.9）和 20 个滑动窗口注意力层（sw.0-sw.19）的模型。它遵循"分配"部分的"案例 2"，分为 3 个组：
 
-- Group 0: 10 full attention layers (full.0 - full.9)
-- Group 1: 10 sliding window attention layers (sw.0 - sw.9)
-- Group 2: 10 sliding window attention layers (sw.10 - sw.19)
+- 组 0：10 个全注意力层（full.0 - full.9）
+- 组 1：10 个滑动窗口注意力层（sw.0 - sw.9）
+- 组 2：10 个滑动窗口注意力层（sw.10 - sw.19）
 
-And for a request, we allocate 11 blocks with `block_id` 0-6 to group 0, 7-8 to group 1, and 9-10 to group 2.
+对于一个请求，我们分配 11 个块，`block_id` 0-6 给组 0，7-8 给组 1，9-10 给组 2。
 
-With such an example, the physical memory is divided into 10 buffers (`KVCacheTensor` 0 - `KVCacheTensor` 9). Each buffer is shared by 3 layers (e.g., `KVCacheTensor` 0 is shared by full.0 from group 0, sw.0 from group 1, and sw.10 from group 2) and is divided into pieces with size `block_size * kv_hidden_size`. The KV cache of these 3 attention layers are saved to different pieces of the buffer based on the allocated `block_ids`:
+以此示例，物理内存被划分为 10 个缓冲区（`KVCacheTensor` 0 - `KVCacheTensor` 9）。每个缓冲区由 3 个层共享（例如，`KVCacheTensor` 0 由组 0 的 full.0、组 1 的 sw.0 和组 2 的 sw.10 共享），并被划分为大小为 `block_size * kv_hidden_size` 的片段。这 3 个注意力层的 KV 缓存根据分配的 `block_ids` 保存到缓冲区的不同片段中：
 
-![Example Memory Layout](../assets/design/hybrid_kv_cache_manager/memory_layout.png)
+![示例内存布局](../assets/design/hybrid_kv_cache_manager/memory_layout.png)
 
 !!! note
-    One logic "block" is mapped to 10 pieces in the 10 buffers of the physical memory.
+    一个逻辑"块"映射到物理内存的 10 个缓冲区中的 10 个片段。

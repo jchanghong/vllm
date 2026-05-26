@@ -1,6 +1,6 @@
-# LLM Smoke Test
+# LLM 冒烟测试
 
-Start headless `vllm`:
+启动无头 `vllm`：
 
 ```bash
 source ../vllm/.venv/bin/activate
@@ -18,7 +18,7 @@ python3 -m vllm.entrypoints.cli.main serve Qwen/Qwen3-0.6B \
   --dtype float16
 ```
 
-Run the Rust smoke test through the `vllm-llm` generate interface:
+通过 `vllm-llm` 生成接口运行 Rust 冒烟测试：
 
 ```bash
 cargo run -p vllm-llm --example external_engine_smoke -- \
@@ -26,4 +26,4 @@ cargo run -p vllm-llm --example external_engine_smoke -- \
   --host 127.0.0.1
 ```
 
-IMPORTANT: You must restart `vllm` each time you run the smoke test, as the vLLM engine cannot manage frontend closures and subsequent reconnects. In other words, do not reuse existing `vllm` instances, if any.
+重要提示：每次运行冒烟测试时都必须重启 `vllm`，因为 vLLM 引擎无法管理前端关闭及其后的重连。换句话说，请勿重用现有的 `vllm` 实例（如果有）。

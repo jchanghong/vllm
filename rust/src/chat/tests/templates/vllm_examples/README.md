@@ -1,6 +1,6 @@
-# vLLM Example Templates
+# vLLM 示例模板
 
-These fixtures are copied from `vllm/examples/`.
+这些测试夹具复制自 `vllm/examples/`。
 
-They are currently used by `src/chat/src/renderers/hf/format.rs` tests to keep
-our chat-template content format detection aligned with Python vLLM behavior.
+它们目前被 `src/chat/src/renderers/hf/format.rs` 的测试使用，以保持
+我们的聊天模板内容格式检测与 Python vLLM 行为一致。

@@ -4,22 +4,22 @@
     <img src="https://i.ibb.co/hHcScTT/Screenshot-2024-06-13-at-10-14-54.png" alt="vLLM_plus_cerebrium"/>
 </p>
 
-vLLM can be run on a cloud based GPU machine with [Cerebrium](https://www.cerebrium.ai/), a serverless AI infrastructure platform that makes it easier for companies to build and deploy AI based applications.
+vLLM 可以在基于云的 GPU 机器上通过 [Cerebrium](https://www.cerebrium.ai/) 运行，Cerebrium 是一个无服务器 AI 基础设施平台，使企业能够更轻松地构建和部署基于 AI 的应用程序。
 
-To install the Cerebrium client, run:
+安装 Cerebrium 客户端：
 
 ```bash
 pip install cerebrium
 cerebrium login
 ```
 
-Next, create your Cerebrium project, run:
+接下来，创建您的 Cerebrium 项目：
 
 ```bash
 cerebrium init vllm-project
 ```
 
-Next, to install the required packages, add the following to your cerebrium.toml:
+然后，要安装所需的包，请将以下内容添加到您的 cerebrium.toml 中：
 
 ```toml
 [cerebrium.deployment]
@@ -29,7 +29,7 @@ docker_base_image_url = "nvidia/cuda:12.1.1-runtime-ubuntu22.04"
 vllm = "latest"
 ```
 
-Next, let us add our code to handle inference for the LLM of your choice (`mistralai/Mistral-7B-Instruct-v0.1` for this example), add the following code to your `main.py`:
+接下来，让我们添加代码来处理您选择的 LLM 的推理（本示例使用 `mistralai/Mistral-7B-Instruct-v0.1`），将以下代码添加到您的 `main.py`：
 
 ??? code
 
@@ -43,7 +43,7 @@ Next, let us add our code to handle inference for the LLM of your choice (`mistr
         sampling_params = SamplingParams(temperature=temperature, top_p=top_p)
         outputs = llm.generate(prompts, sampling_params)
 
-        # Print the outputs.
+        # 打印输出。
         results = []
         for output in outputs:
             prompt = output.prompt
@@ -53,13 +53,13 @@ Next, let us add our code to handle inference for the LLM of your choice (`mistr
         return {"results": results}
     ```
 
-Then, run the following code to deploy it to the cloud:
+然后，运行以下命令将其部署到云端：
 
 ```bash
 cerebrium deploy
 ```
 
-If successful, you should be returned a CURL command that you can call inference against. Just remember to end the url with the function name you are calling (in our case `/run`)
+如果成功，您将收到一个 CURL 命令，可以使用它来调用推理。只需记住在 URL 末尾添加您要调用的函数名称（在我们的例子中是 `/run`）
 
 ??? console "Command"
 
@@ -77,7 +77,7 @@ If successful, you should be returned a CURL command that you can call inference
     }'
     ```
 
-You should get a response like:
+您应该会得到类似以下的响应：
 
 ??? console "Response"
 
@@ -108,4 +108,4 @@ You should get a response like:
     }
     ```
 
-You now have an autoscaling endpoint where you only pay for the compute you use!
+现在您拥有了一个自动扩展的端点，只需为您使用的计算资源付费！

@@ -7,84 +7,83 @@
 </p>
 
 <h3 align="center">
-Easy, fast, and cheap LLM serving for everyone
+为每个人提供简单、快速、廉价的 LLM 服务
 </h3>
 
 <p align="center">
-| <a href="https://docs.vllm.ai"><b>Documentation</b></a> | <a href="https://blog.vllm.ai/"><b>Blog</b></a> | <a href="https://arxiv.org/abs/2309.06180"><b>Paper</b></a> | <a href="https://x.com/vllm_project"><b>Twitter/X</b></a> | <a href="https://discuss.vllm.ai"><b>User Forum</b></a> | <a href="https://slack.vllm.ai"><b>Developer Slack</b></a> |
+| <a href="https://docs.vllm.ai"><b>文档</b></a> | <a href="https://blog.vllm.ai/"><b>博客</b></a> | <a href="https://arxiv.org/abs/2309.06180"><b>论文</b></a> | <a href="https://x.com/vllm_project"><b>Twitter/X</b></a> | <a href="https://discuss.vllm.ai"><b>用户论坛</b></a> | <a href="https://slack.vllm.ai"><b>开发者 Slack</b></a> |
 </p>
 
-🔥 We have built a vLLM website to help you get started with vLLM. Please visit [vllm.ai](https://vllm.ai) to learn more.
-For events, please visit [vllm.ai/events](https://vllm.ai/events) to join us.
+🔥 我们已建立一个 vLLM 网站，帮助您快速上手 vLLM。请访问 [vllm.ai](https://vllm.ai) 了解更多。
+活动方面，请访问 [vllm.ai/events](https://vllm.ai/events) 加入我们。
 
 ---
 
-## About
+## 关于
 
-vLLM is a fast and easy-to-use library for LLM inference and serving.
+vLLM 是一个快速且易于使用的 LLM 推理和服务库。
 
-Originally developed in the [Sky Computing Lab](https://sky.cs.berkeley.edu) at UC Berkeley, vLLM has grown into one of the most active open-source AI projects built and maintained by a diverse community of many dozens of academic institutions and companies from over 2000 contributors.
+最初由加州大学伯克利分校的 [Sky Computing Lab](https://sky.cs.berkeley.edu) 开发，vLLM 已发展成为最活跃的开源 AI 项目之一，由来自 2000 多名贡献者、数十家学术机构和公司的多元化社区构建和维护。
 
-vLLM is fast with:
+vLLM 的快速体现在：
 
-- State-of-the-art serving throughput
-- Efficient management of attention key and value memory with [**PagedAttention**](https://blog.vllm.ai/2023/06/20/vllm.html)
-- Continuous batching of incoming requests, chunked prefill, prefix caching
-- Fast and flexible model execution with piecewise and full CUDA/HIP graphs
-- Quantization: FP8, MXFP8/MXFP4, NVFP4, INT8, INT4, GPTQ/AWQ, GGUF, compressed-tensors, ModelOpt, TorchAO, and [more](https://docs.vllm.ai/en/latest/features/quantization/index.html)
-- Optimized attention kernels including FlashAttention, FlashInfer, TRTLLM-GEN, FlashMLA, and Triton
-- Optimized GEMM/MoE kernels for various precisions using CUTLASS, TRTLLM-GEN, CuTeDSL
-- Speculative decoding including n-gram, suffix, EAGLE, DFlash
-- Automatic kernel generation and graph-level transformations using torch.compile
-- Disaggregated prefill, decode, and encode
+- 最先进的服务吞吐量
+- 使用 [**PagedAttention**](https://blog.vllm.ai/2023/06/20/vllm.html) 高效管理注意力键值内存
+- 传入请求的连续批处理、分块预填充、前缀缓存
+- 通过分段和完整 CUDA/HIP 图实现快速灵活的模型执行
+- 量化：FP8、MXFP8/MXFP4、NVFP4、INT8、INT4、GPTQ/AWQ、GGUF、compressed-tensors、ModelOpt、TorchAO 以及[更多](https://docs.vllm.ai/en/latest/features/quantization/index.html)
+- 优化的注意力内核，包括 FlashAttention、FlashInfer、TRTLLM-GEN、FlashMLA 和 Triton
+- 使用 CUTLASS、TRTLLM-GEN、CuTeDSL 针对各种精度的优化 GEMM/MoE 内核
+- 推测解码，包括 n-gram、suffix、EAGLE、DFlash
+- 使用 torch.compile 的自动内核生成和图级变换
+- 分离式预填充、解码和编码
 
-vLLM is flexible and easy to use with:
+vLLM 的灵活性和易用性体现在：
 
-- Seamless integration with popular Hugging Face models
-- High-throughput serving with various decoding algorithms, including *parallel sampling*, *beam search*, and more
-- Tensor, pipeline, data, expert, and context parallelism for distributed inference
-- Streaming outputs
-- Generation of structured outputs using xgrammar or guidance
-- Tool calling and reasoning parsers
-- OpenAI-compatible API server, plus Anthropic Messages API and gRPC support
-- Efficient multi-LoRA support for dense and MoE layers
-- Support for NVIDIA GPUs, AMD GPUs, and x86/ARM/PowerPC CPUs. Additionally, diverse hardware plugins such as Google TPUs, Intel Gaudi, IBM Spyre, Huawei Ascend, Rebellions NPU, Apple Silicon, MetaX GPU, and more.
+- 与流行的 Hugging Face 模型无缝集成
+- 高吞吐量服务，支持各种解码算法，包括 *并行采样*、*束搜索* 等
+- 张量、流水线、数据、专家和上下文并行用于分布式推理
+- 流式输出
+- 使用 xgrammar 或 guidance 生成结构化输出
+- 工具调用和推理解析器
+- 兼容 OpenAI 的 API 服务器，以及 Anthropic Messages API 和 gRPC 支持
+- 高效的稠密和 MoE 层多 LoRA 支持
+- 支持 NVIDIA GPU、AMD GPU 以及 x86/ARM/PowerPC CPU。此外还有多种硬件插件，如 Google TPU、Intel Gaudi、IBM Spyre、华为昇腾、Rebellions NPU、Apple Silicon、MetaX GPU 等。
 
-vLLM seamlessly supports 200+ model architectures on Hugging Face, including:
+vLLM 无缝支持 Hugging Face 上的 200 多种模型架构，包括：
 
-- Decoder-only LLMs (e.g., Llama, Qwen, Gemma)
-- Mixture-of-Expert LLMs (e.g., Mixtral, DeepSeek-V3, Qwen-MoE, GPT-OSS)
-- Hybrid attention and state-space models (e.g., Mamba, Qwen3.5)
-- Multi-modal models (e.g., LLaVA, Qwen-VL, Pixtral)
-- Embedding and retrieval models (e.g., E5-Mistral, GTE, ColBERT)
-- Reward and classification models (e.g., Qwen-Math)
+- 仅解码器 LLM（例如 Llama、Qwen、Gemma）
+- 混合专家 LLM（例如 Mixtral、DeepSeek-V3、Qwen-MoE、GPT-OSS）
+- 混合注意力和状态空间模型（例如 Mamba、Qwen3.5）
+- 多模态模型（例如 LLaVA、Qwen-VL、Pixtral）
+- 嵌入和检索模型（例如 E5-Mistral、GTE、ColBERT）
+- 奖励和分类模型（例如 Qwen-Math）
 
-Find the full list of supported models [here](https://docs.vllm.ai/en/latest/models/supported_models.html).
+支持的完整模型列表请参见[此处](https://docs.vllm.ai/en/latest/models/supported_models.html)。
 
-## Getting Started
+## 快速开始
 
-Install vLLM with [`uv`](https://docs.astral.sh/uv/) (recommended) or `pip`:
+使用 [`uv`](https://docs.astral.sh/uv/)（推荐）或 `pip` 安装 vLLM：
 
 ```bash
 uv pip install vllm
 ```
 
-Or [build from source](https://docs.vllm.ai/en/latest/getting_started/installation/gpu/index.html#build-wheel-from-source) for development.
+或[从源码构建](https://docs.vllm.ai/en/latest/getting_started/installation/gpu/index.html#build-wheel-from-source)用于开发。
 
-Visit our [documentation](https://docs.vllm.ai/en/latest/) to learn more.
+访问我们的[文档](https://docs.vllm.ai/en/latest/)了解更多。
 
-- [Installation](https://docs.vllm.ai/en/latest/getting_started/installation.html)
-- [Quickstart](https://docs.vllm.ai/en/latest/getting_started/quickstart.html)
-- [List of Supported Models](https://docs.vllm.ai/en/latest/models/supported_models.html)
+- [安装](https://docs.vllm.ai/en/latest/getting_started/installation.html)
+- [快速入门](https://docs.vllm.ai/en/latest/getting_started/quickstart.html)
+- [支持的模型列表](https://docs.vllm.ai/en/latest/models/supported_models.html)
 
-## Contributing
+## 贡献
 
-We welcome and value any contributions and collaborations.
-Please check out [Contributing to vLLM](https://docs.vllm.ai/en/latest/contributing/index.html) for how to get involved.
+我们欢迎并重视任何贡献和合作。请查看[为 vLLM 做贡献](https://docs.vllm.ai/en/latest/contributing/index.html)了解如何参与。
 
-## Citation
+## 引用
 
-If you use vLLM for your research, please cite our [paper](https://arxiv.org/abs/2309.06180):
+如果您在研究中使用了 vLLM，请引用我们的[论文](https://arxiv.org/abs/2309.06180)：
 
 ```bibtex
 @inproceedings{kwon2023efficient,
@@ -95,16 +94,16 @@ If you use vLLM for your research, please cite our [paper](https://arxiv.org/abs
 }
 ```
 
-## Contact Us
+## 联系我们
 
 <!-- --8<-- [start:contact-us] -->
-- For technical questions and feature requests, please use GitHub [Issues](https://github.com/vllm-project/vllm/issues)
-- For discussing with fellow users, please use the [vLLM Forum](https://discuss.vllm.ai)
-- For coordinating contributions and development, please use [Slack](https://slack.vllm.ai)
-- For security disclosures, please use GitHub's [Security Advisories](https://github.com/vllm-project/vllm/security/advisories) feature
-- For collaborations and partnerships, please contact us at [collaboration@vllm.ai](mailto:collaboration@vllm.ai)
+- 技术问题和功能请求，请使用 GitHub [Issues](https://github.com/vllm-project/vllm/issues)
+- 与其他用户讨论，请使用 [vLLM 论坛](https://discuss.vllm.ai)
+- 协调贡献和开发，请使用 [Slack](https://slack.vllm.ai)
+- 安全信息披露，请使用 GitHub 的 [Security Advisories](https://github.com/vllm-project/vllm/security/advisories) 功能
+- 合作与伙伴关系，请通过 [collaboration@vllm.ai](mailto:collaboration@vllm.ai) 联系我们
 <!-- --8<-- [end:contact-us] -->
 
-## Media Kit
+## 媒体资源
 
-- If you wish to use vLLM's logo, please refer to [our media kit repo](https://github.com/vllm-project/media-kit)
+- 如果您希望使用 vLLM 的标识，请参考[我们的媒体资源仓库](https://github.com/vllm-project/media-kit)

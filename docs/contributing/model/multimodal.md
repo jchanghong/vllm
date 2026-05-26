@@ -1,13 +1,13 @@
-# Multi-Modal Support
+# 多模态支持
 
-This document walks you through the steps to extend a basic model so that it accepts [multi-modal inputs](../../features/multimodal_inputs.md).
+本文档将引导您完成扩展基础模型以接受[多模态输入](../../features/multimodal_inputs.md)的步骤。
 
-## 1. Update the base vLLM model
+## 1. 更新基础 vLLM 模型
 
-It is assumed that you have already implemented the model in vLLM according to [these steps](basic.md).
-Further update the model as follows:
+假设您已经按照[这些步骤](basic.md)在 vLLM 中实现了模型。
+进一步按如下方式更新模型：
 
-- Implement [get_placeholder_str][vllm.model_executor.models.interfaces.SupportsMultiModal.get_placeholder_str] to define the placeholder string which is used to represent the multi-modal item in the text prompt. This should be consistent with the chat template of the model.
+- 实现 [get_placeholder_str][vllm.model_executor.models.interfaces.SupportsMultiModal.get_placeholder_str] 来定义占位符字符串，该字符串用于在文本提示中表示多模态项。这应与模型的对话模板保持一致。
 
     ??? code
 
@@ -23,7 +23,7 @@ Further update the model as follows:
                 raise ValueError("Only image modality is supported")
         ```
 
-- Inside `__init__` method, initialize the language components of the model inside [_mark_language_model][vllm.model_executor.models.interfaces.SupportsMultiModal._mark_language_model], and the multimodal components of the model inside [_mark_tower_model][vllm.model_executor.models.interfaces.SupportsMultiModal._mark_tower_model], e.g.:
+- 在 `__init__` 方法内部，在 [_mark_language_model][vllm.model_executor.models.interfaces.SupportsMultiModal._mark_language_model] 中初始化模型的语言组件，在 [_mark_tower_model][vllm.model_executor.models.interfaces.SupportsMultiModal._mark_tower_model] 中初始化模型的多模态组件，例如：
 
     ```python
         def __init__(self, *, vllm_config: VllmConfig, prefix: str = "") -> None:
@@ -43,9 +43,9 @@ Further update the model as follows:
                 )
     ```
 
-- Remove the embedding part from the [forward][torch.nn.Module.forward] method:
-    - Move the multi-modal embedding to [embed_multimodal][vllm.model_executor.models.interfaces.SupportsMultiModal.embed_multimodal].
-    - The text embedding and embedding merge are handled automatically by a default implementation of [embed_input_ids][vllm.model_executor.models.interfaces.SupportsMultiModal.embed_input_ids]. It does not need to be overridden in most cases.
+- 从 [forward][torch.nn.Module.forward] 方法中移除嵌入部分：
+    - 将多模态嵌入移到 [embed_multimodal][vllm.model_executor.models.interfaces.SupportsMultiModal.embed_multimodal] 中。
+    - 文本嵌入和嵌入合并由 [embed_input_ids][vllm.model_executor.models.interfaces.SupportsMultiModal.embed_input_ids] 的默认实现自动处理。在大多数情况下不需要重写。
 
     ```diff
       def forward(
@@ -80,7 +80,7 @@ Further update the model as follows:
                inputs_embeds=inputs_embeds,
            )
          ...
-  
+   
     +  def embed_multimodal(
     +      self,
     +      pixel_values: torch.Tensor,
@@ -90,7 +90,7 @@ Further update the model as follows:
     +      )
     ```
 
-    Below we provide a boilerplate of a typical implementation pattern of [embed_multimodal][vllm.model_executor.models.interfaces.SupportsMultiModal.embed_multimodal], but feel free to adjust it to your own needs.
+    下面我们提供一个 [embed_multimodal][vllm.model_executor.models.interfaces.SupportsMultiModal.embed_multimodal] 典型实现模式的模板，但请根据您的需要进行调整。
 
     ```python
     def _process_image_input(self, image_input: YourModelImageInputs) -> torch.Tensor:
@@ -101,27 +101,26 @@ Further update the model as follows:
         self,
         **kwargs: object,
     ) -> MultiModalEmbeddings | None:
-        # Validate the multimodal input keyword arguments
+        # 验证多模态输入关键字参数
         image_input = self._parse_and_validate_image_input(**kwargs)
         if image_input is None:
             return None
 
-        # Run multimodal inputs through encoder and projector
+        # 将多模态输入通过编码器和投影器处理
         vision_embeddings = self._process_image_input(image_input)
         return vision_embeddings
     ```
 
 !!! important
-    The returned `multimodal_embeddings` must be either a **3D [torch.Tensor][]** of shape `(num_items, feature_size, hidden_size)`, or a **list / tuple of 2D [torch.Tensor][]'s** of shape `(feature_size, hidden_size)`, so that `multimodal_embeddings[i]` retrieves the embeddings generated from the `i`-th multimodal data item (e.g, image) of the request.
+    返回的 `multimodal_embeddings` 必须是 **3D [torch.Tensor][]**，形状为 `(num_items, feature_size, hidden_size)`，或者是 **2D [torch.Tensor][] 的列表/元组**，形状为 `(feature_size, hidden_size)`，以便 `multimodal_embeddings[i]` 获取请求的第 `i` 个多模态数据项（例如图像）生成的嵌入。
 
 !!! note
-    By default, vLLM merges the multimodal embeddings into text embeddings depending on the information of their locations defined in
-    [PlaceholderRange][vllm.multimodal.inputs.PlaceholderRange] from input processing.
-    This logic can be found at [embed_input_ids][vllm.model_executor.models.interfaces.SupportsMultiModal.embed_input_ids].
+    默认情况下，vLLM 根据输入处理中 [PlaceholderRange][vllm.multimodal.inputs.PlaceholderRange] 定义的位置信息，将多模态嵌入合并到文本嵌入中。
+    此逻辑可以在 [embed_input_ids][vllm.model_executor.models.interfaces.SupportsMultiModal.embed_input_ids] 中找到。
 
-    You may override this method if additional logic is required for your model when merging embeddings.
+    如果您的模型在合并嵌入时需要额外的逻辑，您可以重写此方法。
 
-- Once the above steps are done, update the model class with the [SupportsMultiModal][vllm.model_executor.models.interfaces.SupportsMultiModal] interface.
+- 完成上述步骤后，使用 [SupportsMultiModal][vllm.model_executor.models.interfaces.SupportsMultiModal] 接口更新模型类。
 
   ```diff
   + from vllm.model_executor.models.interfaces import SupportsMultiModal
@@ -131,38 +130,38 @@ Further update the model as follows:
   ```
 
 !!! note
-    The model class does not have to be named `*ForCausalLM`.
-    Check out [the HuggingFace Transformers documentation](https://huggingface.co/docs/transformers/model_doc/auto#multimodal) for some examples.
+    模型类不一定要命名为 `*ForCausalLM`。
+    请查看 [HuggingFace Transformers 文档](https://huggingface.co/docs/transformers/model_doc/auto#multimodal) 了解一些示例。
 
-## 2. Specify processing information
+## 2. 指定处理信息
 
-Next, create a subclass of [BaseProcessingInfo][vllm.multimodal.processing.BaseProcessingInfo]
-to provide basic information related to HF processing.
+接下来，创建 [BaseProcessingInfo][vllm.multimodal.processing.BaseProcessingInfo] 的子类
+以提供与 HF 处理相关的基本信息。
 
-### Maximum number of input items
+### 最大输入项数
 
-You need to override the abstract method [get_supported_mm_limits][vllm.multimodal.processing.BaseProcessingInfo.get_supported_mm_limits]
-to return the maximum number of input items for each modality supported by the model.
+您需要重写抽象方法 [get_supported_mm_limits][vllm.multimodal.processing.BaseProcessingInfo.get_supported_mm_limits]
+以返回模型支持的每种模态的最大输入项数。
 
-For example, if the model supports any number of images but only one video per prompt:
+例如，如果模型支持任意数量的图像，但每个提示只能有一个视频：
 
 ```python
 def get_supported_mm_limits(self) -> Mapping[str, int | None]:
     return {"image": None, "video": 1}
 ```
 
-## 3. Specify dummy inputs
+## 3. 指定虚拟输入
 
-Then, inherit [BaseDummyInputsBuilder][vllm.multimodal.processing.BaseDummyInputsBuilder] to construct dummy inputs for
-HF processing. The processed outputs are also used for memory profiling.
+然后，继承 [BaseDummyInputsBuilder][vllm.multimodal.processing.BaseDummyInputsBuilder] 来构建用于
+HF 处理的虚拟输入。处理后的输出也用于内存分析。
 
-Override the abstract methods [get_dummy_text][vllm.multimodal.processing.BaseDummyInputsBuilder.get_dummy_text] and [get_dummy_mm_data][vllm.multimodal.processing.BaseDummyInputsBuilder.get_dummy_mm_data] to construct dummy inputs. These dummy inputs should result in the worst-case memory usage of the model so that vLLM can reserve the correct amount of memory for it.
+重写抽象方法 [get_dummy_text][vllm.multimodal.processing.BaseDummyInputsBuilder.get_dummy_text] 和 [get_dummy_mm_data][vllm.multimodal.processing.BaseDummyInputsBuilder.get_dummy_mm_data] 来构建虚拟输入。这些虚拟输入应导致模型在最坏情况下的内存使用量，以便 vLLM 为其保留正确的内存量。
 
-Assuming that the memory usage increases with the number of tokens, the dummy inputs can be constructed to maximize the number of output embeddings, which is the same number as placeholder feature tokens.
+假设内存使用量随 token 数量增加，则可以将虚拟输入构建为最大化输出嵌入的数量，这与占位符特征 token 的数量相同。
 
-=== "Basic example: LLaVA"
+=== "基本示例：LLaVA"
 
-    Looking at the code of HF's `LlavaForConditionalGeneration`:
+    查看 HF 的 `LlavaForConditionalGeneration` 代码：
 
     ??? code
 
@@ -185,8 +184,8 @@ Assuming that the memory usage increases with the number of tokens, the dummy in
         inputs_embeds = inputs_embeds.masked_scatter(special_image_mask, image_features)
         ```
 
-    The number of placeholder feature tokens per image is `image_features.shape[1]`.
-    `image_features` is calculated inside the `get_image_features` method:
+    每张图像的占位符特征 token 数量为 `image_features.shape[1]`。
+    `image_features` 在 `get_image_features` 方法内部计算：
 
     ??? code
 
@@ -205,11 +204,11 @@ Assuming that the memory usage increases with the number of tokens, the dummy in
         return image_features
         ```
 
-    We can infer that `image_features.shape[1]` is based on `image_outputs.hidden_states.shape[1]` from the vision tower
-    (`CLIPVisionModel` for the [`llava-hf/llava-1.5-7b-hf`](https://huggingface.co/llava-hf/llava-1.5-7b-hf) model).
-    Moreover, we only need the sequence length (the second dimension of the tensor) to get `image_features.shape[1]`.
-    The sequence length is determined by the initial hidden states in `CLIPVisionTransformer` since the attention
-    mechanism doesn't change the sequence length of the output hidden states.
+    我们可以推断出 `image_features.shape[1]` 基于视觉塔输出的 `image_outputs.hidden_states.shape[1]`
+    （对于 [`llava-hf/llava-1.5-7b-hf`](https://huggingface.co/llava-hf/llava-1.5-7b-hf) 模型来说是 `CLIPVisionModel`）。
+    此外，我们只需要序列长度（张量的第二维）来获取 `image_features.shape[1]`。
+    序列长度由 `CLIPVisionTransformer` 中的初始隐藏状态决定，因为注意力
+    机制不会改变输出隐藏状态的序列长度。
 
     ```python
     # https://github.com/huggingface/transformers/blob/v4.47.1/src/transformers/models/clip/modeling_clip.py#L1094-L1102
@@ -224,7 +223,7 @@ Assuming that the memory usage increases with the number of tokens, the dummy in
     )
     ```
 
-    To find the sequence length, we turn to the code of `CLIPVisionEmbeddings`:
+    为了找到序列长度，我们查看 `CLIPVisionEmbeddings` 的代码：
 
     ??? code
 
@@ -243,7 +242,7 @@ Assuming that the memory usage increases with the number of tokens, the dummy in
         return embeddings
         ```
 
-    We can infer that `embeddings.shape[1] == self.num_positions`, where
+    我们可以推断出 `embeddings.shape[1] == self.num_positions`，其中
 
     ```python
     # https://github.com/huggingface/transformers/blob/v4.47.1/src/transformers/models/clip/modeling_clip.py#L195-L196
@@ -251,7 +250,7 @@ Assuming that the memory usage increases with the number of tokens, the dummy in
     self.num_positions = self.num_patches + 1
     ```
 
-    Overall, the number of placeholder feature tokens for an image can be calculated as:
+    总的来说，一张图像的占位符特征 token 数量可以计算为：
 
     ??? code
 
@@ -275,15 +274,14 @@ Assuming that the memory usage increases with the number of tokens, the dummy in
             return num_image_tokens
         ```
 
-    Notice that the number of image tokens doesn't depend on the image width and height.
-    We can simply use a dummy `image_size` to calculate the multimodal profiling data:
+    注意到图像 token 的数量不依赖于图像的宽度和高度。
+    我们可以简单地使用虚拟的 `image_size` 来计算多模态分析数据：
 
     ??? code
 
         ```python
-        # NOTE: In actuality, this is usually implemented as part of the
-        # model's subclass of `BaseProcessingInfo`, but we show it as is
-        # here for simplicity.
+        # 注意：实际上，这通常作为
+        # 模型的 `BaseProcessingInfo` 子类的一部分实现，但这里为了简单起见直接展示。
         def get_image_size_with_most_features(self) -> ImageSize:
             hf_config = self.get_hf_config()
             width = height = hf_config.image_size
@@ -312,7 +310,7 @@ Assuming that the memory usage increases with the number of tokens, the dummy in
             }
         ```
 
-    For the text, we simply expand the multimodal image token from the model config to match the desired number of images.
+    对于文本，我们只需从模型配置中扩展多模态图像 token 以匹配所需的图像数量。
 
     ```python
     def get_dummy_text(self, mm_counts: Mapping[str, int]) -> str:
@@ -324,9 +322,9 @@ Assuming that the memory usage increases with the number of tokens, the dummy in
         return image_token * num_images
     ```
 
-=== "No input placeholders: Fuyu"
+=== "无输入占位符：Fuyu"
 
-    Looking at the code of HF's `FuyuForCausalLM`:
+    查看 HF 的 `FuyuForCausalLM` 代码：
 
     ??? code
 
@@ -346,17 +344,17 @@ Assuming that the memory usage increases with the number of tokens, the dummy in
             )
         ```
 
-    The number of placeholder feature tokens for the `i`th item in the batch is `patch_embeddings[i].shape[0]`,
-    which is the same as `image_patches[i].shape[0]`, i.e. `num_total_patches`.
+    批次中第 `i` 个项的占位符特征 token 数量是 `patch_embeddings[i].shape[0]`，
+    与 `image_patches[i].shape[0]` 相同，即 `num_total_patches`。
 
-    Unlike LLaVA, Fuyu does not define the number of patches inside the modeling file. Where can we get more information?
-    Considering that the model input comes from the output of `FuyuProcessor`, let's **look at the preprocessing files**.
+    与 LLaVA 不同，Fuyu 不在建模文件中定义补丁数量。我们从哪里可以获取更多信息？
+    考虑到模型输入来自 `FuyuProcessor` 的输出，让我们**查看预处理文件**。
 
-    The image outputs are obtained by calling `FuyuImageProcessor.preprocess` and then
-    `FuyuImageProcessor.preprocess_with_tokenizer_info` inside `FuyuProcessor`.
+    图像输出通过在 `FuyuProcessor` 内部调用 `FuyuImageProcessor.preprocess`，然后
+    调用 `FuyuImageProcessor.preprocess_with_tokenizer_info` 获得。
 
-    In `FuyuImageProcessor.preprocess`, the images are resized and padded to the target `FuyuImageProcessor.size`,
-    returning the dimensions after resizing (but before padding) as metadata.
+    在 `FuyuImageProcessor.preprocess` 中，图像被调整大小并填充到目标 `FuyuImageProcessor.size`，
+    返回调整大小后（但在填充前）的尺寸作为元数据。
 
     ??? code
 
@@ -394,7 +392,7 @@ Assuming that the memory usage increases with the number of tokens, the dummy in
             ]
         ```
 
-    In `FuyuImageProcessor.preprocess_with_tokenizer_info`, the images are split into patches based on this metadata:
+    在 `FuyuImageProcessor.preprocess_with_tokenizer_info` 中，图像基于此元数据被分割成补丁：
 
     ??? code
 
@@ -432,7 +430,7 @@ Assuming that the memory usage increases with the number of tokens, the dummy in
         assert num_patches == patches.shape[0]
         ```
 
-    The number of patches is in turn defined by `FuyuImageProcessor.get_num_patches`:
+    补丁数量又由 `FuyuImageProcessor.get_num_patches` 定义：
 
     ??? code
 
@@ -451,8 +449,8 @@ Assuming that the memory usage increases with the number of tokens, the dummy in
         num_patches = num_patches_per_dim_h * num_patches_per_dim_w
         ```
 
-    These image patches correspond to placeholder tokens (`|SPEAKER|`). So, we just need to maximize the number of image patches. Since input images are first resized
-    to fit within `image_processor.size`, we can maximize the number of image patches by inputting an image with size equal to `image_processor.size`.
+    这些图像补丁对应占位符 token（`|SPEAKER|`）。因此，我们只需要最大化图像补丁的数量。由于输入图像首先被调整大小
+    以适应 `image_processor.size`，我们可以通过输入尺寸等于 `image_processor.size` 的图像来最大化图像补丁数量。
 
     ```python
     def get_image_size_with_most_features(self) -> ImageSize:
@@ -463,15 +461,15 @@ Assuming that the memory usage increases with the number of tokens, the dummy in
         )
     ```
 
-    Fuyu does not expect image placeholders in the inputs to HF processor, so
-    the dummy prompt text is empty regardless of the number of images.
+    Fuyu 不期望在 HF 处理器的输入中包含图像占位符，因此
+    虚拟提示文本为空，与图像数量无关。
 
     ```python
     def get_dummy_text(self, mm_counts: Mapping[str, int]) -> str:
         return ""
     ```
 
-    For the multimodal image profiling data, the logic is very similar to LLaVA:
+    对于多模态图像分析数据，逻辑与 LLaVA 非常相似：
 
     ??? code
 
@@ -498,24 +496,23 @@ Assuming that the memory usage increases with the number of tokens, the dummy in
             }
         ```
 
-## 4. Specify processing details
+## 4. 指定处理细节
 
-Afterwards, create a subclass of [BaseMultiModalProcessor][vllm.multimodal.processing.BaseMultiModalProcessor]
-to fill in the missing details about HF processing.
+之后，创建 [BaseMultiModalProcessor][vllm.multimodal.processing.BaseMultiModalProcessor] 的子类
+来补充 HF 处理的缺失细节。
 
 !!! info
-    [Multi-Modal Data Processing](../../design/mm_processing.md)
+    [多模态数据处理](../../design/mm_processing.md)
 
-### Multi-modal fields
+### 多模态字段
 
-Override [_get_mm_fields_config][vllm.multimodal.processing.BaseMultiModalProcessor._get_mm_fields_config] to
-return a schema of the tensors outputted by the HF processor that are related to the input multi-modal items.
+重写 [_get_mm_fields_config][vllm.multimodal.processing.BaseMultiModalProcessor._get_mm_fields_config] 以
+返回 HF 处理器输出的与输入多模态项相关的张量模式。
 
-=== "Basic example: LLaVA"
+=== "基本示例：LLaVA"
 
-    The output of `CLIPImageProcessor` is a simple tensor with shape
-    `(num_images, num_channels, image_height, image_width)`:
-
+    `CLIPImageProcessor` 的输出是一个简单的张量，形状为
+    `(num_images, num_channels, image_height, image_width)`：
 
     ```python
     # https://github.com/huggingface/transformers/blob/v4.47.1/src/transformers/models/clip/image_processing_clip.py#L339-L345
@@ -528,7 +525,7 @@ return a schema of the tensors outputted by the HF processor that are related to
     return BatchFeature(data=data, tensor_type=return_tensors)
     ```
 
-    So, we override [_get_mm_fields_config][vllm.multimodal.processing.BaseMultiModalProcessor._get_mm_fields_config] as follows:
+    因此，我们按如下方式重写 [_get_mm_fields_config][vllm.multimodal.processing.BaseMultiModalProcessor._get_mm_fields_config]：
 
     ```python
     def _get_mm_fields_config(
@@ -542,13 +539,13 @@ return a schema of the tensors outputted by the HF processor that are related to
     ```
 
     !!! note
-        Our [actual code](../../../vllm/model_executor/models/llava.py) additionally supports
-        pre-computed image embeddings, which can be passed to be model via the `image_embeds` argument.
+        我们的[实际代码](../../../vllm/model_executor/models/llava.py)还额外支持
+        预计算的图像嵌入，可以通过 `image_embeds` 参数传递给模型。
 
-=== "With postprocessing: Fuyu"
+=== "带后处理：Fuyu"
 
-    The `image_patches` output of `FuyuImageProcessor.preprocess_with_tokenizer_info` concatenates
-    the patches from each image belonging to an item in the batch:
+    `FuyuImageProcessor.preprocess_with_tokenizer_info` 的 `image_patches` 输出将
+    批次中每个项所属的每张图像的补丁连接起来：
 
     ```python
     # https://github.com/huggingface/transformers/blob/v4.48.3/src/transformers/models/fuyu/image_processing_fuyu.py#L673-L679
@@ -561,13 +558,13 @@ return a schema of the tensors outputted by the HF processor that are related to
     batch_image_patches.append(image_patches)
     ```
 
-    The shape of `image_patches` outputted by `FuyuImageProcessor` is therefore
-    `(1, num_images, num_patches, patch_width * patch_height * num_channels)`.
+    因此 `FuyuImageProcessor` 输出的 `image_patches` 形状为
+    `(1, num_images, num_patches, patch_width * patch_height * num_channels)`。
 
-    In order to support the use of
-    [MultiModalFieldConfig.batched][vllm.multimodal.inputs.MultiModalFieldConfig.batched]
-    like in LLaVA, we remove the extra batch dimension by overriding
-    [BaseMultiModalProcessor._call_hf_processor][vllm.multimodal.processing.BaseMultiModalProcessor._call_hf_processor]:
+    为了支持像 LLaVA 那样使用
+    [MultiModalFieldConfig.batched][vllm.multimodal.inputs.MultiModalFieldConfig.batched]，
+    我们通过重写
+    [BaseMultiModalProcessor._call_hf_processor][vllm.multimodal.processing.BaseMultiModalProcessor._call_hf_processor] 来移除额外的批次维度：
 
     ??? code
 
@@ -591,8 +588,8 @@ return a schema of the tensors outputted by the HF processor that are related to
                 images = mm_data["images"]
                 assert isinstance(images, list)
 
-                # Original output: (1, num_images, Pn, Px * Py * C)
-                # New output: (num_images, Pn, Px * Py * C)
+                # 原始输出：(1, num_images, Pn, Px * Py * C)
+                # 新输出：(num_images, Pn, Px * Py * C)
                 assert (isinstance(image_patches, list)
                         and len(image_patches) == 1)
                 assert (isinstance(image_patches[0], torch.Tensor)
@@ -604,15 +601,15 @@ return a schema of the tensors outputted by the HF processor that are related to
         ```
 
     !!! note
-        Our [actual code](../../../vllm/model_executor/models/fuyu.py) has special handling
-        for text-only inputs to prevent unnecessary warnings from HF processor.
+        我们的[实际代码](../../../vllm/model_executor/models/fuyu.py)对纯文本输入进行了特殊处理，
+        以防止 HF 处理器产生不必要的警告。
 
     !!! note
-        The `_call_hf_processor` method specifies both `mm_kwargs` and `tok_kwargs` for
-        processing. `mm_kwargs` is used to both initialize and call the huggingface
-        processor, whereas `tok_kwargs` is only used to call the huggingface processor.
+        `_call_hf_processor` 方法同时指定了 `mm_kwargs` 和 `tok_kwargs` 用于
+        处理。`mm_kwargs` 用于初始化和调用 huggingface
+        处理器，而 `tok_kwargs` 仅用于调用 huggingface 处理器。
 
-    This lets us override [_get_mm_fields_config][vllm.multimodal.processing.BaseMultiModalProcessor._get_mm_fields_config] as follows:
+    这使我们能够按如下方式重写 [_get_mm_fields_config][vllm.multimodal.processing.BaseMultiModalProcessor._get_mm_fields_config]：
 
     ```python
     def _get_mm_fields_config(
@@ -623,17 +620,17 @@ return a schema of the tensors outputted by the HF processor that are related to
         return dict(image_patches=MultiModalFieldConfig.batched("image"))
     ```
 
-### Prompt updates
+### 提示更新
 
-Override [_get_prompt_updates][vllm.multimodal.processing.BaseMultiModalProcessor._get_prompt_updates] to
-return a list of [PromptUpdate][vllm.multimodal.processing.PromptUpdate] instances.
+重写 [_get_prompt_updates][vllm.multimodal.processing.BaseMultiModalProcessor._get_prompt_updates] 以
+返回一个 [PromptUpdate][vllm.multimodal.processing.PromptUpdate] 实例列表。
 
-Each [PromptUpdate][vllm.multimodal.processing.PromptUpdate] instance specifies an update operation
-(e.g.: insertion, replacement) performed by the HF processor.
+每个 [PromptUpdate][vllm.multimodal.processing.PromptUpdate] 实例指定一个由 HF 处理器执行的更新操作
+（例如：插入、替换）。
 
-=== "Basic example: LLaVA"
+=== "基本示例：LLaVA"
 
-    Looking at HF's `LlavaProcessor`:
+    查看 HF 的 `LlavaProcessor`：
 
     ```python
     # https://github.com/huggingface/transformers/blob/v4.47.1/src/transformers/models/llava/processing_llava.py#L167-L170
@@ -643,8 +640,8 @@ Each [PromptUpdate][vllm.multimodal.processing.PromptUpdate] instance specifies 
         prompt_strings.append(sample)
     ```
 
-    It simply repeats each input `image_token` a number of times equal to the number of placeholder feature tokens (`num_image_tokens`).
-    Based on this, we override [_get_prompt_updates][vllm.multimodal.processing.BaseMultiModalProcessor._get_prompt_updates] as follows:
+    它只是将每个输入 `image_token` 重复等于占位符特征 token 数量（`num_image_tokens`）的次数。
+    基于此，我们按如下方式重写 [_get_prompt_updates][vllm.multimodal.processing.BaseMultiModalProcessor._get_prompt_updates]：
 
     ??? code
 
@@ -678,9 +675,9 @@ Each [PromptUpdate][vllm.multimodal.processing.PromptUpdate] instance specifies 
             ]
         ```
 
-=== "Handling additional tokens: Fuyu"
+=== "处理额外 token：Fuyu"
 
-    Recall the layout of feature tokens from Step 2:
+    回顾步骤 2 中的特征 token 布局：
 
     ```
     |SPEAKER||SPEAKER|...|SPEAKER||NEWLINE|
@@ -689,7 +686,7 @@ Each [PromptUpdate][vllm.multimodal.processing.PromptUpdate] instance specifies 
     |SPEAKER||SPEAKER|...|SPEAKER||NEWLINE|
     ```
 
-    We define a helper function to return `ncols` and `nrows` directly:
+    我们定义一个辅助函数来直接返回 `ncols` 和 `nrows`：
 
     ??? code
 
@@ -719,7 +716,7 @@ Each [PromptUpdate][vllm.multimodal.processing.PromptUpdate] instance specifies 
             return ncols, nrows
         ```
 
-    Based on this, we can initially define our replacement tokens as:
+    基于此，我们可以初步将替换 token 定义为：
 
     ??? code
 
@@ -733,13 +730,13 @@ Each [PromptUpdate][vllm.multimodal.processing.PromptUpdate] instance specifies 
                 image_height=image_size.height,
             )
 
-            # `_IMAGE_TOKEN_ID` corresponds to `|SPEAKER|`
-            # `_NEWLINE_TOKEN_ID` corresponds to `|NEWLINE|`
+            # `_IMAGE_TOKEN_ID` 对应 `|SPEAKER|`
+            # `_NEWLINE_TOKEN_ID` 对应 `|NEWLINE|`
             return ([_IMAGE_TOKEN_ID] * ncols + [_NEWLINE_TOKEN_ID]) * nrows
         ```
 
-    However, this is not entirely correct. After `FuyuImageProcessor.preprocess_with_tokenizer_info` is called,
-    a BOS token (`<s>`) is also added to the prompt:
+    然而，这并不完全正确。在调用 `FuyuImageProcessor.preprocess_with_tokenizer_info` 之后，
+    一个 BOS token（`<s>`）也会被添加到提示中：
 
     ??? code
 
@@ -765,8 +762,8 @@ Each [PromptUpdate][vllm.multimodal.processing.PromptUpdate] instance specifies 
         )
         ```
 
-    To assign the vision embeddings to only the image tokens, instead of a string
-    you can return an instance of [PromptUpdateDetails][vllm.multimodal.processing.PromptUpdateDetails]:
+    为了将视觉嵌入仅分配给图像 token，而不是字符串，
+    您可以返回一个 [PromptUpdateDetails][vllm.multimodal.processing.PromptUpdateDetails] 实例：
 
     ??? code
 
@@ -791,8 +788,8 @@ Each [PromptUpdate][vllm.multimodal.processing.PromptUpdate] instance specifies 
             )
         ```
 
-    Finally, noticing that the HF processor removes the `|ENDOFTEXT|` token from the tokenized prompt,
-    we can search for it to conduct the replacement at the start of the string:
+    最后，注意到 HF 处理器从标记化后的提示中移除了 `|ENDOFTEXT|` token，
+    我们可以搜索它来在字符串开头执行替换：
 
     ??? code
 
@@ -835,13 +832,13 @@ Each [PromptUpdate][vllm.multimodal.processing.PromptUpdate] instance specifies 
             ]
         ```
 
-## 5. Register processor-related classes
+## 5. 注册处理器相关类
 
-After you have defined [BaseProcessingInfo][vllm.multimodal.processing.BaseProcessingInfo] (Step 2),
-[BaseDummyInputsBuilder][vllm.multimodal.processing.BaseDummyInputsBuilder] (Step 3),
-and [BaseMultiModalProcessor][vllm.multimodal.processing.BaseMultiModalProcessor] (Step 4),
-decorate the model class with [MULTIMODAL_REGISTRY.register_processor][vllm.multimodal.registry.MultiModalRegistry.register_processor]
-to register them to the multi-modal registry:
+在您定义了 [BaseProcessingInfo][vllm.multimodal.processing.BaseProcessingInfo]（步骤 2）、
+[BaseDummyInputsBuilder][vllm.multimodal.processing.BaseDummyInputsBuilder]（步骤 3）
+和 [BaseMultiModalProcessor][vllm.multimodal.processing.BaseMultiModalProcessor]（步骤 4）之后，
+使用 [MULTIMODAL_REGISTRY.register_processor][vllm.multimodal.registry.MultiModalRegistry.register_processor]
+装饰模型类，将它们注册到多模态注册表中：
 
 ```diff
   from vllm.model_executor.models.interfaces import SupportsMultiModal
@@ -855,33 +852,33 @@ to register them to the multi-modal registry:
   class YourModelForImage2Seq(nn.Module, SupportsMultiModal):
 ```
 
-## Notes
+## 备注
 
-### Inserting feature tokens without replacement
+### 插入特征 token 而不替换
 
-Some HF processors directly insert feature tokens without replacing anything in the original prompt. In that case, you can use [PromptInsertion][vllm.multimodal.processing.PromptInsertion] instead of [PromptReplacement][vllm.multimodal.processing.PromptReplacement] inside [_get_prompt_updates][vllm.multimodal.processing.BaseMultiModalProcessor._get_prompt_updates].
+某些 HF 处理器直接在原始提示中插入特征 token，而不替换任何内容。在这种情况下，您可以在 [_get_prompt_updates][vllm.multimodal.processing.BaseMultiModalProcessor._get_prompt_updates] 中使用 [PromptInsertion][vllm.multimodal.processing.PromptInsertion] 而不是 [PromptReplacement][vllm.multimodal.processing.PromptReplacement]。
 
-Examples:
+示例：
 
-- BLIP-2 (insert at start of prompt): [vllm/model_executor/models/blip2.py](../../../vllm/model_executor/models/blip2.py)
-- Molmo (insert after `<|endoftext|>` token): [vllm/model_executor/models/molmo.py](../../../vllm/model_executor/models/molmo.py)
+- BLIP-2（在提示开头插入）：[vllm/model_executor/models/blip2.py](../../../vllm/model_executor/models/blip2.py)
+- Molmo（在 `<|endoftext|>` token 之后插入）：[vllm/model_executor/models/molmo.py](../../../vllm/model_executor/models/molmo.py)
 
-### Handling prompt updates unrelated to multi-modal data
+### 处理与多模态数据无关的提示更新
 
-[_get_prompt_updates][vllm.multimodal.processing.BaseMultiModalProcessor._get_prompt_updates] assumes that each application of prompt update corresponds to one multi-modal item. If the HF processor performs additional processing regardless of how many multi-modal items there are, you should override [_apply_hf_processor_tokens_only][vllm.multimodal.processing.BaseMultiModalProcessor._apply_hf_processor_tokens_only] so that the processed token inputs are consistent with the result of applying the HF processor on text inputs. This is because token inputs bypass the HF processor according to [our design](../../design/mm_processing.md).
+[_get_prompt_updates][vllm.multimodal.processing.BaseMultiModalProcessor._get_prompt_updates] 假设每次应用提示更新对应一个多模态项。如果 HF 处理器执行额外的处理而不管多模态项的数量，您应该重写 [_apply_hf_processor_tokens_only][vllm.multimodal.processing.BaseMultiModalProcessor._apply_hf_processor_tokens_only]，以使处理后的 token 输入与在文本输入上应用 HF 处理器的结果一致。这是因为根据[我们的设计](../../design/mm_processing.md)，token 输入会绕过 HF 处理器。
 
-Examples:
+示例：
 
-- Chameleon (appends `sep_token`): [vllm/model_executor/models/chameleon.py](../../../vllm/model_executor/models/chameleon.py)
-- Fuyu (appends `boa_token`): [vllm/model_executor/models/fuyu.py](../../../vllm/model_executor/models/fuyu.py)
-- Molmo (applies chat template which is not defined elsewhere): [vllm/model_executor/models/molmo.py](../../../vllm/model_executor/models/molmo.py)
+- Chameleon（附加 `sep_token`）：[vllm/model_executor/models/chameleon.py](../../../vllm/model_executor/models/chameleon.py)
+- Fuyu（附加 `boa_token`）：[vllm/model_executor/models/fuyu.py](../../../vllm/model_executor/models/fuyu.py)
+- Molmo（应用聊天模板，该模板在其他地方未定义）：[vllm/model_executor/models/molmo.py](../../../vllm/model_executor/models/molmo.py)
 
-### Custom HF processor
+### 自定义 HF 处理器
 
-Some models don't define an HF processor class on HF Hub. In that case, you can define a custom HF processor that has the same call signature as HF processors and pass it to [_call_hf_processor][vllm.multimodal.processing.BaseMultiModalProcessor._call_hf_processor].
+某些模型在 HF Hub 上没有定义 HF 处理器类。在这种情况下，您可以定义一个自定义的 HF 处理器，该处理器具有与 HF 处理器相同的调用签名，并将其传递给 [_call_hf_processor][vllm.multimodal.processing.BaseMultiModalProcessor._call_hf_processor]。
 
-Examples:
+示例：
 
-- DeepSeek-VL2: [vllm/model_executor/models/deepseek_vl2.py](../../../vllm/model_executor/models/deepseek_vl2.py)
-- InternVL: [vllm/model_executor/models/internvl.py](../../../vllm/model_executor/models/internvl.py)
-- Qwen-VL: [vllm/model_executor/models/qwen_vl.py](../../../vllm/model_executor/models/qwen_vl.py)
+- DeepSeek-VL2：[vllm/model_executor/models/deepseek_vl2.py](../../../vllm/model_executor/models/deepseek_vl2.py)
+- InternVL：[vllm/model_executor/models/internvl.py](../../../vllm/model_executor/models/internvl.py)
+- Qwen-VL：[vllm/model_executor/models/qwen_vl.py](../../../vllm/model_executor/models/qwen_vl.py)

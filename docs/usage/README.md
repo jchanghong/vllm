@@ -1,9 +1,9 @@
-# Using vLLM
+# 使用 vLLM
 
-First, vLLM must be [installed](../getting_started/installation/README.md) for your chosen device in either a Python or Docker environment.
+首先，必须在 Python 或 Docker 环境中为您选择的设备[安装](../getting_started/installation/README.md) vLLM。
 
-Then, vLLM supports the following usage patterns:
+然后，vLLM 支持以下使用模式：
 
-- [Inference and Serving](../serving/offline_inference.md): Run a single instance of a model.
-- [Deployment](../deployment/docker.md): Scale up model instances for production.
-- [Training](../training/rlhf.md): Train or fine-tune a model.
+- [推理与服务](../serving/offline_inference.md)：运行模型的单个实例。
+- [部署](../deployment/docker.md)：为生产环境扩展模型实例。
+- [训练](../training/rlhf.md)：训练或微调模型。

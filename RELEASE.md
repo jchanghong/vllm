@@ -1,73 +1,72 @@
-# Releasing vLLM
+# 发布 vLLM
 
-vLLM releases offer a reliable version of the code base, packaged into a binary format that can be conveniently accessed via [PyPI](https://pypi.org/project/vllm). These releases also serve as key milestones for the development team to communicate with the community about newly available features, improvements, and upcoming changes that could affect users, including potential breaking changes.
+vLLM 发布提供了可靠的代码库版本，打包为可通过 [PyPI](https://pypi.org/project/vllm) 方便获取的二进制格式。这些发布也是开发团队向社区传达新功能、改进和可能影响用户的即将发生的变更（包括潜在的中断性变更）的关键里程碑。
 
-## Release Cadence and Versioning
+## 发布节奏和版本管理
 
-We aim to have a regular release every 2 weeks. Since v0.12.0, regular releases increment the minor version rather than patch version. The list of past releases can be found [here](https://vllm.ai/releases).
+我们计划每 2 周进行一次常规发布。自 v0.12.0 起，常规发布递增次版本号而非补丁版本号。历史发布列表可在[此处](https://vllm.ai/releases)查看。
 
-Our version numbers are expressed in the form `vX.Y.Z`, where `X` is the major version, `Y` is the minor version, and `Z` is the patch version. They are incremented according to the following rules:
+我们的版本号采用 `vX.Y.Z` 的形式，其中 `X` 是主版本号，`Y` 是次版本号，`Z` 是补丁版本号。它们根据以下规则递增：
 
-* _Major_ releases are reserved for architectural milestones involving sweeping API changes, similar to PyTorch 2.0.
-* _Minor_ releases correspond to regular releases, which include new features, bug fixes and other backwards-compatible changes.
-* _Patch_ releases correspond to special releases for new models, as well as emergency patches for critical performance, functionality and security issues.
+* _主版本_ 保留给涉及大规模 API 变更的架构性里程碑，类似于 PyTorch 2.0。
+* _次版本_ 对应于常规发布，包括新功能、错误修复和其他向后兼容的变更。
+* _补丁版本_ 对应于针对新模型的特殊发布，以及针对关键性能、功能和安全问题的紧急补丁。
 
-This versioning scheme is similar to [SemVer](https://semver.org/) for compatibility purposes, except that backwards compatibility is only guaranteed for a limited number of minor releases (see our [deprecation policy](https://docs.vllm.ai/en/latest/contributing/deprecation_policy) for details).
+此版本方案与 [SemVer](https://semver.org/) 类似以实现兼容性，但向后兼容性仅保证有限的次版本数（详情请参阅我们的[弃用策略](https://docs.vllm.ai/en/latest/contributing/deprecation_policy)）。
 
-## Release Branch
+## 发布分支
 
-Each release is built from a dedicated release branch.
+每个发布版本都从专用的发布分支构建。
 
-* For _major_ and _minor_ releases, the release branch cut is performed 1-2 days before release is live.
-* For _patch_ releases, previously cut release branch is reused.
-* Release builds are triggered via push to RC tag like `vX.Y.Z-rc1`. This enables us to build and test multiple RCs for each release.
-* Final tag: `vX.Y.Z` does not trigger the build but used for Release notes and assets.
-* After branch cut is created, we monitor the main branch for any reverts and apply these reverts to a release branch.
+* 对于 _主版本_ 和 _次版本_ 发布，分支切割在发布上线前 1-2 天进行。
+* 对于 _补丁版本_ 发布，重复使用之前切割的发布分支。
+* 发布构建通过推送到形如 `vX.Y.Z-rc1` 的 RC 标签触发。这使我们能够为每个发布版本构建和测试多个 RC。
+* 最终标签：`vX.Y.Z` 不触发构建，但用于发布说明和资产。
+* 在创建分支切割后，我们监控主分支上的任何回退，并将这些回退应用到发布分支。
 
-### Cherry-Pick Criteria
+### Cherry-Pick 标准
 
-After branch cut, we approach finalizing the release branch with clear criteria on what cherry picks are allowed in. Note: a cherry pick is a process to land a PR in the release branch after branch cut. These are typically limited to ensure that the team has sufficient time to complete a thorough round of testing on a stable code base.
+在分支切割后，我们以明确的标准来最终确定发布分支，确定哪些 cherry pick 可以合入。注意：cherry pick 是在分支切割后将 PR 合并到发布分支的过程。这些操作通常受到限制，以确保团队有足够的时间在稳定的代码库上完成一轮彻底的测试。
 
-* Regression fixes - that address functional/performance regression against the most recent release (e.g. 0.7.0 for 0.7.1 release)
-* Critical fixes - critical fixes for severe issue such as silent incorrectness, backwards compatibility, crashes, deadlocks, (large) memory leaks
-* Fixes to new features introduced in the most recent release (e.g. 0.7.0 for 0.7.1 release)
-* Documentation improvements
-* Release branch specific changes (e.g. change version identifiers or CI fixes)
+* 回归修复 - 解决与最近发布版本（例如 0.7.1 版本的 0.7.0）相比的功能/性能回归问题
+* 关键修复 - 针对严重问题的关键修复，如静默不正确、向后兼容性、崩溃、死锁、（大量）内存泄漏
+* 修复最近发布版本中引入的新功能（例如 0.7.1 版本的 0.7.0）
+* 文档改进
+* 发布分支特定的变更（例如更改版本标识符或 CI 修复）
 
-Please note: **No feature work allowed for cherry picks**. All PRs that are considered for cherry-picks need to be merged on trunk, the only exception are Release branch specific changes.
+请注意：**Cherry pick 不允许引入新功能**。所有考虑进行 cherry pick 的 PR 都需要先在主干上合并，发布分支特定的变更是唯一例外。
 
-## Manual validations
+## 手动验证
 
-### E2E Performance Validation
+### 端到端性能验证
 
-Before each release, we perform end-to-end performance validation to ensure no regressions are introduced. This validation uses the [vllm-benchmark workflow](https://github.com/pytorch/pytorch-integration-testing/actions/workflows/vllm-benchmark.yml) on PyTorch CI.
+在每次发布之前，我们都会进行端到端性能验证，以确保没有引入回归问题。此验证使用 PyTorch CI 上的 [vllm-benchmark 工作流](https://github.com/pytorch/pytorch-integration-testing/actions/workflows/vllm-benchmark.yml)。
 
-**Current Coverage:**
+**当前覆盖范围：**
 
-* Models: Llama3, Llama4, and Mixtral
-* Hardware: NVIDIA H100 and AMD MI300x
-* _Note: Coverage may change based on new model releases and hardware availability_
+* 模型：Llama3、Llama4 和 Mixtral
+* 硬件：NVIDIA H100 和 AMD MI300x
+* _注意：覆盖范围可能根据新模型发布和硬件可用性而变化_
 
-**Performance Validation Process:**
+**性能验证流程：**
 
-**Step 1: Get Access**
-Request write access to the [pytorch/pytorch-integration-testing](https://github.com/pytorch/pytorch-integration-testing) repository to run the benchmark workflow.
+**步骤 1：获取访问权限**
+请求 [pytorch/pytorch-integration-testing](https://github.com/pytorch/pytorch-integration-testing) 仓库的写权限以运行基准测试工作流。
 
-**Step 2: Review Benchmark Setup**
-Familiarize yourself with the benchmark configurations:
+**步骤 2：查看基准测试配置**
+熟悉基准测试配置：
 
-* [CUDA setup](https://github.com/pytorch/pytorch-integration-testing/tree/main/vllm-benchmarks/benchmarks/cuda)
-* [ROCm setup](https://github.com/pytorch/pytorch-integration-testing/tree/main/vllm-benchmarks/benchmarks/rocm)
+* [CUDA 配置](https://github.com/pytorch/pytorch-integration-testing/tree/main/vllm-benchmarks/benchmarks/cuda)
+* [ROCm 配置](https://github.com/pytorch/pytorch-integration-testing/tree/main/vllm-benchmarks/benchmarks/rocm)
 
-**Step 3: Run the Benchmark**
-Navigate to the [vllm-benchmark workflow](https://github.com/pytorch/pytorch-integration-testing/actions/workflows/vllm-benchmark.yml) and configure:
+**步骤 3：运行基准测试**
+导航到 [vllm-benchmark 工作流](https://github.com/pytorch/pytorch-integration-testing/actions/workflows/vllm-benchmark.yml) 并配置：
 
-* **vLLM branch**: Set to the release branch (e.g., `releases/v0.9.2`)
-* **vLLM commit**: Set to the RC commit hash
+* **vLLM 分支**：设置为发布分支（例如 `releases/v0.9.2`）
+* **vLLM 提交**：设置为 RC 提交哈希
 
-**Step 4: Review Results**
-Once the workflow completes, benchmark results will be available on the [vLLM benchmark dashboard](https://hud.pytorch.org/benchmark/llms?repoName=vllm-project%2Fvllm) under the corresponding branch and commit.
+**步骤 4：查看结果**
+工作流完成后，基准测试结果将发布在 [vLLM 基准测试仪表板](https://hud.pytorch.org/benchmark/llms?repoName=vllm-project%2Fvllm) 上，对应分支和提交下。
 
-**Step 5: Performance Comparison**
-Compare the current results against the previous release to verify no performance regressions have occurred. Here is an
-example of [v0.9.1 vs v0.9.2](https://hud.pytorch.org/benchmark/llms?startTime=Thu%2C%2017%20Apr%202025%2021%3A43%3A50%20GMT&stopTime=Wed%2C%2016%20Jul%202025%2021%3A43%3A50%20GMT&granularity=week&lBranch=releases/v0.9.1&lCommit=b6553be1bc75f046b00046a4ad7576364d03c835&rBranch=releases/v0.9.2&rCommit=a5dd03c1ebc5e4f56f3c9d3dc0436e9c582c978f&repoName=vllm-project%2Fvllm&benchmarkName=&modelName=All%20Models&backendName=All%20Backends&modeName=All%20Modes&dtypeName=All%20DType&deviceName=All%20Devices&archName=All%20Platforms).
+**步骤 5：性能对比**
+将当前结果与上一个发布版本进行比较，以验证没有发生性能回归。这是一个 [v0.9.1 vs v0.9.2](https://hud.pytorch.org/benchmark/llms?startTime=Thu%2C%2017%20Apr%202025%2021%3A43%3A50%20GMT&stopTime=Wed%2C%2016%20Jul%202025%2021%3A43%3A50%20GMT&granularity=week&lBranch=releases/v0.9.1&lCommit=b6553be1bc75f046b00046a4ad7576364d03c835&rBranch=releases/v0.9.2&rCommit=a5dd03c1ebc5e4f56f3c9d3dc0436e9c582c978f&repoName=vllm-project%2Fvllm&benchmarkName=&modelName=All%20Models&backendName=All%20Backends&modeName=All%20Modes&dtypeName=All%20DType&deviceName=All%20Devices&archName=All%20Platforms) 的对比示例。

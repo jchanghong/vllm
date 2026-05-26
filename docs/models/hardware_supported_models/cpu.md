@@ -1,17 +1,17 @@
 # CPU - Intel® Xeon®
 
-## Validated Hardware
+## 已验证的硬件
 
-| Hardware |
+| 硬件 |
 | -------- |
-| [Intel® Xeon® 6 Processors](https://www.intel.com/content/www/us/en/products/details/processors/xeon.html) |
-| [Intel® Xeon® 5 Processors](https://www.intel.com/content/www/us/en/products/docs/processors/xeon/5th-gen-xeon-scalable-processors.html) |
+| [Intel® Xeon® 6 处理器](https://www.intel.com/content/www/us/en/products/details/processors/xeon.html) |
+| [Intel® Xeon® 5 处理器](https://www.intel.com/content/www/us/en/products/docs/processors/xeon/5th-gen-xeon-scalable-processors.html) |
 
-## Recommended Models
+## 推荐模型
 
-### Text-only Language Models
+### 纯文本语言模型
 
-| Model | Architecture | Supported |
+| 模型 | 架构 | 支持情况 |
 | ------------------------------------ | ---------------------------------------- | --------- |
 | unsloth/gpt-oss-20b | GptOssForCausalLM | ✅ |
 | meta-llama/Llama-3.1-8B-Instruct | LlamaForCausalLM | ✅ |
@@ -43,9 +43,9 @@
 | microsoft/Phi-4-reasoning | Phi3ForCausalLM | ✅ |
 | TheBloke/Mistral-7B-Instruct-v0.2-AWQ | MistralForCausalLM | ✅ |
 
-### Multimodal Language Models
+### 多模态语言模型
 
-| Model | Architecture | Supported |
+| 模型 | 架构 | 支持情况 |
 | ------------------------------------ | ---------------------------------------- | --------- |
 | meta-llama/Llama-4-Scout-17B-16E-Instruct | Llama4ForConditionalGeneration | ✅ |
 | google/gemma-3-4b-it | Gemma3ForConditionalGeneration | ✅ |
@@ -57,4 +57,4 @@
 | Qwen/Qwen2.5-VL-7B-Instruct | Qwen2VLForConditionalGeneration | ✅ |
 | openai/whisper-large-v3 | WhisperForConditionalGeneration | ✅ |
 
-✅ Runs and optimized.
+✅ 已运行并优化。

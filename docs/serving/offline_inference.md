@@ -1,96 +1,96 @@
-# Offline Inference
+# 离线推理
 
-Offline inference is possible in your own code using vLLM's [`LLM`][vllm.LLM] class.
+离线推理可以在你自己的代码中使用 vLLM 的 [`LLM`][vllm.LLM] 类实现。
 
-## Model Types
+## 模型类型
 
-vLLM models can be categorized into two types:
+vLLM 模型可分为两类：
 
-- **[Generative Models](../models/supported_models.md)** - Models that produce text completions or chat responses (e.g., LLaMA, Qwen, DeepSeek). Use `LLM.generate()` and `LLM.chat()` for these models.
+- **[生成式模型](../models/supported_models.md)**——生成文本补全或聊天响应的模型（例如 LLaMA、Qwen、DeepSeek）。对此类模型使用 `LLM.generate()` 和 `LLM.chat()`。
 
-- **[Pooling Models](../models/pooling_models/README.md)** - These models do not generate content. They are primarily used for classification and retrieval tasks, such as bge-m3 and Qwen3 Reranker.
+- **[池化模型](../models/pooling_models/README.md)**——这些模型不生成内容。它们主要用于分类和检索任务，例如 bge-m3 和 Qwen3 Reranker。
 
-## Generative APIs
+## 生成式 API
 
-For further details on generative models, please refer to [this page](../models/supported_models.md).
+有关生成式模型的更多详细信息，请参考[此页面](../models/supported_models.md)。
 
-- `LLM.generate` - Generates completions for the given input prompts.
-- `LLM.chat` - Generates responses for a chat conversation.
+- `LLM.generate`——为给定的输入提示生成补全。
+- `LLM.chat`——为聊天对话生成响应。
 
-## Asynchronous Queue APIs
+## 异步队列 API
 
-- `LLM.enqueue` - Enqueues prompts for generation without waiting for completion.
-- `LLM.enqueue_chat` - Enqueues chat conversations for generation without waiting.
-- `LLM.wait_for_completion` - Waits for all enqueued requests to complete and returns results.
+- `LLM.enqueue`——将提示加入生成队列，无需等待完成。
+- `LLM.enqueue_chat`——将聊天对话加入生成队列，无需等待。
+- `LLM.wait_for_completion`——等待所有已入队的请求完成并返回结果。
 
-## Pooling APIs
+## 池化 API
 
-For further details on pooling models, please refer to [this page](../models/pooling_models/README.md).
+有关池化模型的更多详细信息，请参考[此页面](../models/pooling_models/README.md)。
 
-- `LLM.classify` - Only applicable to [classification models](../models/pooling_models/classify.md).
-- `LLM.embed` - Only applicable to [embedding models](../models/pooling_models/embed.md).
-- `LLM.score` - Applicable to [score models](../models/pooling_models/scoring.md) (cross-encoder, bi-encoder, late-interaction).
-- `LLM.encode` - Applicable to all [pooling models](../models/pooling_models/README.md).
+- `LLM.classify`——仅适用于[分类模型](../models/pooling_models/classify.md)。
+- `LLM.embed`——仅适用于[嵌入模型](../models/pooling_models/embed.md)。
+- `LLM.score`——适用于[评分模型](../models/pooling_models/scoring.md)（交叉编码器、双编码器、后期交互）。
+- `LLM.encode`——适用于所有[池化模型](../models/pooling_models/README.md)。
 
-## Profiling APIs
+## 性能分析 API
 
-For further details on profiling, please refer to [this page](../contributing/profiling.md).
+有关性能分析的更多详细信息，请参考[此页面](../contributing/profiling.md)。
 
-- `LLM.start_profile` - Starts profiling with an optional custom trace prefix.
-- `LLM.stop_profile` - Stops the ongoing profiling session.
+- `LLM.start_profile`——使用可选的自定义跟踪前缀开始性能分析。
+- `LLM.stop_profile`——停止正在进行的性能分析会话。
 
-## Sleep Mode APIs
+## 休眠模式 API
 
-For further details on sleep mode, please refer to [this page](../features/sleep_mode.md).
+有关休眠模式的更多详细信息，请参考[此页面](../features/sleep_mode.md)。
 
-- `LLM.sleep` - Puts the engine into sleep mode.
-- `LLM.wake_up` - Wakes up the engine from sleep mode.
+- `LLM.sleep`——将引擎置于休眠模式。
+- `LLM.wake_up`——将引擎从休眠模式唤醒。
 
-## Cache Management APIs
+## 缓存管理 API
 
-- `LLM.reset_mm_cache` - Resets the multi-modal cache.
-- `LLM.reset_prefix_cache` - Resets the prefix cache.
+- `LLM.reset_mm_cache`——重置多模态缓存。
+- `LLM.reset_prefix_cache`——重置前缀缓存。
 
-## Metrics APIs
+## 指标 API
 
-For further details on metrics, please refer to [this page](../design/metrics.md).
+有关指标的更多详细信息，请参考[此页面](../design/metrics.md)。
 
-- `LLM.get_metrics` - Returns a snapshot of aggregated metrics from Prometheus.
+- `LLM.get_metrics`——返回来自 Prometheus 的聚合指标快照。
 
-## Weight Transfer APIs (RL Training)
+## 权重传输 API（RL 训练）
 
-For further details on Weight Transfer, please refer to [this page](../training/weight_transfer/README.md).
+有关权重传输的更多详细信息，请参考[此页面](../training/weight_transfer/README.md)。
 
-- `LLM.init_weight_transfer_engine` - Initializes the weight transfer engine for RL training.
-- `LLM.start_weight_update` - Starts a new weight update cycle.
-- `LLM.update_weights` - Updates the model weights.
-- `LLM.finish_weight_update` - Finishes the current weight update cycle.
+- `LLM.init_weight_transfer_engine`——初始化用于 RL 训练的权重传输引擎。
+- `LLM.start_weight_update`——开始新的权重更新周期。
+- `LLM.update_weights`——更新模型权重。
+- `LLM.finish_weight_update`——完成当前权重更新周期。
 
-## Additional APIs
+## 其他 API
 
-- `LLM.collective_rpc` - Executes a method or callable collectively across all workers.
-- `LLM.apply_model` - Applies a function directly to the model inside each worker.
+- `LLM.collective_rpc`——在所有工作节点上集体执行方法或可调用对象。
+- `LLM.apply_model`——在每个工作节点内部直接对模型应用函数。
 
-## API Reference
+## API 参考
 
-[Offline Inference](../api/README.md#offline-inference)
+[离线推理](../api/README.md#offline-inference)
 
 ## Ray Data LLM API
 
-Ray Data LLM is an alternative offline inference API that uses vLLM as the underlying engine.
-This API adds several batteries-included capabilities that simplify large-scale, GPU-efficient inference:
+Ray Data LLM 是另一种离线推理 API，使用 vLLM 作为底层引擎。
+该 API 增加了多项内置功能，简化了大规模、GPU 高效的推理：
 
-- Streaming execution processes datasets that exceed aggregate cluster memory.
-- Automatic sharding, load balancing, and autoscaling distribute work across a Ray cluster with built-in fault tolerance.
-- Continuous batching keeps vLLM replicas saturated and maximizes GPU utilization.
-- Transparent support for tensor and pipeline parallelism enables efficient multi-GPU inference.
-- Reading and writing to most popular file formats and cloud object storage.
-- Scaling up the workload without code changes.
+- 流式执行处理超出聚合集群内存的数据集。
+- 自动分片、负载均衡和自动扩展可在 Ray 集群上分配工作，并具有内置的容错能力。
+- 持续批处理使 vLLM 副本保持饱和状态，最大化 GPU 利用率。
+- 透明支持张量和流水线并行，实现高效的多 GPU 推理。
+- 支持读写大多数流行文件格式和云对象存储。
+- 无需更改代码即可扩展工作负载。
 
 ??? code
 
     ```python
-    import ray  # Requires ray>=2.44.1
+    import ray  # 需要 ray>=2.44.1
     from ray.data.llm import vLLMEngineProcessorConfig, build_llm_processor
 
     config = vLLMEngineProcessorConfig(model_source="unsloth/Llama-3.2-1B-Instruct")
@@ -111,4 +111,4 @@ This API adds several batteries-included capabilities that simplify large-scale,
     ds.write_parquet("local:///tmp/data/")
     ```
 
-For more information about the Ray Data LLM API, see the [Ray Data LLM documentation](https://docs.ray.io/en/latest/data/working-with-llms.html).
+有关 Ray Data LLM API 的更多信息，请参见 [Ray Data LLM 文档](https://docs.ray.io/en/latest/data/working-with-llms.html)。

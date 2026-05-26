@@ -1,25 +1,25 @@
-# Custom Arguments
+# 自定义参数
 
-You can use vLLM *custom arguments* to pass in arguments which are not part of the vLLM `SamplingParams` and REST API specifications. Adding or removing a vLLM custom argument does not require recompiling vLLM, since the custom arguments are passed in as a dictionary.
+您可以使用 vLLM **自定义参数** 来传递不属于 vLLM `SamplingParams` 和 REST API 规范的参数。添加或删除 vLLM 自定义参数不需要重新编译 vLLM，因为自定义参数是以字典形式传递的。
 
-Custom arguments can be useful if, for example, you want to use a [custom logits processor](./custom_logitsprocs.md) without modifying the vLLM source code.
+例如，如果您想使用 [自定义 logits 处理器](./custom_logitsprocs.md) 而无需修改 vLLM 源代码，自定义参数会很有用。
 
 !!! note
-    Make sure your custom logits processor have implemented `validate_params` for custom arguments. Otherwise, invalid custom arguments can cause unexpected behaviour.
+    请确保您的自定义 logits 处理器已为自定义参数实现 `validate_params`。否则，无效的自定义参数可能导致意外行为。
 
-## Offline Custom Arguments
+## 离线自定义参数
 
-Custom arguments passed to `SamplingParams.extra_args` as a `dict` will be visible to any code which has access to `SamplingParams`:
+以 `dict` 形式传递给 `SamplingParams.extra_args` 的自定义参数，对于任何有权访问 `SamplingParams` 的代码都是可见的：
 
 ``` python
 SamplingParams(extra_args={"your_custom_arg_name": 67})
 ```
 
-This allows arguments which are not already part of `SamplingParams` to be passed into `LLM` as part of a request.
+这允许将尚未属于 `SamplingParams` 部分的参数作为请求的一部分传递给 `LLM`。
 
-## Online Custom Arguments
+## 在线自定义参数
 
-The vLLM REST API allows custom arguments to be passed to the vLLM server via `vllm_xargs`. The example below integrates custom arguments into a vLLM REST API request:
+vLLM REST API 允许通过 `vllm_xargs` 将自定义参数传递给 vLLM 服务器。以下示例展示了如何将自定义参数集成到 vLLM REST API 请求中：
 
 ``` bash
 curl http://localhost:8000/v1/completions \
@@ -31,7 +31,7 @@ curl http://localhost:8000/v1/completions \
     }'
 ```
 
-Furthermore, OpenAI SDK users can access `vllm_xargs` via the `extra_body` argument:
+此外，OpenAI SDK 用户可以通过 `extra_body` 参数访问 `vllm_xargs`：
 
 ``` python
 batch = await client.completions.create(
@@ -46,4 +46,4 @@ batch = await client.completions.create(
 ```
 
 !!! note
-    `vllm_xargs` is assigned to `SamplingParams.extra_args` under the hood, so code which uses `SamplingParams.extra_args` is compatible with both offline and online scenarios.
+    `vllm_xargs` 在底层被赋值给 `SamplingParams.extra_args`，因此使用 `SamplingParams.extra_args` 的代码与离线和在线场景都兼容。

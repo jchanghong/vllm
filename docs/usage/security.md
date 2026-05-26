@@ -1,378 +1,346 @@
-# Security
+# 安全性
 
-## Inter-Node Communication
+## 节点间通信
 
-All communications between nodes in a multi-node vLLM deployment are **insecure by default** and must be protected by placing the nodes on an isolated network. This includes:
+多节点 vLLM 部署中所有节点之间的通信**默认不安全**，必须通过将节点放置在隔离网络上来保护。这包括：
 
-1. PyTorch Distributed communications
-2. KV cache transfer communications
-3. Tensor, Pipeline, and Data parallel communications
+1. PyTorch 分布式通信
+2. KV 缓存传输通信
+3. 张量、流水线和数据并行通信
 
-### Configuration Options for Inter-Node Communications
+### 节点间通信的配置选项
 
-The following options control internode communications in vLLM:
+以下选项控制 vLLM 中的节点间通信：
 
-#### 1. **Environment Variables:**
+#### 1. **环境变量：**
 
-- `VLLM_HOST_IP`: Sets the IP address for vLLM processes to communicate on
+- `VLLM_HOST_IP`：设置 vLLM 进程用于通信的 IP 地址
 
-#### 2. **KV Cache Transfer Configuration:**
+#### 2. **KV 缓存传输配置：**
 
-- `--kv-ip`: The IP address for KV cache transfer communications (default: 127.0.0.1)
-- `--kv-port`: The port for KV cache transfer communications (default: 14579)
+- `--kv-ip`：KV 缓存传输通信的 IP 地址（默认：127.0.0.1）
+- `--kv-port`：KV 缓存传输通信的端口（默认：14579）
 
-#### 3. **Data Parallel Configuration:**
+#### 3. **数据并行配置：**
 
-- `data_parallel_master_ip`: IP of the data parallel master (default: 127.0.0.1)
-- `data_parallel_master_port`: Port of the data parallel master (default: 29500)
+- `data_parallel_master_ip`：数据并行主节点的 IP（默认：127.0.0.1）
+- `data_parallel_master_port`：数据并行主节点的端口（默认：29500）
 
-### Notes on PyTorch Distributed
+### PyTorch 分布式注意事项
 
-vLLM uses PyTorch's distributed features for some internode communication. For
-detailed information about PyTorch Distributed security considerations, please
-refer to the [PyTorch Security
-Guide](https://github.com/pytorch/pytorch/security/policy#using-distributed-features).
+vLLM 使用 PyTorch 的分布式功能进行某些节点间通信。有关 PyTorch 分布式安全注意事项的详细信息，请参阅 [PyTorch 安全指南](https://github.com/pytorch/pytorch/security/policy#using-distributed-features)。
 
-Key points from the PyTorch security guide:
+PyTorch 安全指南中的关键要点：
 
-- PyTorch Distributed features are intended for internal communication only
-- They are not built for use in untrusted environments or networks
-- No authorization protocol is included for performance reasons
-- Messages are sent unencrypted
-- Connections are accepted from anywhere without checks
+- PyTorch 分布式功能仅用于内部通信
+- 它们不适合在不受信任的环境或网络中使用
+- 出于性能原因，不包含任何授权协议
+- 消息以未加密方式发送
+- 连接来自任何地方均无检查
 
-## Security Recommendations
+## 安全建议
 
-### 1. **Network Isolation:**
+### 1. **网络隔离：**
 
-- Deploy vLLM nodes on a dedicated, isolated network
-- Use network segmentation to prevent unauthorized access
-- Implement appropriate firewall rules
+- 将 vLLM 节点部署在专用、隔离的网络上
+- 使用网络分段以防止未经授权的访问
+- 实施适当的防火墙规则
 
-### 2. **Configuration Best Practices:**
+### 2. **配置最佳实践：**
 
-- Always set `VLLM_HOST_IP` to a specific IP address rather than using defaults
-- Configure firewalls to only allow necessary ports between nodes
+- 始终将 `VLLM_HOST_IP` 设置为特定的 IP 地址，而不是使用默认值
+- 配置防火墙，只允许节点之间的必要端口
 
-### 3. **Access Control:**
+### 3. **访问控制：**
 
-- Restrict physical and network access to the deployment environment
-- Implement proper authentication and authorization for management interfaces
-- Follow the principle of least privilege for all system components
+- 限制对部署环境的物理和网络访问
+- 为管理接口实施适当的身份验证和授权
+- 对所有系统组件遵循最小权限原则
 
-### 4. **Restrict Domains Access for Media URLs:**
+### 4. **限制媒体 URL 的域名访问：**
 
-Restrict domains that vLLM can access for media URLs by setting
-`--allowed-media-domains` to prevent Server-Side Request Forgery (SSRF) attacks.
-(e.g. `--allowed-media-domains upload.wikimedia.org github.com www.bogotobogo.com`)
+通过设置 `--allowed-media-domains` 限制 vLLM 可以访问的媒体 URL 域名，以防止服务端请求伪造（SSRF）攻击。（例如 `--allowed-media-domains upload.wikimedia.org github.com www.bogotobogo.com`）
 
-This protection applies to both the online serving API (multimodal inputs) and
-the **batch runner** (`vllm run-batch`), where `file_url` values in batch
-transcription/translation requests are validated against the same allowlist.
+此保护适用于在线服务 API（多模态输入）和**批处理运行器**（`vllm run-batch`），其中批处理转录/翻译请求中的 `file_url` 值会对照相同的允许列表进行验证。
 
-Without domain restrictions, a malicious user could supply URLs that:
+如果没有域名限制，恶意用户可能提供以下 URL：
 
-- **Target internal services**: Access internal network endpoints, cloud metadata
-  services (e.g. `169.254.169.254`), or other services not intended to be
-  publicly reachable (SSRF).
-- **Consume excessive resources**: Point to extremely large files or slow
-  endpoints, causing the server to download unbounded amounts of data and
-  exhausting memory, disk, or network bandwidth.
+- **针对内部服务**：访问内部网络端点、云元数据服务（例如 `169.254.169.254`）或其他不打算公开访问的服务（SSRF）。
+- **消耗过多资源**：指向极大的文件或慢速端点，导致服务器下载无限制的数据量，耗尽内存、磁盘或网络带宽。
 
-By explicitly allowlisting only the domains you expect media to come from, you
-significantly reduce the attack surface for these types of abuse.
+通过显式地只允许您期望媒体来源的域名，您可以显著减少这类滥用行为的攻击面。
 
-Also, consider setting `VLLM_MEDIA_URL_ALLOW_REDIRECTS=0` to prevent HTTP
-redirects from being followed to bypass domain restrictions.
+同时，考虑设置 `VLLM_MEDIA_URL_ALLOW_REDIRECTS=0` 以防止 HTTP 重定向被跟随以绕过域名限制。
 
-## Security and Firewalls: Protecting Exposed vLLM Systems
+## 安全与防火墙：保护暴露的 vLLM 系统
 
-While vLLM is designed to allow unsafe network services to be isolated to
-private networks, there are components—such as dependencies and underlying
-frameworks—that may open insecure services listening on all network interfaces,
-sometimes outside of vLLM's direct control.
+虽然 vLLM 设计为允许将不安全的网络服务隔离到私有网络中，但某些组件（如依赖项和底层框架）可能会在所有网络接口上打开不安全服务监听，有时超出了 vLLM 的直接控制。
 
-A major concern is the use of `torch.distributed`, which vLLM leverages for
-distributed communication, including when using vLLM on a single host. When vLLM
-uses TCP initialization (see [PyTorch TCP Initialization
-documentation](https://docs.pytorch.org/docs/stable/distributed.html#tcp-initialization)),
-PyTorch creates a `TCPStore` that, by default, listens on all network
-interfaces. This means that unless additional protections are put in place,
-these services may be accessible to any host that can reach your machine via any
-network interface.
+一个主要问题是 `torch.distributed` 的使用，vLLM 利用它进行分布式通信，包括在单主机上使用 vLLM 时。当 vLLM 使用 TCP 初始化（参见 [PyTorch TCP 初始化文档](https://docs.pytorch.org/docs/stable/distributed.html#tcp-initialization)）时，PyTorch 会创建一个 `TCPStore`，默认情况下监听所有网络接口。这意味着，除非采取额外的保护措施，否则任何可以通过任何网络接口访问您机器的主机都可能访问这些服务。
 
-**From a PyTorch perspective, any use of `torch.distributed` should be
-considered insecure by default.** This is a known and intentional behavior from
-the PyTorch team.
+**从 PyTorch 的角度来看，任何使用 `torch.distributed` 的行为默认都应被视为不安全的。** 这是 PyTorch 团队已知且有意为之的行为。
 
-### Firewall Configuration Guidance
+### 防火墙配置指南
 
-The best way to protect your vLLM system is to carefully configure a firewall to
-expose only the minimum network surface area necessary. In most cases, this
-means:
+保护 vLLM 系统的最佳方法是仔细配置防火墙，只暴露最小的必要网络面。在大多数情况下，这意味着：
 
-- **Block all incoming connections except to the TCP port the API server is
-listening on.**
+- **阻止所有传入连接，除了 API 服务器正在监听的 TCP 端口。**
 
-- Ensure that ports used for internal communication (such as those for
-`torch.distributed` and KV cache transfer) are only accessible from trusted
-hosts or networks.
+- 确保用于内部通信的端口（如 `torch.distributed` 和 KV 缓存传输的端口）只能从受信任的主机或网络访问。
 
-- Never expose these internal ports to the public internet or untrusted
-networks.
+- 切勿将这些内部端口暴露给公共互联网或不受信任的网络。
 
-Consult your operating system or application platform documentation for specific
-firewall configuration instructions.
+请查阅您的操作系统或应用程序平台文档以获取具体的防火墙配置说明。
 
-## API Key Authentication Limitations
+## API 密钥身份验证限制
 
-### Overview
+### 概述
 
-The `--api-key` flag (or `VLLM_API_KEY` environment variable) provides authentication for vLLM's HTTP server, but **only for OpenAI-compatible API endpoints under the `/v1` path prefix**, and other similar `/v2`, `/inference` path prefix**. Many other sensitive endpoints are exposed on the same HTTP server without any authentication enforcement.
+`--api-key` 标志（或 `VLLM_API_KEY` 环境变量）为 vLLM 的 HTTP 服务器提供身份验证，但**仅适用于 `/v1` 路径前缀下的 OpenAI 兼容 API 端点**，以及其他类似的 `/v2`、`/inference` 路径前缀。许多其他敏感端点在同一 HTTP 服务器上暴露，没有任何身份验证强制措施。
 
-**Important:** Do not rely exclusively on `--api-key` for securing access to vLLM. Additional security measures are required for production deployments.
+**重要提示：** 不要仅依赖 `--api-key` 来保护 vLLM 的访问安全。生产部署需要额外的安全措施。
+
+### 受保护的端点（需要 API 密钥）
 
-### Protected Endpoints (Require API Key)
+配置 `--api-key` 后，以下 `/v1` 端点需要 Bearer token 身份验证：
 
-When `--api-key` is configured, the following `/v1` endpoints require Bearer token authentication:
+- `/v1/models` - 列出可用模型
+- `/v1/chat/completions` - 聊天补全
+- `/v1/chat/completions/batch` - 批量聊天补全
+- `/v1/chat/completions/render` - 渲染聊天补全请求
+- `/v1/completions` - 文本补全
+- `/v1/completions/render` - 渲染补全请求
+- `/v1/embeddings` - 生成嵌入
+- `/v1/audio/transcriptions` - 音频转录
+- `/v1/audio/translations` - 音频翻译
+- `/v1/messages` - Anthropic 兼容消息 API
+- `/v1/messages/count_tokens` - 对 Anthropic 消息进行令牌计数
+- `/v1/responses` - 创建响应
+- `/v1/responses/{response_id}` - 检索响应
+- `/v1/responses/{response_id}/cancel` - 取消响应
+- `/v1/score` - 评分 API
+- `/v1/rerank` - 重排序 API
+- `/v1/load_lora_adapter` - 加载 LoRA 适配器（可以改变模型行为；仅在设置了 `--enable-lora` 且 `VLLM_ALLOW_RUNTIME_LORA_UPDATING=True` 时可用）
+- `/v1/unload_lora_adapter` - 卸载 LoRA 适配器（可以改变模型行为；仅在设置了 `--enable-lora` 且 `VLLM_ALLOW_RUNTIME_LORA_UPDATING=True` 时可用）
+- `/inference/v1/generate` - 生成补全
+- `/v2/embed` - Cohere 嵌入 API
+- `/v2/rerank` - Cohere 重排序 API
 
-- `/v1/models` - List available models
-- `/v1/chat/completions` - Chat completions
-- `/v1/chat/completions/batch` - Batch chat completions
-- `/v1/chat/completions/render` - Render chat completion requests
-- `/v1/completions` - Text completions
-- `/v1/completions/render` - Render completion requests
-- `/v1/embeddings` - Generate embeddings
-- `/v1/audio/transcriptions` - Audio transcription
-- `/v1/audio/translations` - Audio translation
-- `/v1/messages` - Anthropic-compatible messages API
-- `/v1/messages/count_tokens` - Count tokens for Anthropic messages
-- `/v1/responses` - Create a response
-- `/v1/responses/{response_id}` - Retrieve a response
-- `/v1/responses/{response_id}/cancel` - Cancel a response
-- `/v1/score` - Scoring API
-- `/v1/rerank` - Reranking API
-- `/v1/load_lora_adapter` - Load a LoRA adapter (can alter model behavior; only available when `--enable-lora` is set and `VLLM_ALLOW_RUNTIME_LORA_UPDATING=True`)
-- `/v1/unload_lora_adapter` - Unload a LoRA adapter (can alter model behavior; only available when `--enable-lora` is set and `VLLM_ALLOW_RUNTIME_LORA_UPDATING=True`)
-- `/inference/v1/generate` - Generate completions
-- `/v2/embed` - Cohere Embed API
-- `/v2/rerank` - Cohere Rerank API
+### 未受保护的端点（无需 API 密钥）
 
-### Unprotected Endpoints (No API Key Required)
+即使配置了 `--api-key`，以下端点**也不需要身份验证**：
 
-The following endpoints **do not require authentication** even when `--api-key` is configured:
+**推理端点：**
 
-**Inference endpoints:**
+- `/invocations` - SageMaker 兼容端点（路由到与 `/v1` 端点相同的推理功能）
+- `/generative_scoring` - 生成式评分 API
+- `/pooling` - 池化 API
+- `/classify` - 分类 API
+- `/score` - 评分 API（非 `/v1` 变体）
+- `/rerank` - 重排序 API（非 `/v1` 变体）
 
-- `/invocations` - SageMaker-compatible endpoint (routes to the same inference functions as `/v1` endpoints)
-- `/generative_scoring` - Generative scoring API
-- `/pooling` - Pooling API
-- `/classify` - Classification API
-- `/score` - Scoring API (non-`/v1` variant)
-- `/rerank` - Reranking API (non-`/v1` variant)
+**操作控制端点（仅在支持 `"generate"` 任务时）：**
 
-**Operational control endpoints (only when `"generate"` task is supported):**
+- `/pause` - 暂停生成（导致拒绝服务）
+- `/resume` - 恢复生成
+- `/is_paused` - 检查生成是否暂停
+- `/scale_elastic_ep` - 触发扩缩操作
+- `/is_scaling_elastic_ep` - 检查扩缩是否进行中
+- `/init_weight_transfer_engine` - 为 RLHF 初始化权重传输引擎
+- `/update_weights` - 更新模型权重（可以改变模型行为）
+- `/get_world_size` - 获取分布式世界大小
+- `/abort_requests` - 中止正在进行的请求（仅在同时设置了 `--tokens-only` 时）
 
-- `/pause` - Pause generation (causes denial of service)
-- `/resume` - Resume generation
-- `/is_paused` - Check if generation is paused
-- `/scale_elastic_ep` - Trigger scaling operations
-- `/is_scaling_elastic_ep` - Check if scaling is in progress
-- `/init_weight_transfer_engine` - Initialize weight transfer engine for RLHF
-- `/update_weights` - Update model weights (can alter model behavior)
-- `/get_world_size` - Get distributed world size
-- `/abort_requests` - Abort in-flight requests (only when `--tokens-only` is also set)
+**实用端点：**
 
-**Utility endpoints:**
+- `/tokenize` - 分词
+- `/detokenize` - 解码标记
+- `/health` - 健康检查
+- `/ping` - SageMaker 健康检查
+- `/version` - 版本信息
+- `/load` - 服务器负载指标
 
-- `/tokenize` - Tokenize text
-- `/detokenize` - Detokenize tokens
-- `/health` - Health check
-- `/ping` - SageMaker health check
-- `/version` - Version information
-- `/load` - Server load metrics
+**分词器信息端点（仅在设置了 `--enable-tokenizer-info-endpoint` 时）：**
 
-**Tokenizer information endpoint (only when `--enable-tokenizer-info-endpoint` is set):**
+此端点**仅当设置了 `--enable-tokenizer-info-endpoint` 标志时才可用**。它可能暴露敏感信息，如聊天模板和分词器配置：
 
-This endpoint is **only available when the `--enable-tokenizer-info-endpoint` flag is set**. It may expose sensitive information such as chat templates and tokenizer configuration:
+- `/tokenizer_info` - 获取全面的分词器信息，包括聊天模板和配置
 
-- `/tokenizer_info` - Get comprehensive tokenizer information including chat templates and configuration
+**开发端点（仅在 `VLLM_SERVER_DEV_MODE=1` 时）：**
 
-**Development endpoints (only when `VLLM_SERVER_DEV_MODE=1`):**
+这些端点**仅当环境变量 `VLLM_SERVER_DEV_MODE` 设置为 `1` 时才可用**。它们仅用于开发和调试目的，绝不应在生产环境中启用：
 
-These endpoints are **only available when the environment variable `VLLM_SERVER_DEV_MODE` is set to `1`**. They are intended for development and debugging purposes and should never be enabled in production:
+- `/server_info` - 获取详细的服务器配置
+- `/reset_prefix_cache` - 重置前缀缓存（可能中断服务）
+- `/reset_mm_cache` - 重置多模态缓存（可能中断服务）
+- `/reset_encoder_cache` - 重置编码器缓存（可能中断服务）
+- `/sleep` - 使引擎休眠（导致拒绝服务）
+- `/wake_up` - 唤醒引擎
+- `/is_sleeping` - 检查引擎是否在休眠
+- `/collective_rpc` - 在引擎上执行任意 RPC 方法（极其危险）
 
-- `/server_info` - Get detailed server configuration
-- `/reset_prefix_cache` - Reset prefix cache (can disrupt service)
-- `/reset_mm_cache` - Reset multimodal cache (can disrupt service)
-- `/reset_encoder_cache` - Reset encoder cache (can disrupt service)
-- `/sleep` - Put engine to sleep (causes denial of service)
-- `/wake_up` - Wake engine from sleep
-- `/is_sleeping` - Check if engine is sleeping
-- `/collective_rpc` - Execute arbitrary RPC methods on the engine (extremely dangerous)
+**分析器端点（仅当通过 `--profiler-config` 启用分析时）：**
 
-**Profiler endpoints (only when profiling is enabled via `--profiler-config`):**
+这些端点仅在启用分析时可用，应仅用于本地开发：
 
-These endpoints are only available when profiling is enabled and should only be used for local development:
+- `/start_profile` - 启动 PyTorch 分析器
+- `/stop_profile` - 停止 PyTorch 分析器
 
-- `/start_profile` - Start PyTorch profiler
-- `/stop_profile` - Stop PyTorch profiler
+**注意：** `/invocations` 端点尤其令人担忧，因为它提供对受保护 `/v1` 端点相同推理功能的未认证访问。
 
-**Note:** The `/invocations` endpoint is particularly concerning as it provides unauthenticated access to the same inference capabilities as the protected `/v1` endpoints.
+### 安全影响
 
-### Security Implications
+能够访问 vLLM HTTP 服务器的攻击者可以：
 
-An attacker who can reach the vLLM HTTP server can:
+1. **绕过身份验证**：通过使用非 `/v1` 端点（如 `/invocations`、`/inference/v1/generate`、`/generative_scoring`、`/pooling`、`/classify`、`/score` 或 `/rerank`）在没有凭据的情况下运行任意推理
+2. **造成拒绝服务**：通过在没有令牌的情况下调用 `/pause`、`/scale_elastic_ep` 或 `/abort_requests`
+3. **访问操作控制**：操纵服务器状态（例如，暂停生成、通过 `/update_weights` 更新模型权重）
+4. **如果设置了 `--enable-tokenizer-info-endpoint`**：访问敏感的分词器配置（包括聊天模板），可能泄露提示工程策略或其他实现细节
+5. **如果设置了 `VLLM_SERVER_DEV_MODE=1`**：通过 `/collective_rpc` 执行任意 RPC 命令、重置缓存、使引擎休眠以及访问详细的服务器配置
 
-1. **Bypass authentication** by using non-`/v1` endpoints like `/invocations`, `/inference/v1/generate`, `/generative_scoring`, `/pooling`, `/classify`, `/score`, or `/rerank` to run arbitrary inference without credentials
-2. **Cause denial of service** by calling `/pause`, `/scale_elastic_ep`, or `/abort_requests` without a token
-3. **Access operational controls** to manipulate server state (e.g., pausing generation, updating model weights via `/update_weights`)
-4. **If `--enable-tokenizer-info-endpoint` is set:** Access sensitive tokenizer configuration including chat templates, which may reveal prompt engineering strategies or other implementation details
-5. **If `VLLM_SERVER_DEV_MODE=1` is set:** Execute arbitrary RPC commands via `/collective_rpc`, reset caches, put the engine to sleep, and access detailed server configuration
+### 推荐的安全实践
 
-### Recommended Security Practices
+#### 1. 最小化暴露的端点
 
-#### 1. Minimize Exposed Endpoints
+**关键：** 切勿在生产环境中设置 `VLLM_SERVER_DEV_MODE=1`。开发端点暴露极其危险的功能，包括：
 
-**CRITICAL:** Never set `VLLM_SERVER_DEV_MODE=1` in production environments. Development endpoints expose extremely dangerous functionality including:
+- 通过 `/collective_rpc` 执行任意 RPC
+- 可能中断服务的缓存操作
+- 详细的服务器配置披露
 
-- Arbitrary RPC execution via `/collective_rpc`
-- Cache manipulation that can disrupt service
-- Detailed server configuration disclosure
+同样，切勿在生产环境中启用分析器端点。
 
-Similarly, never enable profiler endpoints in production.
+**谨慎使用 `--enable-tokenizer-info-endpoint`：** 仅当您需要暴露分词器配置信息时才启用 `/tokenizer_info` 端点。此端点会泄露可能包含敏感实现细节或提示工程策略的聊天模板和分词器设置。
 
-**Be cautious with `--enable-tokenizer-info-endpoint`:** Only enable the `/tokenizer_info` endpoint if you need to expose tokenizer configuration information. This endpoint reveals chat templates and tokenizer settings that may contain sensitive implementation details or prompt engineering strategies.
+#### 2. 部署在反向代理后面
 
-#### 2. Deploy Behind a Reverse Proxy
+最有效的方法是将 vLLM 部署在反向代理（如 nginx、Envoy 或 Kubernetes Gateway）后面，该代理能够：
 
-The most effective approach is to deploy vLLM behind a reverse proxy (such as nginx, Envoy, or a Kubernetes Gateway) that:
+- 明确只允许列出您想向最终用户暴露的端点
+- 阻止所有其他端点，包括未认证的推理和操作控制端点
+- 在代理层实施额外的身份验证、速率限制和日志记录
 
-- Explicitly allowlists only the endpoints you want to expose to end users
-- Blocks all other endpoints, including the unauthenticated inference and operational control endpoints
-- Implements additional authentication, rate limiting, and logging at the proxy layer
+## 请求参数资源限制
 
-## Request Parameter Resource Limits
+某些 API 请求参数可能对资源消耗产生重大影响，并可能被滥用以耗尽服务器资源。`/v1/completions` 和 `/v1/chat/completions` 端点中的 `n` 参数控制每个请求生成多少个独立的输出序列。非常大的值会导致引擎分配与 `n` 成比例的内存、CPU 和 GPU 时间，可能导致主机内存不足，并阻止服务器处理其他请求。
 
-Certain API request parameters can have a large impact on resource consumption and may be abused to exhaust server resources. The `n` parameter in the `/v1/completions` and `/v1/chat/completions` endpoints controls how many independent output sequences are generated per request. A very large value causes the engine to allocate memory, CPU, and GPU time proportional to `n`, which can lead to out-of-memory conditions on the host and block the server from processing other requests.
+为了缓解此问题，vLLM 通过 `VLLM_MAX_N_SEQUENCES` 环境变量（默认值：**16384**）对 `n` 参数实施可配置的上限。超过此限制的请求在被引擎处理之前就会被拒绝。
 
-To mitigate this, vLLM enforces a configurable upper bound on the `n` parameter via the `VLLM_MAX_N_SEQUENCES` environment variable (default: **16384**). Requests exceeding this limit are rejected before reaching the engine.
+### 建议
 
-### Recommendations
+- **面向公众的部署：** 考虑将 `VLLM_MAX_N_SEQUENCES` 设置为适合您工作负载的值（例如 `64` 或 `128`），以限制单个请求的影响范围。
+- **反向代理层：** 除了 vLLM 的内置限制外，考虑在反向代理上实施请求正文验证和速率限制，以进一步约束恶意负载。
+- **监控：** 监控每个请求的资源消耗，以检测可能表明滥用行为的异常模式。
 
-- **Public-facing deployments:** Consider setting `VLLM_MAX_N_SEQUENCES` to a value appropriate for your workload (e.g., `64` or `128`) to limit the blast radius of a single request.
-- **Reverse proxy layer:** In addition to vLLM's built-in limit, consider enforcing request body validation and rate limiting at your reverse proxy to further constrain abusive payloads.
-- **Monitoring:** Monitor per-request resource consumption to detect anomalous patterns that may indicate abuse.
+## 工具服务器和 MCP 安全
 
-## Tool Server and MCP Security
+vLLM 支持通过 `--tool-server` 参数连接到外部工具服务器。这使得模型可以通过 Responses API（`/v1/responses`）调用工具。工具服务器支持适用于所有模型——不限于特定的模型架构。
 
-vLLM supports connecting to external tool servers via the `--tool-server` argument. This enables models to call tools through the Responses API (`/v1/responses`). Tool server support works with all models — it is not limited to specific model architectures.
+**重要提示：** 默认情况下未启用任何工具服务器。必须通过配置显式选择加入。
 
-**Important:** No tool servers are enabled by default. They must be explicitly opted into via configuration.
+### 内置演示工具（GPT-OSS）
 
-### Built-in Demo Tools (GPT-OSS)
+传递 `--tool-server demo` 可启用内置演示工具，这些工具适用于任何支持工具调用的模型。工具实现不是 vLLM 的一部分——它们由单独安装的 [`gpt-oss`](https://github.com/openai/gpt-oss) 包提供。vLLM 提供委托给 `gpt-oss` 的薄包装器。
 
-Passing `--tool-server demo` enables built-in demo tools that work with any model that supports tool calling. The tool implementations are not part of vLLM — they are provided by the separately installed [`gpt-oss`](https://github.com/openai/gpt-oss) package. vLLM provides thin wrappers that delegate to `gpt-oss`.
+- **代码解释器**（`python`）：通过 Docker 执行的 Python（通过 `gpt_oss.tools.python_docker`）
+- **Web 浏览器**（`browser`）：通过 Exa API 搜索，需要 `EXA_API_KEY`（通过 `gpt_oss.tools.simple_browser`）
 
-- **Code interpreter** (`python`): Python execution via Docker (via `gpt_oss.tools.python_docker`)
-- **Web browser** (`browser`): Search via Exa API, requires `EXA_API_KEY` (via `gpt_oss.tools.simple_browser`)
+#### 代码解释器（Python 工具）安全风险
 
-#### Code Interpreter (Python Tool) Security Risks
+代码解释器在 Docker 容器内执行模型生成的代码。然而，容器**默认未配置网络隔离**。它继承主机的 Docker 网络配置（例如，默认桥接网络或 `--network=host`），这意味着：
 
-The code interpreter executes model-generated code inside a Docker container. However, the container is **not configured with network isolation by default**. It inherits the host's Docker networking configuration (e.g., default bridge network or `--network=host`), which means:
+- 容器可能能够访问主机网络和局域网。
+- 从容器可达的内部服务可能通过 SSRF（服务端请求伪造）被利用。
+- 云元数据服务（例如 `169.254.169.254`）可能可访问。
+- 如果从容器可以访问到有漏洞的内部服务（如 `torch.distributed` 端点），这可能会被用来攻击它们。
 
-- The container may be able to access the host network and LAN.
-- Internal services reachable from the container may be exploited via SSRF (Server-Side Request Forgery).
-- Cloud metadata services (e.g., `169.254.169.254`) may be accessible.
-- If vulnerable internal services (such as `torch.distributed` endpoints) are reachable from the container, this could be used to attack them.
+这一点尤其令人担忧，因为正在执行的代码是由模型生成的，而模型可能受到对抗性输入（提示注入）的影响。
 
-This is particularly concerning because the code being executed is generated by the model, which may be influenced by adversarial inputs (prompt injection).
+#### 控制内置工具可用性
 
-#### Controlling Built-in Tool Availability
+内置演示工具由两个设置控制：
 
-Built-in demo tools are controlled by two settings:
+1. **`--tool-server demo`**：启用内置演示工具（浏览器和 Python 代码解释器）。
 
-1. **`--tool-server demo`**: Enables the built-in demo tools (browser and Python code interpreter).
+2. **`VLLM_GPT_OSS_SYSTEM_TOOL_MCP_LABELS`**：当通过 Responses API 中的 `mcp` 工具类型请求内置工具时，这个以逗号分隔的允许列表控制允许哪些工具标签。有效值为：
+   - `container` - 容器工具
+   - `code_interpreter` - Python 代码执行工具
+   - `web_search_preview` - Web 搜索/浏览器工具
 
-2. **`VLLM_GPT_OSS_SYSTEM_TOOL_MCP_LABELS`**: When built-in tools are requested via the `mcp` tool type in the Responses API, this comma-separated allowlist controls which tool labels are permitted. Valid values are:
-   - `container` - Container tool
-   - `code_interpreter` - Python code execution tool
-   - `web_search_preview` - Web search/browser tool
+   如果未设置此变量或为空，则不会启用任何通过 MCP 工具类型请求的内置工具。
 
-   If this variable is not set or is empty, no built-in tools requested via MCP tool type will be enabled.
+要专门禁用 Python 代码解释器，请从 `VLLM_GPT_OSS_SYSTEM_TOOL_MCP_LABELS` 中省略 `code_interpreter`。
 
-To disable the Python code interpreter specifically, omit `code_interpreter` from `VLLM_GPT_OSS_SYSTEM_TOOL_MCP_LABELS`.
+**考虑自定义实现**：GPT-OSS Python 工具是一个参考实现。对于生产部署，考虑实现具有更强隔离保证的自定义代码执行沙箱。请参阅 [GPT-OSS 文档](https://github.com/openai/gpt-oss?tab=readme-ov-file#python) 获取指导。
 
-**Consider a custom implementation**: The GPT-OSS Python tool is a reference implementation. For production deployments, consider implementing a custom code execution sandbox with stricter isolation guarantees. See the [GPT-OSS documentation](https://github.com/openai/gpt-oss?tab=readme-ov-file#python) for guidance.
+## 动态 LoRA 加载
 
-## Dynamic LoRA Loading
+vLLM 支持通过 `/v1/load_lora_adapter` 和 `/v1/unload_lora_adapter` API 端点动态加载和卸载 LoRA 适配器。此功能**默认不启用**——它需要同时设置 `--enable-lora` 和环境变量 `VLLM_ALLOW_RUNTIME_LORA_UPDATING=True`。
 
-vLLM supports dynamically loading and unloading LoRA adapters at runtime via the `/v1/load_lora_adapter` and `/v1/unload_lora_adapter` API endpoints. This functionality is **not enabled by default** — it requires both `--enable-lora` and the environment variable `VLLM_ALLOW_RUNTIME_LORA_UPDATING=True` to be set.
+**警告：** 动态 LoRA 加载不是安全操作，不应在暴露给不受信任客户端的部署中启用。如果您必须启用动态 LoRA 加载，请使用反向代理或网络级访问控制，仅将访问 `/v1/load_lora_adapter` 和 `/v1/unload_lora_adapter` 端点的权限限制给受信任的管理员。不要将这些端点暴露给最终用户。有关配置 LoRA 适配器的详细信息，请参阅 [LoRA 适配器文档](../features/lora.md)。
 
-**Warning:** Dynamic LoRA loading is not a secure operation and should not be enabled in deployments exposed to untrusted clients. If you must enable dynamic LoRA loading, restrict access to the `/v1/load_lora_adapter` and `/v1/unload_lora_adapter` endpoints to trusted administrators only, using a reverse proxy or network-level access controls. Do not expose these endpoints to end users. For details on configuring LoRA adapters, see the [LoRA Adapters documentation](../features/lora.md).
+## 缓存目录安全
 
-## Cache Directory Security
+vLLM 假定其缓存目录是**私有且受信任的**。缓存内容在加载时不经过加密完整性验证，包括支持任意代码执行的格式。如果不受信任的用户或进程可以写入 vLLM 的缓存目录，他们可能能够使 vLLM 崩溃或使其执行任意代码。
 
-vLLM assumes that its cache directories are **private and trusted**. Cache contents are loaded without cryptographic integrity verification, including formats that support arbitrary code execution. If an untrusted user or process can write to vLLM's cache directories, they may be able to crash vLLM or cause it to execute arbitrary code.
+**不要与不受信任的用户共享 vLLM 缓存目录，也不要从不受信任的存储挂载它们。** 对缓存目录的重视程度应与 vLLM 安装本身相同。
 
-**Do not share vLLM cache directories with untrusted users or mount them from untrusted storage.** Treat the cache directory with the same care as the vLLM installation itself.
+### 缓存目录配置
 
-### Cache Directory Configuration
+大多数缓存路径默认为单个根目录下的子目录。更改 `VLLM_CACHE_ROOT` 会更改所有继承自它的功能的默认位置。当启用 `torch.compile` 缓存时（默认启用），vLLM 还会将 `TRITON_CACHE_DIR` 重定向到此目录树。如果禁用编译缓存，Triton 将回退到其自己的默认位置（`~/.triton/cache`）。
 
-Most cache paths default to subdirectories under a single root. Changing `VLLM_CACHE_ROOT` changes the default location for all features that inherit from it. When `torch.compile` caching is enabled (the default), vLLM also redirects `TRITON_CACHE_DIR` into this tree. If compile caching is disabled, Triton falls back to its own default location (`~/.triton/cache`).
-
-| Environment Variable | Default | Description |
+| 环境变量 | 默认值 | 描述 |
 | --- | --- | --- |
-| `VLLM_CACHE_ROOT` | `~/.cache/vllm` | Base cache directory. Respects `XDG_CACHE_HOME` if set. All paths below inherit from this unless explicitly overridden. |
-| *(torch.compile)* | `$VLLM_CACHE_ROOT/torch_compile_cache/` | Compilation cache for AOT-compiled models, Inductor graphs, and Triton kernels. Controlled by `VLLM_DISABLE_COMPILE_CACHE` (set to `1` to disable). |
-| `VLLM_FLASHINFER_AUTOTUNE_CACHE_DIR` | `$VLLM_CACHE_ROOT/flashinfer_autotune_cache/<flashinfer-version>/<arch>/<cache-hash>/` | FlashInfer autotune config cache. |
-| `VLLM_ASSETS_CACHE` | `$VLLM_CACHE_ROOT/assets/` | Downloaded assets (e.g., tokenizer files). |
-| `VLLM_XLA_CACHE_PATH` | `$VLLM_CACHE_ROOT/xla_cache/` | XLA/TPU compilation cache. |
-| `VLLM_MEDIA_CACHE` | *(disabled)* | Optional cache for downloaded media (images, video, audio). Not enabled unless explicitly set. |
+| `VLLM_CACHE_ROOT` | `~/.cache/vllm` | 基础缓存目录。如果设置了 `XDG_CACHE_HOME`，则遵循该设置。除非显式覆盖，以下所有路径都继承自此目录。 |
+| *(torch.compile)* | `$VLLM_CACHE_ROOT/torch_compile_cache/` | 用于 AOT 编译模型、Inductor 图和 Triton 内核的编译缓存。由 `VLLM_DISABLE_COMPILE_CACHE` 控制（设置为 `1` 以禁用）。 |
+| `VLLM_FLASHINFER_AUTOTUNE_CACHE_DIR` | `$VLLM_CACHE_ROOT/flashinfer_autotune_cache/<flashinfer-version>/<arch>/<cache-hash>/` | FlashInfer 自动调优配置缓存。 |
+| `VLLM_ASSETS_CACHE` | `$VLLM_CACHE_ROOT/assets/` | 下载的资源（例如，分词器文件）。 |
+| `VLLM_XLA_CACHE_PATH` | `$VLLM_CACHE_ROOT/xla_cache/` | XLA/TPU 编译缓存。 |
+| `VLLM_MEDIA_CACHE` | *（已禁用）* | 下载媒体的可选缓存（图像、视频、音频）。除非显式设置，否则不启用。 |
 
-### Recommendations
+### 建议
 
-- **Restrict file permissions** on `VLLM_CACHE_ROOT` (and any other cache directories used by dependencies, such as `~/.triton` if compile caching is disabled) so that only the vLLM process owner can read and write to them.
-- **Do not copy cache contents from untrusted sources.** If you distribute cache artifacts between environments, ensure they originate from a trusted build pipeline.
-- **Container deployments:** If mounting cache directories into containers, ensure the volume source is trusted.
+- **限制文件权限**：限制 `VLLM_CACHE_ROOT`（以及依赖项使用的任何其他缓存目录，如禁用编译缓存时的 `~/.triton`）的文件权限，以便只有 vLLM 进程所有者可以读写。
+- **不要从不受信任的来源复制缓存内容**：如果您在环境之间分发缓存工件，请确保它们来自受信任的构建流水线。
+- **容器部署：** 如果要将缓存目录挂载到容器中，请确保卷源是受信任的。
 
-## FIPS Compatibility
+## FIPS 兼容性
 
-FIPS compliance depends on many factors, so a vLLM deployment is not automatically FIPS compliant. Recent changes have improved vLLM's *tolerance* of FIPS-enabled hosts — that is, avoiding crashes when non-approved algorithms are blocked — but tolerance is not the same as compliance. Whether a deployment satisfies FIPS requirements depends on the host operating system, the OpenSSL provider backing Python's `hashlib` and `ssl` modules, and which optional dependencies are installed.
+FIPS 合规性取决于许多因素，因此 vLLM 部署不会自动符合 FIPS 要求。最近的更改提高了 vLLM 在启用 FIPS 的主机上的*耐受性*——即在非批准算法被阻止时避免崩溃——但耐受性并不等同于合规性。部署是否满足 FIPS 要求取决于主机操作系统、为 Python 的 `hashlib` 和 `ssl` 模块提供支持的 OpenSSL 提供程序，以及安装了哪些可选依赖项。
 
-### FIPS-relevant configuration
+### FIPS 相关配置
 
-Operators running vLLM on FIPS-enabled hosts should select FIPS-approved algorithms via the following knobs:
+在启用 FIPS 的主机上运行 vLLM 的操作员应通过以下旋钮选择符合 FIPS 标准的算法：
 
-- **Multimodal input hashing** — `VLLM_MM_HASHER_ALGORITHM` defaults to `blake3`, which is not FIPS-approved. Set it to `sha256` or `sha512` in FIPS-enabled environments.
-- **Prefix-cache hashing** — set `--prefix-caching-hash-algo` (config field `prefix_caching_hash_algo`) to `sha256` or `sha256_cbor`. The `xxhash` and `xxhash_cbor` options are not FIPS-approved.
-- **TLS ciphers** — use `--ssl-ciphers` to restrict the API server's TLS handshake to FIPS-approved cipher suites that match your environment's policy.
+- **多模态输入哈希**——`VLLM_MM_HASHER_ALGORITHM` 默认为 `blake3`，它不符合 FIPS 标准。在启用 FIPS 的环境中将其设置为 `sha256` 或 `sha512`。
+- **前缀缓存哈希**——将 `--prefix-caching-hash-algo`（配置字段 `prefix_caching_hash_algo`）设置为 `sha256` 或 `sha256_cbor`。`xxhash` 和 `xxhash_cbor` 选项不符合 FIPS 标准。
+- **TLS 密码套件**——使用 `--ssl-ciphers` 将 API 服务器的 TLS 握手限制为符合您环境策略的 FIPS 批准密码套件。
 
-### Automatic fallback for non-security MD5 use
+### 非安全 MD5 使用的自动回退
 
-vLLM uses MD5 in a few places to derive non-security cache keys (for example, configuration hashes). These call sites pass `usedforsecurity=False` and additionally fall back to SHA-256 when the underlying OpenSSL provider refuses MD5 outright (see `safe_hash()` in `vllm/utils/hashing.py`). No user action is required; this behavior is documented so that auditors and security reviewers can identify the MD5 references and understand their purpose.
+vLLM 在少数地方使用 MD5 来派生非安全缓存键（例如，配置哈希）。这些调用点传递了 `usedforsecurity=False`，并且当底层 OpenSSL 提供程序直接拒绝 MD5 时，还会回退到 SHA-256（参见 `vllm/utils/hashing.py` 中的 `safe_hash()`）。无需用户操作；记录此行为是为了让审计员和安全审阅者能够识别 MD5 引用并理解其用途。
 
-### Dependencies that provide non-FIPS hash implementations
+### 提供非 FIPS 哈希实现的依赖项
 
-Some dependencies expose hash implementations that are not FIPS-approved. vLLM only invokes them when the corresponding algorithm is selected, but operators with strict cryptographic controls may want to ensure the code paths are not exercised — and, where policy requires, that the packages themselves are absent:
+某些依赖项暴露了非 FIPS 批准的哈希实现。vLLM 仅在选择相应算法时调用它们，但具有严格加密控制的操作员可能希望确保这些代码路径不被使用——并且在政策要求时，确保包本身不存在：
 
-- `blake3` — currently listed in `requirements/common.txt`, so a standard install pulls it in. It is imported lazily and only used when `VLLM_MM_HASHER_ALGORITHM=blake3` (the default). Setting `VLLM_MM_HASHER_ALGORITHM` to `sha256` or `sha512` is sufficient to keep the non-FIPS code path dormant. If your policy additionally forbids the package being present, uninstall it after `pip install` (`pip uninstall blake3`); vLLM will continue to function as long as `VLLM_MM_HASHER_ALGORITHM` is set to a non-blake3 value.
-- `xxhash` — a true optional dependency (not in `requirements/common.txt`). It is only imported when an `xxhash`-based prefix-cache algorithm is selected. Leave it uninstalled and select a `sha256`-based prefix-cache algorithm.
+- `blake3`——当前列在 `requirements/common.txt` 中，因此标准安装会拉取它。它是延迟导入的，仅在 `VLLM_MM_HASHER_ALGORITHM=blake3`（默认值）时使用。将 `VLLM_MM_HASHER_ALGORITHM` 设置为 `sha256` 或 `sha512` 足以让非 FIPS 代码路径保持休眠状态。如果您的政策还禁止包本身存在，请在 `pip install` 后卸载它（`pip uninstall blake3`）；只要 `VLLM_MM_HASHER_ALGORITHM` 设置为非 blake3 值，vLLM 将继续正常运行。
+- `xxhash`——一个真正的可选依赖项（不在 `requirements/common.txt` 中）。仅当选择了基于 `xxhash` 的前缀缓存算法时才会导入。保持不安装并选择基于 `sha256` 的前缀缓存算法。
 
-### Beyond hashing: other FIPS considerations
+### 哈希之外：其他 FIPS 考虑因素
 
-Hashing is the area where vLLM has explicit FIPS-aware code, but a FIPS-compliant deployment depends on several factors that sit outside vLLM itself. Operators should evaluate the following with their platform and security teams:
+哈希是 vLLM 具有显式 FIPS 感知代码的领域，但符合 FIPS 要求的部署取决于 vLLM 本身之外的几个因素。操作员应与其平台和安全团队一起评估以下内容：
 
-- **Host crypto provider.** Python's `hashlib` and `ssl` modules are FIPS-aware only when Python is linked against a FIPS-validated OpenSSL (or equivalent) provider supplied by the host OS. vLLM inherits whatever provider the host configures — it does not bundle one.
-- **API server TLS.** TLS termination for the OpenAI-compatible API server uses the host's OpenSSL via Python's `ssl` module. Restrict the cipher suite with `--ssl-ciphers` to match your environment's FIPS policy, and ensure server certificates are issued with FIPS-approved algorithms and key sizes.
-- **Outbound HTTPS.** Model and asset downloads (for example, via `huggingface_hub`) use the same host TLS stack. The same provider/cipher considerations apply.
-- **Inter-node communication is unencrypted by default.** As described in [Inter-Node Communication](#inter-node-communication), PyTorch Distributed, KV-cache transfer, and data-parallel channels do not encrypt traffic. FIPS environments that require FIPS-approved cryptography for data in transit must provide that protection externally — for example, via an mTLS sidecar or IPsec terminated by a FIPS-validated module — since vLLM's internal channels cannot satisfy the requirement on their own. Network isolation alone is not cryptography and does not meet a "FIPS-approved cryptography for data in transit" requirement, though it remains a useful defense-in-depth measure.
-- **Dependencies that bundle their own OpenSSL.** Some Python wheels statically link OpenSSL builds that fail the kernel FIPS self-test on FIPS-enabled hosts (`FATAL FIPS SELFTEST FAILURE`). `opencv-python-headless` is a known example; other manylinux wheels may behave similarly. Audit your installed wheels for bundled crypto libraries when troubleshooting FIPS startup failures.
-- **Accelerator and ML libraries.** PyTorch, CUDA, cuDNN, NCCL, and similar components have their own crypto and FIPS posture independent of vLLM. NVIDIA publishes FIPS-validated builds for some libraries; vLLM does not pin to those builds, so selecting and validating them is the operator's responsibility.
-- **What is *not* a FIPS concern in vLLM.** Random number generation used for token sampling (Python/NumPy/PyTorch RNGs) is not a cryptographic use and is out of scope for FIPS. Pickled cache artifacts are a separate security concern covered under [Cache Directory Security](#cache-directory-security).
+- **主机加密提供程序。** Python 的 `hashlib` 和 `ssl` 模块仅在 Python 链接到由主机操作系统提供的经过 FIPS 验证的 OpenSSL（或等效）提供程序时才具有 FIPS 感知能力。vLLM 继承主机配置的任何提供程序——它不捆绑提供程序。
+- **API 服务器 TLS。** 用于兼容 OpenAI 的 API 服务器的 TLS 终止通过 Python 的 `ssl` 模块使用主机的 OpenSSL。使用 `--ssl-ciphers` 限制密码套件以匹配您环境的 FIPS 政策，并确保服务器证书使用 FIPS 批准的算法和密钥大小签发。
+- **出站 HTTPS。** 模型和资源下载（例如，通过 `huggingface_hub`）使用相同的主机 TLS 栈。相同的提供程序/密码考虑适用。
+- **节点间通信默认未加密。** 如[节点间通信](#node-inter-communication)中所述，PyTorch 分布式、KV 缓存传输和数据并行通道不加密流量。要求传输中数据使用 FIPS 批准加密的 FIPS 环境必须在外部提供保护——例如，通过 mTLS sidecar 或由经过 FIPS 验证的模块终止的 IPsec——因为 vLLM 的内部通道本身无法满足此要求。仅网络隔离不是加密，也不满足"传输中数据使用 FIPS 批准加密"的要求，尽管它仍然是一种有用的纵深防御措施。
+- **捆绑自己 OpenSSL 的依赖项。** 某些 Python wheel 静态链接的 OpenSSL 构建在启用 FIPS 的主机上无法通过内核 FIPS 自检（`FATAL FIPS SELFTEST FAILURE`）。`opencv-python-headless` 是一个已知示例；其他 manylinux wheel 可能行为类似。在排查 FIPS 启动失败时，审计已安装 wheel 中捆绑的加密库。
+- **加速器和机器学习库。** PyTorch、CUDA、cuDNN、NCCL 和类似组件具有独立于 vLLM 的自身加密和 FIPS 状态。NVIDIA 为某些库发布了经过 FIPS 验证的构建；vLLM 不固定使用这些构建，因此选择并验证它们是操作员的责任。
+- **vLLM 中不涉及 FIPS 的内容。** 用于令牌采样的随机数生成（Python/NumPy/PyTorch RNG）不是加密用途，不在 FIPS 范围内。Pickled 缓存工件是单独的[缓存目录安全](#cache-directory-security)中涵盖的安全问题。
 
-In short: the configuration knobs above let vLLM avoid non-approved algorithms, and the automatic fallbacks let it run without crashing on FIPS-enabled hosts. End-to-end FIPS compliance, however, is a property of the full deployment — host OS, crypto provider, transitive dependencies, and network architecture — not of vLLM alone.
+简而言之：上述配置旋钮让 vLLM 避免使用非批准算法，而自动回退让它能够在启用 FIPS 的主机上运行而不会崩溃。然而，端到端的 FIPS 合规性是整个部署的属性——主机操作系统、加密提供程序、传递依赖项和网络架构——而不仅仅是 vLLM 本身。
 
-## Reporting Security Vulnerabilities
+## 报告安全漏洞
 
-If you believe you have found a security vulnerability in vLLM, please report it following the project's security policy. For more information on how to report security issues and the project's security policy, please see the [vLLM Security Policy](https://github.com/vllm-project/vllm/blob/main/SECURITY.md).
+如果您认为在 vLLM 中发现了安全漏洞，请按照项目的安全政策进行报告。有关如何报告安全问题和项目安全政策的更多信息，请参阅 [vLLM 安全政策](https://github.com/vllm-project/vllm/blob/main/SECURITY.md)。

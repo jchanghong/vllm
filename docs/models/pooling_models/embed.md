@@ -1,120 +1,118 @@
-# Embedding Usages
+# 嵌入用途
 
-Embedding models are a class of machine learning models designed to transform unstructured data—such as text, images, or audio—into a structured numerical representation known as an embedding.
+嵌入模型是一类机器学习模型，旨在将非结构化数据（如文本、图像或音频）转换为称为嵌入的结构化数值表示。
 
-## Summary
+## 摘要
 
-- Model Usage: (sequence) embedding
-- Pooling Task: `embed`
-- Offline APIs:
+- 模型用途：(序列) 嵌入
+- 池化任务：`embed`
+- 离线 API：
     - `LLM.embed(...)`
     - `LLM.encode(..., pooling_task="embed")`
     - `LLM.score(...)`
-- Online APIs:
+- 在线 API：
     - [Cohere Embed API](embed.md#cohere-embed-api) (`/v2/embed`)
-    - [OpenAI-compatible Embeddings API](embed.md#openai-compatible-embeddings-api) (`/v1/embeddings`)
+    - [兼容 OpenAI 的 Embeddings API](embed.md#openai-compatible-embeddings-api) (`/v1/embeddings`)
     - Pooling API (`/pooling`)
 
-The primary distinction between (sequence) embedding and token embedding lies in their output granularity: (sequence) embedding produces a single embedding vector for an entire input sequence, whereas token embedding generates an embedding for each individual token within the sequence.
+(序列) 嵌入和 token 嵌入之间的主要区别在于它们的输出粒度：(序列) 嵌入为整个输入序列生成单个嵌入向量，而 token 嵌入为序列中的每个单独 token 生成一个嵌入。
 
-Many embedding models support both (sequence) embedding and token embedding. For further details on token embedding, please refer to [this page](token_embed.md).
+许多嵌入模型同时支持 (序列) 嵌入和 token 嵌入。有关 token 嵌入的更多详细信息，请参阅[此页面](token_embed.md)。
 
-## Typical Use Cases
+## 典型用例
 
-### Embedding
+### 嵌入
 
-The most basic use case of embedding models is to embed the inputs, e.g. for RAG.
+嵌入模型最基本的用例是嵌入输入，例如用于 RAG。
 
-### Pairwise Similarity
+### 成对相似度
 
-You can compute pairwise similarity scores to build a similarity matrix using the [Score API](scoring.md).
+您可以使用[评分 API](scoring.md) 计算成对相似度分数来构建相似度矩阵。
 
-## Supported Models
+## 支持的模型
 
 --8<-- [start:supported-embed-models]
 
-### Text-only Models
+### 纯文本模型
 
-| Architecture | Models | Example HF Models | [LoRA](../../features/lora.md) | [PP](../../serving/parallelism_scaling.md) |
+| 架构 | 模型 | 示例 HF 模型 | [LoRA](../../features/lora.md) | [PP](../../serving/parallelism_scaling.md) |
 | ------------ | ------ | ----------------- | ------------------------------ | ------------------------------------------ |
-| `BertModel` | BERT-based | `BAAI/bge-base-en-v1.5`, `Snowflake/snowflake-arctic-embed-xs`, etc. | | |
+| `BertModel` | 基于 BERT | `BAAI/bge-base-en-v1.5`, `Snowflake/snowflake-arctic-embed-xs` 等 | | |
 | `BertSpladeSparseEmbeddingModel` | SPLADE | `naver/splade-v3` | | |
-| `ErnieModel` | BERT-like Chinese ERNIE | `shibing624/text2vec-base-chinese-sentence` | | |
-| `Gemma2Model`<sup>C</sup> | Gemma 2-based | `BAAI/bge-multilingual-gemma2`, etc. | ✅︎ | ✅︎ |
-| `Gemma3TextModel`<sup>C</sup> | Gemma 3-based | `google/embeddinggemma-300m`, etc. | ✅︎ | ✅︎ |
-| `GritLM` | GritLM | `parasail-ai/GritLM-7B-vllm`. | ✅︎ | ✅︎ |
-| `GteModel` | Arctic-Embed-2.0-M | `Snowflake/snowflake-arctic-embed-m-v2.0`. | | |
-| `GteNewModel` | mGTE-TRM (see note) | `Alibaba-NLP/gte-multilingual-base`, etc. | | |
-| `JinaEmbeddingsV5Model`<sup>C</sup> | Qwen3-based with task-specific LoRA adapters | `jinaai/jina-embeddings-v5-text-small` (see note) | ✅︎ | ✅︎ |
-| `LlamaBidirectionalModel`<sup>C</sup> | Llama-based with bidirectional attention | `nvidia/llama-nemotron-embed-1b-v2`, etc. | ✅︎ | ✅︎ |
-| `LlamaModel`<sup>C</sup>, `LlamaForCausalLM`<sup>C</sup>, `MistralModel`<sup>C</sup>, etc. | Llama-based | `intfloat/e5-mistral-7b-instruct`, etc. | ✅︎ | ✅︎ |
-| `ModernBertModel` | ModernBERT-based | `Alibaba-NLP/gte-modernbert-base`, etc. | | |
-| `NomicBertModel` | Nomic BERT | `nomic-ai/nomic-embed-text-v1`, `nomic-ai/nomic-embed-text-v2-moe`, `Snowflake/snowflake-arctic-embed-m-long`, etc. | | |
-| `Qwen2Model`<sup>C</sup>, `Qwen2ForCausalLM`<sup>C</sup> | Qwen2-based | `ssmits/Qwen2-7B-Instruct-embed-base` (see note), `Alibaba-NLP/gte-Qwen2-7B-instruct` (see note), etc. | ✅︎ | ✅︎ |
-| `Qwen3Model`<sup>C</sup>, `Qwen3ForCausalLM`<sup>C</sup> | Qwen3-based | `Qwen/Qwen3-Embedding-0.6B`, etc. | ✅︎ | ✅︎ |
-| `RobertaModel`, `RobertaForMaskedLM` | RoBERTa-based | `sentence-transformers/all-roberta-large-v1`, etc. | | |
-| `VoyageQwen3BidirectionalEmbedModel`<sup>C</sup> | Voyage Qwen3-based with bidirectional attention | `voyageai/voyage-4-nano`, etc. | ✅︎ | ✅︎ |
-| `XLMRobertaModel` | XLMRobertaModel-based | `BAAI/bge-m3` (see note), `intfloat/multilingual-e5-base`, `jinaai/jina-embeddings-v3` (see note), etc. | | |
-| `*Model`<sup>C</sup>, `*ForCausalLM`<sup>C</sup>, etc. | Generative models | N/A | \* | \* |
+| `ErnieModel` | 类 BERT 中文 ERNIE | `shibing624/text2vec-base-chinese-sentence` | | |
+| `Gemma2Model`<sup>C</sup> | 基于 Gemma 2 | `BAAI/bge-multilingual-gemma2` 等 | ✅︎ | ✅︎ |
+| `Gemma3TextModel`<sup>C</sup> | 基于 Gemma 3 | `google/embeddinggemma-300m` 等 | ✅︎ | ✅︎ |
+| `GritLM` | GritLM | `parasail-ai/GritLM-7B-vllm` | ✅︎ | ✅︎ |
+| `GteModel` | Arctic-Embed-2.0-M | `Snowflake/snowflake-arctic-embed-m-v2.0` | | |
+| `GteNewModel` | mGTE-TRM (见附注) | `Alibaba-NLP/gte-multilingual-base` 等 | | |
+| `JinaEmbeddingsV5Model`<sup>C</sup> | 基于 Qwen3 的特定任务 LoRA 适配器 | `jinaai/jina-embeddings-v5-text-small` (见附注) | ✅︎ | ✅︎ |
+| `LlamaBidirectionalModel`<sup>C</sup> | 基于 Llama 的双向注意力 | `nvidia/llama-nemotron-embed-1b-v2` 等 | ✅︎ | ✅︎ |
+| `LlamaModel`<sup>C</sup>, `LlamaForCausalLM`<sup>C</sup>, `MistralModel`<sup>C</sup> 等 | 基于 Llama | `intfloat/e5-mistral-7b-instruct` 等 | ✅︎ | ✅︎ |
+| `ModernBertModel` | 基于 ModernBERT | `Alibaba-NLP/gte-modernbert-base` 等 | | |
+| `NomicBertModel` | Nomic BERT | `nomic-ai/nomic-embed-text-v1`, `nomic-ai/nomic-embed-text-v2-moe`, `Snowflake/snowflake-arctic-embed-m-long` 等 | | |
+| `Qwen2Model`<sup>C</sup>, `Qwen2ForCausalLM`<sup>C</sup> | 基于 Qwen2 | `ssmits/Qwen2-7B-Instruct-embed-base` (见附注), `Alibaba-NLP/gte-Qwen2-7B-instruct` (见附注) 等 | ✅︎ | ✅︎ |
+| `Qwen3Model`<sup>C</sup>, `Qwen3ForCausalLM`<sup>C</sup> | 基于 Qwen3 | `Qwen/Qwen3-Embedding-0.6B` 等 | ✅︎ | ✅︎ |
+| `RobertaModel`, `RobertaForMaskedLM` | 基于 RoBERTa | `sentence-transformers/all-roberta-large-v1` 等 | | |
+| `VoyageQwen3BidirectionalEmbedModel`<sup>C</sup> | 基于 Voyage Qwen3 的双向注意力 | `voyageai/voyage-4-nano` 等 | ✅︎ | ✅︎ |
+| `XLMRobertaModel` | 基于 XLMRobertaModel | `BAAI/bge-m3` (见附注), `intfloat/multilingual-e5-base`, `jinaai/jina-embeddings-v3` (见附注) 等 | | |
+| `*Model`<sup>C</sup>, `*ForCausalLM`<sup>C</sup> 等 | 生成式模型 | N/A | \* | \* |
 
 !!! note
-    The second-generation GTE model (mGTE-TRM) is named `NewModel`. The name `NewModel` is too generic, you should set `--hf-overrides '{"architectures": ["GteNewModel"]}'` to specify the use of the `GteNewModel` architecture.
+    第二代 GTE 模型 (mGTE-TRM) 名为 `NewModel`。名称 `NewModel` 过于通用，您应该设置 `--hf-overrides '{"architectures": ["GteNewModel"]}'` 来指定使用 `GteNewModel` 架构。
 
 !!! note
-    `ssmits/Qwen2-7B-Instruct-embed-base` has an improperly defined Sentence Transformers config.
-    You need to manually set mean pooling by passing `--pooler-config '{"pooling_type": "MEAN"}'`.
+    `ssmits/Qwen2-7B-Instruct-embed-base` 的 Sentence Transformers 配置定义不当。
+    您需要通过传递 `--pooler-config '{"pooling_type": "MEAN"}'` 来手动设置均值池化。
 
 !!! note
-    For `Alibaba-NLP/gte-Qwen2-*`, you need to enable `--trust-remote-code` for the correct tokenizer to be loaded.
-    See [relevant issue on HF Transformers](https://github.com/huggingface/transformers/issues/34882).
+    对于 `Alibaba-NLP/gte-Qwen2-*`，您需要启用 `--trust-remote-code` 才能加载正确的 tokenizer。
+    请参见 [HF Transformers 上的相关问题](https://github.com/huggingface/transformers/issues/34882)。
 
 !!! note
-    The `BAAI/bge-m3` model comes with extra weights for sparse and colbert embeddings, See [this page](specific_models.md#baaibge-m3) for more information.
+    `BAAI/bge-m3` 模型附带用于稀疏和 colbert 嵌入的额外权重，请参见[此页面](specific_models.md#baaibge-m3)了解更多信息。
 
 !!! note
-    `jinaai/jina-embeddings-v3` supports multiple tasks through LoRA, while vllm temporarily only supports text-matching tasks by merging LoRA weights.
+    `jinaai/jina-embeddings-v3` 通过 LoRA 支持多个任务，而 vllm 暂时仅支持通过合并 LoRA 权重来进行文本匹配任务。
 
 !!! note
-    `jinaai/jina-embeddings-v5-text-small` ships with four task-specific LoRA adapters
-    (`retrieval`, `text-matching`, `classification`, `clustering`). vLLM merges the
-    selected adapter into the base weights at load time. Choose the task with
-    `--hf-overrides '{"jina_task": "<task>"}'`; the default is `retrieval`.
+    `jinaai/jina-embeddings-v5-text-small` 附带四个特定任务的 LoRA 适配器
+    (`retrieval`, `text-matching`, `classification`, `clustering`)。vLLM 在加载时
+    将所选适配器合并到基础权重中。使用
+    `--hf-overrides '{"jina_task": "<task>"}'` 选择任务；默认值为 `retrieval`。
 
-### Multimodal Models
+### 多模态模型
 
 !!! note
-    For more information about multimodal models inputs, see [this page](../supported_models.md#list-of-multimodal-language-models).
+    有关多模态模型输入的更多信息，请参见[此页面](../supported_models.md#list-of-multimodal-language-models)。
 
-| Architecture | Models | Inputs | Example HF Models | [LoRA](../../features/lora.md) | [PP](../../serving/parallelism_scaling.md) |
+| 架构 | 模型 | 输入 | 示例 HF 模型 | [LoRA](../../features/lora.md) | [PP](../../serving/parallelism_scaling.md) |
 | ------------ | ------ | ------ | ----------------- | ------------------------------ | ------------------------------------------ |
-| `CLIPModel` | CLIP | T / I | `openai/clip-vit-base-patch32`, `openai/clip-vit-large-patch14`, etc. | | |
+| `CLIPModel` | CLIP | T / I | `openai/clip-vit-base-patch32`, `openai/clip-vit-large-patch14` 等 | | |
 | `LlamaNemotronVLModel` | Llama Nemotron Embedding + SigLIP | T + I | `nvidia/llama-nemotron-embed-vl-1b-v2` | | |
-| `LlavaNextForConditionalGeneration`<sup>C</sup> | LLaVA-NeXT-based | T / I | `royokong/e5-v` | | ✅︎ |
-| `Phi3VForCausalLM`<sup>C</sup> | Phi-3-Vision-based | T + I | `TIGER-Lab/VLM2Vec-Full` | | ✅︎ |
-| `Qwen3VLForConditionalGeneration`<sup>C</sup> (see note) | Qwen3-VL | T + I + V | `Qwen/Qwen3-VL-Embedding-2B`, etc. | ✅︎ | ✅︎ |
+| `LlavaNextForConditionalGeneration`<sup>C</sup> | 基于 LLaVA-NeXT | T / I | `royokong/e5-v` | | ✅︎ |
+| `Phi3VForCausalLM`<sup>C</sup> | 基于 Phi-3-Vision | T + I | `TIGER-Lab/VLM2Vec-Full` | | ✅︎ |
+| `Qwen3VLForConditionalGeneration`<sup>C</sup> (见附注) | Qwen3-VL | T + I + V | `Qwen/Qwen3-VL-Embedding-2B` 等 | ✅︎ | ✅︎ |
 | `SiglipModel` | SigLIP, SigLIP2 | T / I | `google/siglip-base-patch16-224`, `google/siglip2-base-patch16-224` | | |
-| `*ForConditionalGeneration`<sup>C</sup>, `*ForCausalLM`<sup>C</sup>, etc. | Generative models | \* | N/A | \* | \* |
+| `*ForConditionalGeneration`<sup>C</sup>, `*ForCausalLM`<sup>C</sup> 等 | 生成式模型 | \* | N/A | \* | \* |
 
-<sup>C</sup> Automatically converted into an embedding model via `--convert embed`. ([details](./README.md#model-conversion))  
-\* Feature support is the same as that of the original model.
+<sup>C</sup> 通过 `--convert embed` 自动转换为嵌入模型。([详细信息](./README.md#model-conversion))  
+\* 功能支持与原模型相同。
 
-If your model is not in the above list, we will try to automatically convert the model using
-[as_embedding_model][vllm.model_executor.models.adapters.as_embedding_model]. By default, the embeddings
-of the whole prompt are extracted from the normalized hidden state corresponding to the last token.
+如果您的模型不在上述列表中，我们将尝试使用 [as_embedding_model][vllm.model_executor.models.adapters.as_embedding_model] 自动转换模型。默认情况下，整个提示的嵌入从最后一个 token 对应的归一化隐藏状态中提取。
 
 !!! note
-    `Qwen3-VL-Embedding` officially uses `qwen_vl_utils` for image preprocessing, while vLLM uses `transformers`' `video_processing_qwen3_vl`, which leads to slightly different results compared to the official Hugging Face repository examples. Example code for offline inference using `qwen_vl_utils` can be found in the [vision_embedding_offline.py](../../../examples/pooling/embed/vision_embedding_offline.py) example.
+    `Qwen3-VL-Embedding` 官方使用 `qwen_vl_utils` 进行图像预处理，而 vLLM 使用 Transformers 的 `video_processing_qwen3_vl`，这会导致与官方 Hugging Face 仓库示例略有不同的结果。使用 `qwen_vl_utils` 进行离线推理的示例代码可以在 [vision_embedding_offline.py](../../../examples/pooling/embed/vision_embedding_offline.py) 示例中找到。
 
 !!! note
-    Although vLLM supports automatically converting models of any architecture into embedding models via --convert embed, to get the best results, you should use pooling models that are specifically trained as such.
+    虽然 vLLM 支持通过 `--convert embed` 自动将任何架构的模型转换为嵌入模型，但为了获得最佳结果，您应该使用专门训练为嵌入模型的池化模型。
 
 --8<-- [end:supported-embed-models]
 
-## Offline Inference
+## 离线推理
 
-### Pooling Parameters
+### 池化参数
 
-The following [pooling parameters][vllm.PoolingParams] are supported.
+支持以下[池化参数][vllm.PoolingParams]。
 
 ```python
 --8<-- "vllm/pooling_params.py:common-pooling-params"
@@ -123,7 +121,7 @@ The following [pooling parameters][vllm.PoolingParams] are supported.
 
 ### `LLM.embed`
 
-The [embed][vllm.entrypoints.pooling.offline.PoolingOfflineMixin.embed] method outputs an embedding vector for each prompt.
+[embed][vllm.entrypoints.pooling.offline.PoolingOfflineMixin.embed] 方法为每个提示输出一个嵌入向量。
 
 ```python
 from vllm import LLM
@@ -135,13 +133,13 @@ embeds = output.outputs.embedding
 print(f"Embeddings: {embeds!r} (size={len(embeds)})")
 ```
 
-A code example can be found here: [examples/basic/offline_inference/embed.py](../../../examples/basic/offline_inference/embed.py)
+代码示例请参见：[examples/basic/offline_inference/embed.py](../../../examples/basic/offline_inference/embed.py)
 
 ### `LLM.encode`
 
-The [encode][vllm.entrypoints.pooling.offline.PoolingOfflineMixin.encode] method is available to all pooling models in vLLM.
+[encode][vllm.entrypoints.pooling.offline.PoolingOfflineMixin.encode] 方法适用于 vLLM 中的所有池化模型。
 
-Set `pooling_task="embed"` when using `LLM.encode` for embedding Models:
+为嵌入模型使用 `LLM.encode` 时设置 `pooling_task="embed"`：
 
 ```python
 from vllm import LLM
@@ -155,9 +153,9 @@ print(f"Data: {data!r}")
 
 ### `LLM.score`
 
-The [score][vllm.entrypoints.pooling.offline.PoolingOfflineMixin.score] method outputs similarity scores between sentence pairs.
+[score][vllm.entrypoints.pooling.offline.PoolingOfflineMixin.score] 方法输出句子对之间的相似度分数。
 
-All models that support embedding task also support using the score API to compute similarity scores by calculating the cosine similarity of two input prompt's embeddings.
+所有支持嵌入任务的模型也支持使用评分 API，通过计算两个输入提示嵌入的余弦相似度来计算相似度分数。
 
 ```python
 from vllm import LLM
@@ -172,18 +170,18 @@ score = output.outputs.score
 print(f"Score: {score}")
 ```
 
-## Online Serving
+## 在线服务
 
-### OpenAI-Compatible Embeddings API
+### 兼容 OpenAI 的 Embeddings API
 
-Our Embeddings API is compatible with [OpenAI's Embeddings API](https://platform.openai.com/docs/api-reference/embeddings);
-you can use the [official OpenAI Python client](https://github.com/openai/openai-python) to interact with it.
+我们的 Embeddings API 与 [OpenAI 的 Embeddings API](https://platform.openai.com/docs/api-reference/embeddings) 兼容；
+您可以使用[官方的 OpenAI Python 客户端](https://github.com/openai/openai-python)与其交互。
 
-Code example: [examples/pooling/embed/openai_embedding_client.py](../../../examples/pooling/embed/openai_embedding_client.py)
+代码示例：[examples/pooling/embed/openai_embedding_client.py](../../../examples/pooling/embed/openai_embedding_client.py)
 
-#### Completion Parameters
+#### Completion 参数
 
-The following Classification API parameters are supported:
+支持以下分类 API 参数：
 
 ??? code
 
@@ -194,7 +192,7 @@ The following Classification API parameters are supported:
     --8<-- "vllm/entrypoints/pooling/base/protocol.py:embed-params"
     ```
 
-The following extra parameters are supported:
+支持以下额外参数：
 
 ??? code
 
@@ -205,9 +203,9 @@ The following extra parameters are supported:
     --8<-- "vllm/entrypoints/pooling/base/protocol.py:embed-extra-params"
     ```
 
-#### Chat Parameters
+#### Chat 参数
 
-For chat-like input (i.e. if `messages` is passed), the following parameters are supported:
+对于类似聊天的输入（即如果传递了 `messages`），则支持以下参数：
 
 ??? code
 
@@ -218,7 +216,7 @@ For chat-like input (i.e. if `messages` is passed), the following parameters are
     --8<-- "vllm/entrypoints/pooling/base/protocol.py:embed-params"
     ```
 
-these extra parameters are supported instead:
+而是支持以下额外参数：
 
 ??? code
 
@@ -229,10 +227,10 @@ these extra parameters are supported instead:
     --8<-- "vllm/entrypoints/pooling/base/protocol.py:embed-extra-params"
     ```
 
-#### Examples
+#### 示例
 
-If the model has a [chat template](../../serving/online_serving/README.md#chat-template), you can replace `inputs` with a list of `messages` (same schema as [Chat API](../../serving/online_serving/openai_compatible_server.md#chat-api))
-which will be treated as a single prompt to the model. Here is a convenience function for calling the API while retaining OpenAI's type annotations:
+如果模型有[聊天模板](../../serving/online_serving/README.md#chat-template)，您可以将 `inputs` 替换为 `messages` 列表（与 [Chat API](../../serving/online_serving/openai_compatible_server.md#chat-api) 相同的模式），
+它将被视为模型的单个提示。以下是调用 API 同时保留 OpenAI 类型注解的便捷函数：
 
 ??? code
 
@@ -256,14 +254,13 @@ which will be treated as a single prompt to the model. Here is a convenience fun
         )
     ```
 
-##### Multi-modal inputs
+##### 多模态输入
 
-You can pass multi-modal inputs to embedding models by defining a custom chat template for the server
-and passing a list of `messages` in the request. Refer to the examples below for illustration.
+您可以通过为服务器定义自定义聊天模板并在请求中传递 `messages` 列表来向嵌入模型传递多模态输入。请参考下面的示例进行说明。
 
 === "VLM2Vec"
 
-    To serve the model:
+    提供模型服务：
 
     ```bash
     vllm serve TIGER-Lab/VLM2Vec-Full --runner pooling \
@@ -273,13 +270,13 @@ and passing a list of `messages` in the request. Refer to the examples below for
     ```
 
     !!! important
-        Since VLM2Vec has the same model architecture as Phi-3.5-Vision, we have to explicitly pass `--runner pooling`
-        to run this model in embedding mode instead of text generation mode.
+        由于 VLM2Vec 与 Phi-3.5-Vision 具有相同的模型架构，我们必须显式传递 `--runner pooling`
+        才能以嵌入模式（而不是文本生成模式）运行此模型。
 
-        The custom chat template is completely different from the original one for this model,
-        and can be found here: [examples/pooling/embed/template/vlm2vec_phi3v.jinja](../../../examples/pooling/embed/template/vlm2vec_phi3v.jinja)
+        此模型的自定义聊天模板与原始模板完全不同，
+        可以在此处找到：[examples/pooling/embed/template/vlm2vec_phi3v.jinja](../../../examples/pooling/embed/template/vlm2vec_phi3v.jinja)
 
-    Since the request schema is not defined by OpenAI client, we post a request to the server using the lower-level `requests` library:
+    由于请求模式不由 OpenAI 客户端定义，我们使用较低级的 `requests` 库向服务器发送请求：
 
     ??? code
 
@@ -311,7 +308,7 @@ and passing a list of `messages` in the request. Refer to the examples below for
 
 === "DSE-Qwen2-MRL"
 
-    To serve the model:
+    提供模型服务：
 
     ```bash
     vllm serve MrLight/dse-qwen2-2b-mrl-v1 --runner pooling \
@@ -321,35 +318,34 @@ and passing a list of `messages` in the request. Refer to the examples below for
     ```
 
     !!! important
-        Like with VLM2Vec, we have to explicitly pass `--runner pooling`.
+        与 VLM2Vec 类似，我们必须显式传递 `--runner pooling`。
 
-        Additionally, `MrLight/dse-qwen2-2b-mrl-v1` requires an EOS token for embeddings, which is handled
-        by a custom chat template: [examples/pooling/embed/template/dse_qwen2_vl.jinja](../../../examples/pooling/embed/template/dse_qwen2_vl.jinja)
+        此外，`MrLight/dse-qwen2-2b-mrl-v1` 需要 EOS token 来生成嵌入，这由
+        自定义聊天模板处理：[examples/pooling/embed/template/dse_qwen2_vl.jinja](../../../examples/pooling/embed/template/dse_qwen2_vl.jinja)
 
     !!! important
-        `MrLight/dse-qwen2-2b-mrl-v1` requires a placeholder image of the minimum image size for text query embeddings. See the full code
-        example below for details.
+        `MrLight/dse-qwen2-2b-mrl-v1` 需要为文本查询嵌入提供最小图像尺寸的占位图像。详情请参见下面的完整代码示例。
 
-Full example: [examples/pooling/embed/vision_embedding_online.py](../../../examples/pooling/embed/vision_embedding_online.py)
+完整示例：[examples/pooling/embed/vision_embedding_online.py](../../../examples/pooling/embed/vision_embedding_online.py)
 
 ### Cohere Embed API
 
-Our API is also compatible with [Cohere's Embed v2 API](https://docs.cohere.com/reference/embed) which adds support for some modern embedding feature such as truncation, output dimensions, embedding types, and input types. This endpoint works with any embedding model (including multimodal models).
+我们的 API 也与 [Cohere 的 Embed v2 API](https://docs.cohere.com/reference/embed) 兼容，它添加了对某些现代嵌入功能的支持，例如截断、输出维度、嵌入类型和输入类型。此端点适用于任何嵌入模型（包括多模态模型）。
 
-#### Cohere Embed API request parameters
+#### Cohere Embed API 请求参数
 
-| Parameter | Type | Required | Description |
+| 参数 | 类型 | 必需 | 描述 |
 | --------- | ---- | -------- | ----------- |
-| `model` | string | Yes | Model name |
-| `input_type` | string | No | Prompt prefix key (model-dependent, see below) |
-| `texts` | list[string] | No | Text inputs (use one of `texts`, `images`, or `inputs`) |
-| `images` | list[string] | No | Base64 data URI images |
-| `inputs` | list[object] | No | Mixed text and image content objects |
-| `embedding_types` | list[string] | No | Output types (default: `["float"]`) |
-| `output_dimension` | int | No | Truncate embeddings to this dimension (Matryoshka) |
-| `truncate` | string | No | `END`, `START`, or `NONE` (default: `END`) |
+| `model` | string | 是 | 模型名称 |
+| `input_type` | string | 否 | 提示前缀键（取决于模型，见下文） |
+| `texts` | list[string] | 否 | 文本输入（使用 `texts`、`images` 或 `inputs` 之一） |
+| `images` | list[string] | 否 | Base64 data URI 图像 |
+| `inputs` | list[object] | 否 | 混合文本和图像内容对象 |
+| `embedding_types` | list[string] | 否 | 输出类型（默认：`["float"]`） |
+| `output_dimension` | int | 否 | 将嵌入截断到此维度（Matryoshka） |
+| `truncate` | string | 否 | `END`、`START` 或 `NONE`（默认：`END`） |
 
-#### Text embedding
+#### 文本嵌入
 
 ```bash
 curl -X POST "http://localhost:8000/v2/embed" \
@@ -362,7 +358,7 @@ curl -X POST "http://localhost:8000/v2/embed" \
   }'
 ```
 
-??? console "Response"
+??? console "响应"
 
     ```json
     {
@@ -381,9 +377,9 @@ curl -X POST "http://localhost:8000/v2/embed" \
     }
     ```
 
-#### Mixed text and image inputs
+#### 混合文本和图像输入
 
-For multimodal models, you can embed images by passing base64 data URIs. The `inputs` field accepts a list of objects with mixed text and image content:
+对于多模态模型，您可以通过传递 base64 data URI 来嵌入图像。`inputs` 字段接受一个包含混合文本和图像内容的对象列表：
 
 ```bash
 curl -X POST "http://localhost:8000/v2/embed" \
@@ -402,16 +398,16 @@ curl -X POST "http://localhost:8000/v2/embed" \
   }'
 ```
 
-#### Embedding types
+#### 嵌入类型
 
-The `embedding_types` parameter controls the output format. Multiple types can be requested in a single call:
+`embedding_types` 参数控制输出格式。可以在单次调用中请求多种类型：
 
-| Type | Description |
+| 类型 | 描述 |
 | ---- | ----------- |
-| `float` | Raw float32 embeddings (default) |
-| `binary` | Bit-packed signed binary |
-| `ubinary` | Bit-packed unsigned binary |
-| `base64` | Little-endian float32 encoded as base64 |
+| `float` | 原始 float32 嵌入（默认） |
+| `binary` | 位打包有符号二进制 |
+| `ubinary` | 位打包无符号二进制 |
+| `base64` | 小端 float32 编码为 base64 |
 
 ```bash
 curl -X POST "http://localhost:8000/v2/embed" \
@@ -424,7 +420,7 @@ curl -X POST "http://localhost:8000/v2/embed" \
   }'
 ```
 
-??? console "Response"
+??? console "响应"
 
     ```json
     {
@@ -441,66 +437,62 @@ curl -X POST "http://localhost:8000/v2/embed" \
     }
     ```
 
-#### Truncation
+#### 截断
 
-The `truncate` parameter controls how inputs exceeding the model's maximum sequence length are handled:
+`truncate` 参数控制如何处理超过模型最大序列长度的输入：
 
-| Value | Behavior |
+| 值 | 行为 |
 | ----- | --------- |
-| `END` (default) | Keep the first tokens, drop the end |
-| `START` | Keep the last tokens, drop the beginning |
-| `NONE` | Return an error if the input is too long |
+| `END`（默认） | 保留前面的 token，丢弃末尾 |
+| `START` | 保留后面的 token，丢弃开头 |
+| `NONE` | 如果输入过长则返回错误 |
 
-#### Input type and prompt prefixes
+#### 输入类型和提示前缀
 
-The `input_type` field selects a prompt prefix to prepend to each text input. The available values
-depend on the model:
+`input_type` 字段选择一个提示前缀，该前缀将添加到每个文本输入之前。可用的取值取决于模型：
 
-- **Models with `task_instructions` in `config.json`**: The keys from the `task_instructions` dict are
-  the valid `input_type` values and the corresponding value is prepended to each text.
-- **Models with `config_sentence_transformers.json` prompts**: The keys from the `prompts` dict are
-  the valid `input_type` values. For example, `Snowflake/snowflake-arctic-embed-xs` defines `"query"`,
-  so setting `input_type: "query"` prepends `"Represent this sentence for searching relevant passages: "`.
-- **Other models**: `input_type` is not accepted and will raise a validation error if passed.
+- **在 `config.json` 中有 `task_instructions` 的模型**：`task_instructions` 字典中的键是有效的 `input_type` 值，对应的值会添加到每个文本之前。
+- **有 `config_sentence_transformers.json` 提示的模型**：`prompts` 字典中的键是有效的 `input_type` 值。例如，`Snowflake/snowflake-arctic-embed-xs` 定义了 `"query"`，因此设置 `input_type: "query"` 会添加 `"Represent this sentence for searching relevant passages: "` 前缀。
+- **其他模型**：不支持 `input_type`，如果传递则会引发验证错误。
 
-## More examples
+## 更多示例
 
-More examples can be found here: [examples/pooling/embed](../../../examples/pooling/embed)
+更多示例请参见：[examples/pooling/embed](../../../examples/pooling/embed)
 
-## Supported Features
+## 支持的功能
 
-### Enable/disable normalize
+### 启用/禁用归一化
 
-You can enable or disable normalize via `use_activation`.
+您可以通过 `use_activation` 启用或禁用归一化。
 
-### Matryoshka Embeddings
+### Matryoshka 嵌入
 
-[Matryoshka Embeddings](https://sbert.net/examples/sentence_transformer/training/matryoshka/README.html#matryoshka-embeddings) or [Matryoshka Representation Learning (MRL)](https://arxiv.org/abs/2205.13147) is a technique used in training embedding models. It allows users to trade off between performance and cost.
+[Matryoshka 嵌入](https://sbert.net/examples/sentence_transformer/training/matryoshka/README.html#matryoshka-embeddings)或 [Matryoshka Representation Learning (MRL)](https://arxiv.org/abs/2205.13147) 是一种用于训练嵌入模型的技术。它允许用户在性能和成本之间进行权衡。
 
 !!! warning
-    Not all embedding models are trained using Matryoshka Representation Learning. To avoid misuse of the `dimensions` parameter, vLLM returns an error for requests that attempt to change the output dimension of models that do not support Matryoshka Embeddings.
+    并非所有嵌入模型都使用 Matryoshka Representation Learning 进行训练。为避免误用 `dimensions` 参数，vLLM 会返回错误信息，以阻止对不支持 Matryoshka 嵌入的模型更改输出维度的请求。
 
-    For example, setting `dimensions` parameter while using the `BAAI/bge-m3` model will result in the following error.
+    例如，在使用 `BAAI/bge-m3` 模型时设置 `dimensions` 参数将导致以下错误。
 
     ```json
     {"object":"error","message":"Model \"BAAI/bge-m3\" does not support matryoshka representation, changing output dimensions will lead to poor results.","type":"BadRequestError","param":null,"code":400}
     ```
 
-#### Manually enable Matryoshka Embeddings
+#### 手动启用 Matryoshka 嵌入
 
-There is currently no official interface for specifying support for Matryoshka Embeddings. In vLLM, if `is_matryoshka` is `True` in `config.json`, you can change the output dimension to arbitrary values. Use `matryoshka_dimensions` to control the allowed output dimensions.
+目前没有用于指定 Matryoshka 嵌入支持的官方接口。在 vLLM 中，如果 `config.json` 中的 `is_matryoshka` 为 `True`，您可以将输出维度更改为任意值。使用 `matryoshka_dimensions` 来控制允许的输出维度。
 
-For models that support Matryoshka Embeddings but are not recognized by vLLM, manually override the config using `hf_overrides={"is_matryoshka": True}` or `hf_overrides={"matryoshka_dimensions": [<allowed output dimensions>]}` (offline), or `--hf-overrides '{"is_matryoshka": true}'` or `--hf-overrides '{"matryoshka_dimensions": [<allowed output dimensions>]}'` (online).
+对于支持 Matryoshka 嵌入但未被 vLLM 识别的模型，请使用 `hf_overrides={"is_matryoshka": True}` 或 `hf_overrides={"matryoshka_dimensions": [<allowed output dimensions>]}`（离线），或 `--hf-overrides '{"is_matryoshka": true}'` 或 `--hf-overrides '{"matryoshka_dimensions": [<allowed output dimensions>]}'`（在线）手动覆盖配置。
 
-Here is an example to serve a model with Matryoshka Embeddings enabled.
+以下是启用 Matryoshka 嵌入的模型服务示例。
 
 ```bash
 vllm serve Snowflake/snowflake-arctic-embed-m-v1.5 --hf-overrides '{"matryoshka_dimensions":[256]}'
 ```
 
-#### Offline Inference
+#### 离线推理
 
-You can change the output dimensions of embedding models that support Matryoshka Embeddings by using the dimensions parameter in [PoolingParams][vllm.PoolingParams].
+您可以通过 [PoolingParams][vllm.PoolingParams] 中的 dimensions 参数更改支持 Matryoshka 嵌入的嵌入模型的输出维度。
 
 ```python
 from vllm import LLM, PoolingParams
@@ -517,17 +509,17 @@ outputs = llm.embed(
 print(outputs[0].outputs)
 ```
 
-A code example can be found here: [examples/pooling/embed/embed_matryoshka_fy_offline.py](../../../examples/pooling/embed/embed_matryoshka_fy_offline.py)
+代码示例请参见：[examples/pooling/embed/embed_matryoshka_fy_offline.py](../../../examples/pooling/embed/embed_matryoshka_fy_offline.py)
 
-#### Online Inference
+#### 在线推理
 
-Use the following command to start the vLLM server.
+使用以下命令启动 vLLM 服务器。
 
 ```bash
 vllm serve jinaai/jina-embeddings-v3 --trust-remote-code
 ```
 
-You can change the output dimensions of embedding models that support Matryoshka Embeddings by using the dimensions parameter.
+您可以使用 dimensions 参数更改支持 Matryoshka 嵌入的嵌入模型的输出维度。
 
 ```bash
 curl http://127.0.0.1:8000/v1/embeddings \
@@ -541,16 +533,16 @@ curl http://127.0.0.1:8000/v1/embeddings \
   }'
 ```
 
-Expected output:
+预期输出：
 
 ```json
 {"id":"embd-5c21fc9a5c9d4384a1b021daccaf9f64","object":"list","created":1745476417,"model":"jinaai/jina-embeddings-v3","data":[{"index":0,"object":"embedding","embedding":[-0.3828125,-0.1357421875,0.03759765625,0.125,0.21875,0.09521484375,-0.003662109375,0.1591796875,-0.130859375,-0.0869140625,-0.1982421875,0.1689453125,-0.220703125,0.1728515625,-0.2275390625,-0.0712890625,-0.162109375,-0.283203125,-0.055419921875,-0.0693359375,0.031982421875,-0.04052734375,-0.2734375,0.1826171875,-0.091796875,0.220703125,0.37890625,-0.0888671875,-0.12890625,-0.021484375,-0.0091552734375,0.23046875]}],"usage":{"prompt_tokens":8,"total_tokens":8,"completion_tokens":0,"prompt_tokens_details":null}}
 ```
 
-An OpenAI client example can be found here: [examples/pooling/embed/openai_embedding_matryoshka_fy_client.py](../../../examples/pooling/embed/openai_embedding_matryoshka_fy_client.py)
+OpenAI 客户端示例请参见：[examples/pooling/embed/openai_embedding_matryoshka_fy_client.py](../../../examples/pooling/embed/openai_embedding_matryoshka_fy_client.py)
 
-## Removed Features
+## 已移除的功能
 
-### Remove `normalize` from PoolingParams
+### 从 PoolingParams 中移除 `normalize`
 
-We have already removed `normalize` from PoolingParams, use `use_activation` instead.
+我们已从 PoolingParams 中移除 `normalize`，请改用 `use_activation`。

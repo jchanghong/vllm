@@ -1,60 +1,60 @@
-# LMCache Examples
+# LMCache 示例
 
-This folder demonstrates how to use LMCache for disaggregated prefilling, CPU offloading and KV cache sharing.
+此文件夹演示如何使用 LMCache 进行分离式预填充、CPU 卸载和 KV 缓存共享。
 
-## 1. Disaggregated Prefill in vLLM v1
+## 1. vLLM v1 中的分离式预填充
 
-This example demonstrates how to run LMCache with disaggregated prefill using NIXL on a single node.
+本示例演示如何使用 NIXL 在单节点上运行 LMCache 进行分离式预填充。
 
-### Prerequisites
+### 前提条件
 
-- Install [LMCache](https://github.com/LMCache/LMCache). You can simply run `pip install lmcache`.
-- Install [NIXL](https://github.com/ai-dynamo/nixl).
-- At least 2 GPUs
-- Valid Hugging Face token (HF_TOKEN) for Llama 3.1 8B Instruct.
+- 安装 [LMCache](https://github.com/LMCache/LMCache)。可以直接运行 `pip install lmcache`。
+- 安装 [NIXL](https://github.com/ai-dynamo/nixl)。
+- 至少 2 块 GPU
+- 有效的 Hugging Face 令牌（HF_TOKEN），用于 Llama 3.1 8B Instruct。
 
-### Usage
+### 使用方法
 
-Run
+运行
 `cd disagg_prefill_lmcache_v1`
-to get into `disagg_prefill_lmcache_v1` folder, and then run
+进入 `disagg_prefill_lmcache_v1` 文件夹，然后运行
 
 ```bash
 bash disagg_example_nixl.sh
 ```
 
-to run disaggregated prefill and benchmark the performance.
+即可执行分离式预填充并对性能进行基准测试。
 
-### Components
+### 组件
 
-#### Server Scripts
+#### 服务器脚本
 
-- `disagg_prefill_lmcache_v1/disagg_vllm_launcher.sh` - Launches individual vLLM servers for prefill/decode, and also launches the proxy server.
-- `disagg_prefill_lmcache_v1/disagg_proxy_server.py` - FastAPI proxy server that coordinates between prefiller and decoder
-- `disagg_prefill_lmcache_v1/disagg_example_nixl.sh` - Main script to run the example
+- `disagg_prefill_lmcache_v1/disagg_vllm_launcher.sh` - 启动用于预填充/解码的各个 vLLM 服务器，同时启动代理服务器。
+- `disagg_prefill_lmcache_v1/disagg_proxy_server.py` - FastAPI 代理服务器，协调预填充器与解码器之间的通信
+- `disagg_prefill_lmcache_v1/disagg_example_nixl.sh` - 运行示例的主脚本
 
-#### Configuration
+#### 配置
 
-- `disagg_prefill_lmcache_v1/configs/lmcache-prefiller-config.yaml` - Configuration for prefiller server
-- `disagg_prefill_lmcache_v1/configs/lmcache-decoder-config.yaml` - Configuration for decoder server
+- `disagg_prefill_lmcache_v1/configs/lmcache-prefiller-config.yaml` - 预填充服务器的配置
+- `disagg_prefill_lmcache_v1/configs/lmcache-decoder-config.yaml` - 解码服务器的配置
 
-#### Log Files
+#### 日志文件
 
-The main script generates several log files:
+主脚本会生成多个日志文件：
 
-- `prefiller.log` - Logs from the prefill server
-- `decoder.log` - Logs from the decode server
-- `proxy.log` - Logs from the proxy server
+- `prefiller.log` - 预填充服务器的日志
+- `decoder.log` - 解码服务器的日志
+- `proxy.log` - 代理服务器的日志
 
-## 2. CPU Offload Examples
+## 2. CPU 卸载示例
 
-- `python cpu_offload_lmcache.py -v v0` - CPU offloading implementation for vLLM v0
-- `python cpu_offload_lmcache.py -v v1` - CPU offloading implementation for vLLM v1
+- `python cpu_offload_lmcache.py -v v0` - 适用于 vLLM v0 的 CPU 卸载实现
+- `python cpu_offload_lmcache.py -v v1` - 适用于 vLLM v1 的 CPU 卸载实现
 
-## 3. KV Cache Sharing
+## 3. KV 缓存共享
 
-The `kv_cache_sharing_lmcache_v1.py` example demonstrates how to share KV caches between vLLM v1 instances.
+`kv_cache_sharing_lmcache_v1.py` 示例演示如何在 vLLM v1 实例之间共享 KV 缓存。
 
-## 4. Disaggregated Prefill in vLLM v0
+## 4. vLLM v0 中的分离式预填充
 
-The `disaggregated_prefill_lmcache_v0.py` provides an example of how to run disaggregated prefill in vLLM v0.
+`disaggregated_prefill_lmcache_v0.py` 提供了如何在 vLLM v0 中运行分离式预填充的示例。

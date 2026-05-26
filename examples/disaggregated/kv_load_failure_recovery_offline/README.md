@@ -1,30 +1,30 @@
-# KV Load Failure Recovery Test
+# KV 加载失败恢复测试
 
-This example builds upon the `example_connector` example in `examples/disaggregated`.
+此示例基于 `examples/disaggregated` 中的 `example_connector` 示例构建。
 
-It demonstrates vLLM's ability to recover from KV load failures in both synchronous and asynchronous loading modes. The goal is to verify that vLLM correctly identifies invalid KV blocks, reschedules the affected requests, and ensures successful and consistent output.
+它演示了 vLLM 在同步和异步加载模式下从 KV 加载失败中恢复的能力。目标是验证 vLLM 能够正确识别无效的 KV 块，重新调度受影响的请求，并确保成功且一致的输出。
 
-## Files
+## 文件
 
-- `prefill_example.py` – performs the prefill stage and saves KV data (same as in `example_connector`).
-- `decode_example.py` – performs the decode stage. Accepts:
-    - `--simulate-failure`: simulates KV load failure using a custom connector.
-    - `--async-load`: enables asynchronous KV loading mode.
-- `load_recovery_example_connector.py` – defines `LoadRecoveryExampleConnector`, a subclass of `ExampleConnector`, that simulates missing or corrupted external KV blocks by failing to load blocks for the first decode request.
-- `run.sh` – orchestrates the test: runs the prefill stage, then three decode stages:
-    1. Normal decode (baseline).
-    2. Decode with simulated sync KV load failure.
-    3. Decode with simulated async KV load failure.
+- `prefill_example.py` – 执行预填充阶段并保存 KV 数据（与 `example_connector` 中相同）。
+- `decode_example.py` – 执行解码阶段。接受：
+    - `--simulate-failure`：使用自定义连接器模拟 KV 加载失败。
+    - `--async-load`：启用异步 KV 加载模式。
+- `load_recovery_example_connector.py` – 定义 `LoadRecoveryExampleConnector`，它是 `ExampleConnector` 的子类，通过无法为第一个解码请求加载块来模拟缺失或损坏的外部 KV 块。
+- `run.sh` – 编排测试：运行预填充阶段，然后是三个解码阶段：
+    1. 正常解码（基线）。
+    2. 模拟同步 KV 加载失败的解码。
+    3. 模拟异步 KV 加载失败的解码。
 
-    Finally, it compares the output of the baseline with the recovered outputs to verify correctness.
+    最后，比较基线的输出与恢复后的输出以验证正确性。
 
-## How It Works
+## 工作原理
 
-- The test dynamically loads `LoadRecoveryExampleConnector` via `KVTransferConfig.kv_connector_module_path`, enabling controlled simulation of load failures without modifying the original connector.
-- The decode stages that simulate failure are expected to trigger recovery logic in vLLM, resulting in the same output as the baseline decode.
-- If recovery fails, the script prints a unified diff of the output mismatch and exits with error.
+- 测试通过 `KVTransferConfig.kv_connector_module_path` 动态加载 `LoadRecoveryExampleConnector`，从而无需修改原始连接器即可实现对加载失败的可控模拟。
+- 模拟失败的解码阶段预期会触发 vLLM 中的恢复逻辑，产生与基线解码相同的输出。
+- 如果恢复失败，脚本将打印输出不匹配的统一差异（diff）并以错误退出。
 
-## Usage
+## 使用方法
 
 ```bash
 ./run.sh

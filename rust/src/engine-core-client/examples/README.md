@@ -1,6 +1,6 @@
-# Engine-Core Smoke Tests
+# Engine-Core 冒烟测试
 
-Start headless `vllm`:
+启动无头 `vllm`：
 
 ```bash
 source ../vllm/.venv/bin/activate
@@ -19,7 +19,7 @@ python3 -m vllm.entrypoints.cli.main serve Qwen/Qwen3-0.6B \
   --dtype float16
 ```
 
-Run the Rust smoke test through the `vllm-engine-core-client` utility interface:
+通过 `vllm-engine-core-client` 工具接口运行 Rust 冒烟测试：
 
 ```bash
 cargo run -p vllm-engine-core-client --example external_engine_utility_call -- \
@@ -27,8 +27,7 @@ cargo run -p vllm-engine-core-client --example external_engine_utility_call -- \
   --host 127.0.0.1
 ```
 
-If your current engine setup does not support sleep mode, skip the `sleep` / `wake_up` part of the
-smoke:
+如果当前引擎设置不支持睡眠模式，请跳过冒烟测试中的 `sleep` / `wake_up` 部分：
 
 ```bash
 cargo run -p vllm-engine-core-client --example external_engine_utility_call -- \
@@ -37,7 +36,7 @@ cargo run -p vllm-engine-core-client --example external_engine_utility_call -- \
   --skip-sleep-wake
 ```
 
-Run the Rust smoke test for sample logprobs decoding through the raw engine-core request path:
+通过原始 engine-core 请求路径运行用于样例 logprobs 解码的 Rust 冒烟测试：
 
 ```bash
 cargo run -p vllm-engine-core-client --example external_engine_logprobs -- \
@@ -45,9 +44,9 @@ cargo run -p vllm-engine-core-client --example external_engine_logprobs -- \
   --host 127.0.0.1
 ```
 
-This smoke requests a small generated-token `logprobs` payload plus prompt logprobs over a much
-longer prompt, so it exercises both the inline and aux-frame decode paths against a real engine.
-The Rust client decodes those payloads into semantic per-position records rather than exposing the
-raw ndarray/tensor wire shape.
+该冒烟测试请求一个较小的已生成 token 的 `logprobs` 载荷，外加在一个更长的
+提示上的 prompt logprobs，因此它针对真实引擎同时练习了内联和辅助帧解码路径。
+Rust 客户端将这些载荷解码为语义化的逐位置记录，而不是暴露
+原始的 ndarray/tensor 连线格式。
 
-IMPORTANT: You must restart `vllm` each time you run the smoke test, as the vLLM engine cannot manage frontend closures and subsequent reconnects. In other words, do not reuse existing `vllm` instances, if any.
+重要提示：每次运行冒烟测试时都必须重启 `vllm`，因为 vLLM 引擎无法管理前端关闭及其后的重连。换句话说，请勿重用现有的 `vllm` 实例（如果有）。

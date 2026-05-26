@@ -1,24 +1,24 @@
-# Dual Batch Overlap
+# 双批次重叠
 
-## Motivation
+## 动机
 
-The core motivation of the DBO system in vLLM is to overlap the sparse all-to-all communication in the MoE layer with the surrounding computation. This system currently only targets DP+EP deployments.
+vLLM 中 DBO 系统的核心动机是将 MoE 层中的稀疏 all-to-all 通信与周围的计算重叠。该系统目前仅针对 DP+EP 部署。
 
-## Introduction
+## 引言
 
-The Dual Batch Overlap system works by splitting the batch in the model runner, creating two worker threads, and then running the model on each of these worker threads. When DBO is enabled, yield points within the `FusedMoEModularKernel` allow the two CPU worker threads (also called UBatch threads) to ping-pong between each other so that when one is running compute, the other is waiting on communication. Throughout the code, ubatch may be used as a short form of microbatch; this is an ASCII-friendly version of the short form µ-batch.
+双批次重叠系统的工作原理是在模型运行器中将批次拆分为两半，创建两个工作线程，然后在每个工作线程上运行模型。当启用 DBO 时，`FusedMoEModularKernel` 内的让位点（yield points）允许两个 CPU 工作线程（也称为 UBatch 线程）相互乒乓切换，使得一个线程在运行计算时，另一个线程在等待通信。在整个代码中，ubatch 可能用作 microbatch 的简写；这是 µ-batch 简写的 ASCII 友好版本。
 
-The DBO system includes modifications to `GpuModelRunner` and `ModularKernel`, and defines two utility classes: `UBatchWrapper` and `UBatchContext`. `UBatchWrapper` manages thread lifecycle and CUDA graph execution of the model. `UBatchContext` wraps `ForwardContext` to coordinate synchronization between the two UBatch threads.
+DBO 系统包括对 `GpuModelRunner` 和 `ModularKernel` 的修改，并定义了两个实用类：`UBatchWrapper` 和 `UBatchContext`。`UBatchWrapper` 管理线程生命周期和模型的 CUDA graph 执行。`UBatchContext` 包装了 `ForwardContext`，用于协调两个 UBatch 线程之间的同步。
 
-Below is the overlap schedule that is currently implemented in vLLM.
+以下是 vLLM 当前实现的重叠调度。
 
 ```python
-# Schedule notation legend:
-#    S = Shared expert
+# 调度符号图例：
+#    S = 共享专家
 #    A0 = MLA qkv proj,
-#    A1 = Core attn + out proj + MoE gate
-#    D = Dispatch
-#    C = Combine
+#    A1 = 核心注意力 + out proj + MoE 门控
+#    D = 调度
+#    C = 合并
 
 # Comp: |-A0₀-A1₀-||-MLP₁-||-S₁-MLP₀-||-S₀-A0₁-A1₁-|
 # Comm: |----D₁---||--D₀--||----C₁---||-----C₀-----|
@@ -27,21 +27,21 @@ Below is the overlap schedule that is currently implemented in vLLM.
 # MLP_SHARED_OVERLAP = "mlp_shared_overlap"
 ```
 
-## Running with DBO
+## 使用 DBO 运行
 
-To enable the DBO system pass in the `--enable-dbo` argument to your vllm serve command. This must be run in conjunction with `--data-parallel-size N` where N is greater than 1 and `--enable-expert-parallel`. Additionally, there are two configuration knobs.
+要启用 DBO 系统，请在 vllm serve 命令中传入 `--enable-dbo` 参数。这必须与 `--data-parallel-size N`（其中 N 大于 1）和 `--enable-expert-parallel` 一起运行。此外，还有两个配置旋钮。
 
-* `--dbo-decode-token-threshold` the minimum number of tokens in a decode-only batch required to enable DBO for that batch
-* `--dbo-prefill-token-threshold` the minimum number of tokens in a batch containing at least one prefill required to enable DBO for that batch
+* `--dbo-decode-token-threshold` 启用 DBO 所需的仅解码批次中的最小 token 数量
+* `--dbo-prefill-token-threshold` 启用 DBO 所需的包含至少一个预填充的批次中的最小 token 数量
 
-Currently, DBO is only supported with DeepEP, so DeepEP must be installed and the `--all2all-backend` argument must be set to `deepep_low_latency` if your workload is primarily decode requests, or `deepep_high_throughput` if your workload is primarily prefill requests.
+目前，DBO 仅支持 DeepEP，因此必须安装 DeepEP，并且如果您的工作负载主要是解码请求，则 `--all2all-backend` 参数必须设置为 `deepep_low_latency`；如果工作负载主要是预填充请求，则设置为 `deepep_high_throughput`。
 
-Below is a command that will spin up a two DP rank server with expert parallelism and DBO enabled.
-EX: `vllm serve deepseek-ai/DeepSeek-V2-Lite --trust-remote-code --data-parallel-size 2 --enable-expert-parallel --enable-dbo --all2all-backend deepep_low_latency`
+以下命令将启动一个具有专家并行和 DBO 启用的两个 DP rank 服务器。
+例如：`vllm serve deepseek-ai/DeepSeek-V2-Lite --trust-remote-code --data-parallel-size 2 --enable-expert-parallel --enable-dbo --all2all-backend deepep_low_latency`
 
-Note that there must be at least two GPUs visible in `CUDA_VISIBLE_DEVICES`
+请注意，`CUDA_VISIBLE_DEVICES` 中必须至少有两个 GPU 可见。
 
-## DBO Components
+## DBO 组件
 
 * GPUModelRunner
 * UBatchWrapper
@@ -49,40 +49,40 @@ Note that there must be at least two GPUs visible in `CUDA_VISIBLE_DEVICES`
 
 ### GPU Model Runner
 
-The batch is split into microbatches by the `GPUModelRunner` class. This is accomplished in two steps. First, coordination across all DP ranks is performed to determine whether microbatching will be applied. Microbatching must be uniform across all DP ranks. If microbatching is not feasible for any DP rank, it is disabled for all ranks. If all DP ranks are going to microbatch, the total number of tokens is padded up to the max number of tokens amongst all ranks. If any rank would end up with an empty second microbatch after the padding is applied, microbatching will be aborted and no ranks will microbatch. Once microbatching has been initiated by all ranks, the second step is performed. The `CommonAttentionMetadata` is sliced in half by the `GPUModelRunner` so that there is one attention metadata per-microbatch.
+批次由 `GPUModelRunner` 类拆分为微批次。这通过两步完成。首先，跨所有 DP rank 进行协调以确定是否应用微批处理。微批处理必须在所有 DP rank 之间保持一致。如果任何 DP rank 无法进行微批处理，则对所有 rank 禁用。如果所有 DP rank 都将进行微批处理，则总 token 数将填充到所有 rank 中的最大 token 数。如果应用填充后任何 rank 最终得到空的第二个微批次，则微批处理将被中止，所有 rank 都不会进行微批处理。一旦所有 rank 启动了微批处理，就执行第二步。`GPUModelRunner` 将 `CommonAttentionMetadata` 切成两半，使得每个微批次有一个注意力元数据。
 
 ### UBatchWrapper
 
 gpu_ubatch_wrapper
 
-The `UBatchWrapper` class is a model wrapper that's responsible for all of the thread, UBatchContext, and CUDA graph management for DBO. It's designed to be relatively transparent to the GPU Model Runner.
+`UBatchWrapper` 类是一个模型包装器，负责 DBO 的所有线程、UBatchContext 和 CUDA graph 管理。它设计为对 GPU Model Runner 相对透明。
 
-The implementation runs the model twice, once for each microbatch. Each model invocation occurs within a UBatch thread. These threads are launched in parallel and are synchronized using the `UBatchContext`. Each thread is provided with a sliced version of the attention metadata that is used to run its half of the batch.
+实现将模型运行两次，每个微批次一次。每次模型调用发生在一个 UBatch 线程内。这些线程并行启动，并使用 `UBatchContext` 进行同步。每个线程提供一份切片后的注意力元数据，用于运行其处理的那一半批次。
 
-CUDA graphs for DBO are entirely managed by the `UBatchWrapper`. Because of this, DBO only supports running with Full CUDA graphs. However, once a DBO CUDA graph has been captured, it can be replayed without any multithreading or CPU synchronization.
+DBO 的 CUDA graph 完全由 `UBatchWrapper` 管理。因此，DBO 仅支持使用 Full CUDA graphs 运行。然而，一旦捕获了 DBO CUDA graph，它可以在没有任何多线程或 CPU 同步的情况下回放。
 
-#### Interfaces
+#### 接口
 
-The `__init__` method takes in the model, VllmConfig, CUDAGraphMode, and device.
+`__init__` 方法接受模型、VllmConfig、CUDAGraphMode 和设备。
 
-The `forward` method exclusively takes in model arguments. It determines whether or not to run with DBO based on whether a `ubatch_slices` object is present in the `forward_context`. Otherwise, the model is run without DBO.
+`forward` 方法独占接受模型参数。它根据 `forward_context` 中是否存在 `ubatch_slices` 对象来决定是否使用 DBO 运行。否则，模型在没有 DBO 的情况下运行。
 
 ### UBatchContext
 
 ubatch_context
 
-The `UBatchContext` class is a `ForwardContext` wrapper class that is used by the `UBatchWrapper` class to synchronize the two UBatch threads. It should only be instantiated by using `make_ubatch_contexts`.
+`UBatchContext` 类是一个 `ForwardContext` 包装类，由 `UBatchWrapper` 类用于同步两个 UBatch 线程。它应该只通过使用 `make_ubatch_contexts` 来实例化。
 
-When one of the UBatch threads reaches a `dbo_yield` call, it pauses, and starts the other thread which will run until it reaches the same `dbo_yield` call. This "ping-pong" dynamic continues, with threads swapping at each `dbo_yield call`, until the model's execution is complete.
+当其中一个 UBatch 线程达到 `dbo_yield` 调用时，它暂停并启动另一个线程，另一个线程将运行直到达到相同的 `dbo_yield` 调用。这种"乒乓"动态继续，线程在每次 `dbo_yield` 调用处交换，直到模型执行完成。
 
-The current implementation has all `dbo_yield` and `dbo_maybe_run_recv_hook` calls in the `FusedMoEModularKernel.forward` method.
+当前实现将所有 `dbo_yield` 和 `dbo_maybe_run_recv_hook` 调用放在 `FusedMoEModularKernel.forward` 方法中。
 
-#### Interfaces
+#### 接口
 
-The `make_ubatch_context` function initializes two `UBatchContexts`, one for each UBatch thread. It takes two CUDA streams, the preexisting `ForwardContexts` and a CPU thread barrier. This function should be used exclusively to instantiate `UBatchContexts`. It will handle all of the event initialization.
+`make_ubatch_context` 函数初始化两个 `UBatchContext`，每个 UBatch 线程一个。它接受两个 CUDA 流、预先存在的 `ForwardContexts` 和一个 CPU 线程屏障。应仅使用此函数来实例化 `UBatchContexts`。它将处理所有事件初始化。
 
-The `dbo_register_recv_hook` method registers a callback that can be returned by the `FusedMoEPrepareAndFinalizeModular` class in the other UBatch thread’s `UBatchContext`. The callback will be run when the other thread calls `dbo_maybe_run_recv_hook`. This is typically used to wait on an all-to-all kernel.
+`dbo_register_recv_hook` 方法注册一个回调，该回调可由另一个 UBatch 线程的 `UBatchContext` 中的 `FusedMoEPrepareAndFinalizeModular` 类返回。当另一个线程调用 `dbo_maybe_run_recv_hook` 时，将运行该回调。这通常用于等待 all-to-all 内核。
 
-The `dbo_maybe_run_recv_hook` method runs a callback that’s set by the `dbo_register_recv_hook` function if that callback exists.
+`dbo_maybe_run_recv_hook` 方法运行由 `dbo_register_recv_hook` 函数设置的回调（如果该回调存在）。
 
-The `dbo_yield` method puts the current thread to sleep and wakes up the other UBatch thread.
+`dbo_yield` 方法使当前线程进入休眠并唤醒另一个 UBatch 线程。

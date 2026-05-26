@@ -1,33 +1,33 @@
 # Helm Charts
 
-This directory contains a Helm chart for deploying the vllm application. The chart includes configurations for deployment, autoscaling, resource management, and more.
+此目录包含用于部署 vllm 应用的 Helm chart。该 chart 包含部署、自动扩缩容、资源管理等配置。
 
-## Files
+## 文件
 
-- Chart.yaml: Defines the chart metadata including name, version, and maintainers.
-- ct.yaml: Configuration for chart testing.
-- lintconf.yaml: Linting rules for YAML files.
-- values.schema.json: JSON schema for validating values.yaml.
-- values.yaml: Default values for the Helm chart.
-- templates/_helpers.tpl: Helper templates for defining common configurations.
-- templates/configmap.yaml: Template for creating ConfigMaps.
-- templates/custom-objects.yaml: Template for custom Kubernetes objects.
-- templates/deployment.yaml: Template for creating Deployments.
-- templates/hpa.yaml: Template for Horizontal Pod Autoscaler.
-- templates/job.yaml: Template for Kubernetes Jobs.
-- templates/poddisruptionbudget.yaml: Template for Pod Disruption Budget.
-- templates/pvc.yaml: Template for Persistent Volume Claims.
-- templates/secrets.yaml: Template for Kubernetes Secrets.
-- templates/service.yaml: Template for creating Services.
+- Chart.yaml: 定义 chart 元数据，包括名称、版本和维护者。
+- ct.yaml: 用于 chart 测试的配置。
+- lintconf.yaml: YAML 文件的 lint 规则。
+- values.schema.json: 用于验证 values.yaml 的 JSON schema。
+- values.yaml: Helm chart 的默认值。
+- templates/_helpers.tpl: 用于定义通用配置的辅助模板。
+- templates/configmap.yaml: 用于创建 ConfigMap 的模板。
+- templates/custom-objects.yaml: 用于自定义 Kubernetes 对象的模板。
+- templates/deployment.yaml: 用于创建 Deployment 的模板。
+- templates/hpa.yaml: 用于创建 Horizontal Pod Autoscaler 的模板。
+- templates/job.yaml: 用于创建 Kubernetes Job 的模板。
+- templates/poddisruptionbudget.yaml: 用于创建 Pod Disruption Budget 的模板。
+- templates/pvc.yaml: 用于创建 Persistent Volume Claim 的模板。
+- templates/secrets.yaml: 用于创建 Kubernetes Secret 的模板。
+- templates/service.yaml: 用于创建 Service 的模板。
 
-## Running Tests
+## 运行测试
 
-This chart includes unit tests using [helm-unittest](https://github.com/helm-unittest/helm-unittest). Install the plugin and run tests:
+此 chart 包含使用 [helm-unittest](https://github.com/helm-unittest/helm-unittest) 的单元测试。安装插件并运行测试：
 
 ```bash
-# Install plugin
+# 安装插件
 helm plugin install https://github.com/helm-unittest/helm-unittest
 
-# Run tests
+# 运行测试
 helm unittest .
 ```

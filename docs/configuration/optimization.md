@@ -1,183 +1,164 @@
-# Optimization and Tuning
+# 优化与调优
 
-This guide covers optimization strategies and performance tuning for vLLM V1.
+本指南涵盖了 vLLM V1 的优化策略和性能调优。
 
 !!! tip
-    Running out of memory? Consult [this guide](./conserving_memory.md) on how to conserve memory.
+    内存不足？请参阅[本指南](./conserving_memory.md)了解如何节省内存。
 
-## Optimization Levels
+## 优化级别
 
-vLLM provides 4 optimization levels (`-O0`, `-O1`, `-O2`, `-O3`) that allow users to trade off startup time for performance:
+vLLM 提供 4 个优化级别（`-O0`、`-O1`、`-O2`、`-O3`），允许用户在启动时间和性能之间进行权衡：
 
-- `-O0`: No optimizations. Fastest startup time, but lowest performance.
-- `-O1`: Fast optimization. Simple compilation and fast fusions, and PIECEWISE cudagraphs.
-- `-O2`: Default optimization. Additional compilation ranges, additional fusions, FULL_AND_PIECEWISE cudagraphs.
-- `-O3`: Aggressive optimization. Currently equal to `-O2`, but may include additional time-consuming or experimental optimizations in the future.
+- `-O0`：无优化。启动时间最快，但性能最低。
+- `-O1`：快速优化。简单编译和快速融合，以及 PIECEWISE cudagraphs。
+- `-O2`：默认优化。额外的编译范围，额外的融合，FULL_AND_PIECEWISE cudagraphs。
+- `-O3`：激进优化。目前等同于 `-O2`，但未来可能包括额外的耗时或实验性优化。
 
-For more information, see the [optimization level documentation](../design/optimization_levels.md).
+更多信息请参见[优化级别文档](../design/optimization_levels.md)。
 
-## Preemption
+## 抢占
 
-Due to the autoregressive nature of transformer architecture, there are times when KV cache space is insufficient to handle all batched requests.
-In such cases, vLLM can preempt requests to free up KV cache space for other requests. Preempted requests are recomputed when sufficient KV cache space becomes
-available again. When this occurs, you may see the following warning:
+由于 transformer 架构的自回归特性，有时 KV 缓存空间不足以处理所有批处理的请求。在这种情况下，vLLM 可以抢占请求以释放 KV 缓存空间给其他请求。当有足够的 KV 缓存空间可用时，被抢占的请求会重新计算。当这种情况发生时，您可能会看到以下警告：
 
 ```text
 WARNING 05-09 00:49:33 scheduler.py:1057 Sequence group 0 is preempted by PreemptionMode.RECOMPUTE mode because there is not enough KV cache space. This can affect the end-to-end performance. Increase gpu_memory_utilization or tensor_parallel_size to provide more KV cache memory. total_cumulative_preemption_cnt=1
 ```
 
-While this mechanism ensures system robustness, preemption and recomputation can adversely affect end-to-end latency.
-If you frequently encounter preemptions, consider the following actions:
+虽然这种机制确保了系统的鲁棒性，但抢占和重新计算会对端到端延迟产生不利影响。如果您经常遇到抢占问题，请考虑以下措施：
 
-- Increase `gpu_memory_utilization`. vLLM pre-allocates GPU cache using this percentage of memory. By increasing utilization, you can provide more KV cache space.
-- Decrease `max_num_seqs` or `max_num_batched_tokens`. This reduces the number of concurrent requests in a batch, thereby requiring less KV cache space.
-- Increase `tensor_parallel_size`. This shards model weights across GPUs, allowing each GPU to have more memory available for KV cache. However, increasing this value may cause excessive synchronization overhead.
-- Increase `pipeline_parallel_size`. This distributes model layers across GPUs, reducing the memory needed for model weights on each GPU, indirectly leaving more memory available for KV cache. However, increasing this value may cause latency penalties.
+- 增加 `gpu_memory_utilization`。vLLM 使用此百分比的内存预先分配 GPU 缓存。通过提高利用率，您可以提供更多的 KV 缓存空间。
+- 减少 `max_num_seqs` 或 `max_num_batched_tokens`。这会减少批处理中的并发请求数量，从而减少对 KV 缓存空间的需求。
+- 增加 `tensor_parallel_size`。这会将模型权重分片到多个 GPU 上，使每个 GPU 有更多内存可用于 KV 缓存。但是，增加此值可能会导致过多的同步开销。
+- 增加 `pipeline_parallel_size`。这会将模型层分布到多个 GPU 上，减少每个 GPU 上模型权重所需的内存，从而间接为 KV 缓存留出更多内存。但是，增加此值可能会导致延迟损失。
 
-You can monitor the number of preemption requests through Prometheus metrics exposed by vLLM. Additionally, you can log the cumulative number of preemption requests by setting `disable_log_stats=False`.
+您可以通过 vLLM 暴露的 Prometheus 指标监控抢占请求的数量。此外，您可以通过设置 `disable_log_stats=False` 来记录累计的抢占请求数量。
 
-In vLLM V1, the default preemption mode is `RECOMPUTE` rather than `SWAP`, as recomputation has lower overhead in the V1 architecture.
+在 vLLM V1 中，默认的抢占模式是 `RECOMPUTE` 而不是 `SWAP`，因为在 V1 架构中重新计算的开销更小。
 
-## Chunked Prefill
+## 分块预填充
 
-Chunked prefill allows vLLM to process large prefills in smaller chunks and batch them together with decode requests. This feature helps improve both throughput and latency by better balancing compute-bound (prefill) and memory-bound (decode) operations.
+分块预填充允许 vLLM 将大的预填充处理为更小的块，并将它们与解码请求一起批处理。这一特性通过更好地平衡计算密集型（预填充）和内存密集型（解码）操作来帮助提高吞吐量和延迟。
 
-In V1, **chunked prefill is enabled by default whenever possible**. With chunked prefill enabled, the scheduling policy prioritizes decode requests. It batches all pending decode requests before scheduling any prefill operations. When there are available tokens in the `max_num_batched_tokens` budget, it schedules pending prefills. If a pending prefill request cannot fit into `max_num_batched_tokens`, it automatically chunks it.
+在 V1 中，**分块预填充在可能的情况下默认启用**。启用分块预填充后，调度策略优先处理解码请求。它在调度任何预填充操作之前批处理所有待处理的解码请求。当 `max_num_batched_tokens` 预算中有可用令牌时，它会调度待处理的预填充。如果待处理的预填充请求无法完全放入 `max_num_batched_tokens`，它会自动进行分块。
 
-This policy has two benefits:
+此策略有两个好处：
 
-- It improves ITL and generation decode because decode requests are prioritized.
-- It helps achieve better GPU utilization by locating compute-bound (prefill) and memory-bound (decode) requests to the same batch.
+- 它改善了 ITL 和生成解码，因为解码请求被优先处理。
+- 它通过将计算密集型（预填充）和内存密集型（解码）请求定位到同一批次中，有助于实现更好的 GPU 利用率。
 
-### Performance Tuning with Chunked Prefill
+### 使用分块预填充进行性能调优
 
-You can tune the performance by adjusting `max_num_batched_tokens`:
+您可以通过调整 `max_num_batched_tokens` 来调优性能：
 
-- Smaller values (e.g., 2048) achieve better inter-token latency (ITL) because there are fewer prefills slowing down decodes.
-- Higher values achieve better time to first token (TTFT) as you can process more prefill tokens in a batch.
-- For optimal throughput, we recommend setting `max_num_batched_tokens > 8192` especially for smaller models on large GPUs.
-- If `max_num_batched_tokens` is the same as `max_model_len`, that's almost the equivalent to the V0 default scheduling policy (except that it still prioritizes decodes).
+- 较小的值（例如 2048）可以实现更好的令牌间延迟（ITL），因为减慢解码速度的预填充更少。
+- 较高的值可以实现更好的首次令牌时间（TTFT），因为您可以在一个批次中处理更多的预填充令牌。
+- 为了获得最佳吞吐量，我们建议设置 `max_num_batched_tokens > 8192`，特别是在大型 GPU 上使用较小模型时。
+- 如果 `max_num_batched_tokens` 与 `max_model_len` 相同，则几乎等同于 V0 的默认调度策略（除了它仍然优先处理解码）。
 
 !!! warning
-    When chunked prefill is disabled, `max_num_batched_tokens` must be greater than `max_model_len`.  
-    In that case, if `max_num_batched_tokens < max_model_len`, vLLM may crash at server start‑up.
+    当分块预填充被禁用时，`max_num_batched_tokens` 必须大于 `max_model_len`。
+    在这种情况下，如果 `max_num_batched_tokens < max_model_len`，vLLM 可能会在服务器启动时崩溃。
 
 ```python
 from vllm import LLM
 
-# Set max_num_batched_tokens to tune performance
+# 设置 max_num_batched_tokens 以调优性能
 llm = LLM(model="meta-llama/Llama-3.1-8B-Instruct", max_num_batched_tokens=16384)
 ```
 
-See related papers for more details (<https://arxiv.org/pdf/2401.08671> or <https://arxiv.org/pdf/2308.16369>).
+请参见相关论文以获得更多详细信息（<https://arxiv.org/pdf/2401.08671> 或 <https://arxiv.org/pdf/2308.16369>）。
 
-## Parallelism Strategies
+## 并行策略
 
-vLLM supports multiple parallelism strategies that can be combined to optimize performance across different hardware configurations.
+vLLM 支持多种可以组合使用的并行策略，以优化不同硬件配置下的性能。
 
-### Tensor Parallelism (TP)
+### 张量并行（TP）
 
-Tensor parallelism shards model parameters across multiple GPUs within each model layer. This is the most common strategy for large model inference within a single node.
+张量并行将模型参数在单个模型层内的多个 GPU 之间进行分片。这是单节点内大型模型推理最常用的策略。
 
-**When to use:**
+**何时使用：**
 
-- When the model is too large to fit on a single GPU
-- When you need to reduce memory pressure per GPU to allow more KV cache space for higher throughput
+- 当模型太大而无法放入单个 GPU 时
+- 当您需要减少每个 GPU 上的内存压力以提供更多 KV 缓存空间来实现更高吞吐量时
 
 ```python
 from vllm import LLM
 
-# Split model across 4 GPUs
+# 将模型拆分到 4 个 GPU
 llm = LLM(model="meta-llama/Llama-3.3-70B-Instruct", tensor_parallel_size=4)
 ```
 
-For models that are too large to fit on a single GPU (like 70B parameter models), tensor parallelism is essential.
+对于无法放入单个 GPU 的模型（如 70B 参数模型），张量并行是必不可少的。
 
-### Pipeline Parallelism (PP)
+### 流水线并行（PP）
 
-Pipeline parallelism distributes model layers across multiple GPUs. Each GPU processes different parts of the model in sequence.
+流水线并行将模型层分布到多个 GPU 上。每个 GPU 按顺序处理模型的不同部分。
 
-**When to use:**
+**何时使用：**
 
-- When you've already maxed out efficient tensor parallelism but need to distribute the model further, or across nodes
-- For very deep and narrow models where layer distribution is more efficient than tensor sharding
+- 当您已经用尽了高效的张量并行但需要进一步分布模型，或者在节点间分布时
+- 对于非常深且窄的模型，层分布比张量分片更高效时
 
-Pipeline parallelism can be combined with tensor parallelism for very large models:
+流水线并行可以与张量并行结合使用，用于非常大的模型：
 
 ```python
 from vllm import LLM
 
-# Combine pipeline and tensor parallelism
+# 结合流水线并行和张量并行
 llm = LLM(
-    model="meta-llama/Llama-3.3-70B-Instruct,
+    model="meta-llama/Llama-3.3-70B-Instruct",
     tensor_parallel_size=4,
     pipeline_parallel_size=2,
 )
 ```
 
-### Expert Parallelism (EP)
+### 专家并行（EP）
 
-Expert parallelism is a specialized form of parallelism for Mixture of Experts (MoE) models, where different expert networks are distributed across GPUs.
+专家并行是混合专家（MoE）模型的一种专门的并行形式，其中不同的专家网络分布在多个 GPU 上。
 
-**When to use:**
+**何时使用：**
 
-- Specifically for MoE models (like DeepSeekV3, Qwen3MoE, Llama-4)
-- When you want to balance the expert computation load across GPUs
+- 专门用于 MoE 模型（如 DeepSeekV3、Qwen3MoE、Llama-4）
+- 当您想要平衡跨 GPU 的专家计算负载时
 
-Expert parallelism is enabled by setting `enable_expert_parallel=True`, which will use expert parallelism instead of tensor parallelism for MoE layers.
-It will use the same degree of parallelism as what you have set for tensor parallelism.
+专家并行通过设置 `enable_expert_parallel=True` 启用，这将使 MoE 层使用专家并行而不是张量并行。它将使用与张量并行设置的相同并行度。
 
-### Data Parallelism (DP)
+### 数据并行（DP）
 
-Data parallelism replicates the entire model across multiple GPU sets and processes different batches of requests in parallel.
+数据并行将整个模型复制到多个 GPU 集上，并并行处理不同的请求批次。
 
-**When to use:**
+**何时使用：**
 
-- When you have enough GPUs to replicate the entire model
-- When you need to scale throughput rather than model size
-- In multi-user environments where isolation between request batches is beneficial
+- 当您有足够的 GPU 来复制整个模型时
+- 当您需要扩展吞吐量而不是模型大小时
+- 在多用户环境中，请求批次之间的隔离是有益的
 
-Data parallelism can be combined with the other parallelism strategies and is set by `data_parallel_size=N`.
-Note that MoE layers will be sharded according to the product of the tensor parallel size and data parallel size.
+数据并行可以与其他并行策略结合使用，通过 `data_parallel_size=N` 设置。请注意，MoE 层将根据张量并行大小和数据并行大小的乘积进行分片。
 
-### NUMA Binding for Multi-Socket GPU Nodes
+### 多插槽 GPU 节点的 NUMA 绑定
 
-On multi-socket GPU servers, GPU worker processes can lose performance if their
-CPU execution and memory allocation drift away from the NUMA node nearest to the
-GPU. vLLM can pin each worker with `numactl` before the Python subprocess starts,
-so the interpreter, imports, and early allocator state are created with the
-desired NUMA policy from the beginning.
+在多插槽 GPU 服务器上，GPU 工作进程的性能可能会下降，如果其 CPU 执行和内存分配偏离了离 GPU 最近的 NUMA 节点。vLLM 可以在 Python 子进程启动前使用 `numactl` 固定每个工作进程，以便解释器、导入和早期分配器状态从开始就以所需的 NUMA 策略创建。
 
-Use `--numa-bind` to enable the feature. By default, vLLM auto-detects the
-GPU-to-NUMA mapping and uses `--cpunodebind=<node> --membind=<node>` for each
-worker. When you need a custom CPU policy, add `--numa-bind-cpus` and vLLM will
-switch to `--physcpubind=<cpu-list> --membind=<node>`.
+使用 `--numa-bind` 启用该功能。默认情况下，vLLM 自动检测 GPU 到 NUMA 的映射，并为每个工作进程使用 `--cpunodebind=<node> --membind=<node>`。当您需要自定义 CPU 策略时，添加 `--numa-bind-cpus`，vLLM 将切换到 `--physcpubind=<cpu-list> --membind=<node>`。
 
-These `--numa-bind*` options only apply to GPU execution processes. They do not
-configure the CPU backend's separate thread-affinity controls. Automatic
-GPU-to-NUMA detection is currently implemented for CUDA/NVML-based as well as
-ROCM-based platforms; other GPU backends must provide explicit binding lists if
-they use these options.
+这些 `--numa-bind*` 选项仅适用于 GPU 执行进程。它们不配置 CPU 后端的单独线程亲和性控制。自动 GPU 到 NUMA 检测当前已为基于 CUDA/NVML 以及基于 ROCM 的平台实现；其他 GPU 后端如果使用这些选项，必须提供显式绑定列表。
 
-`--numa-bind-nodes` takes one non-negative NUMA node index per visible GPU, in
-the same order as the GPU indices.
-`--numa-bind-cpus` takes one `numactl` CPU list per visible GPU, in the same
-order as the GPU indices. Each CPU list must use
-`numactl --physcpubind` syntax such as `0-3`, `0,2,4-7`, or `16-31,48-63`.
+`--numa-bind-nodes` 为每个可见 GPU 接受一个非负的 NUMA 节点索引，顺序与 GPU 索引相同。
+`--numa-bind-cpus` 为每个可见 GPU 接受一个 `numactl` CPU 列表，顺序与 GPU 索引相同。每个 CPU 列表必须使用 `numactl --physcpubind` 语法，如 `0-3`、`0,2,4-7` 或 `16-31,48-63`。
 
 ```bash
-# Auto-detect NUMA nodes for visible GPUs
+# 自动检测可见 GPU 的 NUMA 节点
 vllm serve meta-llama/Llama-3.1-8B-Instruct \
   --tensor-parallel-size 4 \
   --numa-bind
 
-# Explicit NUMA-node mapping
+# 显式 NUMA 节点映射
 vllm serve meta-llama/Llama-3.1-8B-Instruct \
   --tensor-parallel-size 4 \
   --numa-bind \
   --numa-bind-nodes 0 0 1 1
 
-# Explicit CPU pinning, useful for PCT or other high-frequency core layouts
+# 显式 CPU 绑定，适用于 PCT 或其他高频核心布局
 vllm serve meta-llama/Llama-3.1-8B-Instruct \
   --tensor-parallel-size 4 \
   --numa-bind \
@@ -185,53 +166,38 @@ vllm serve meta-llama/Llama-3.1-8B-Instruct \
   --numa-bind-cpus 0-3 4-7 48-51 52-55
 ```
 
-Notes:
+注意：
 
-- CLI usage forces multiprocessing to use the `spawn` method automatically. If you enable NUMA binding through the Python API, also set `VLLM_WORKER_MULTIPROC_METHOD=spawn`.
-- Automatic detection relies on NVML and NUMA support from the host. If it cannot determine the mapping reliably, pass `--numa-bind-nodes` explicitly.
-- Explicit `--numa-bind-nodes` and `--numa-bind-cpus` values must be valid `numactl` inputs. vLLM does a small amount of validation, but the effective binding semantics are still determined by `numactl`.
-- The current implementation binds GPU execution processes such as `EngineCore` and multiprocessing workers. It does not apply NUMA binding to frontend API server processes or the DP coordinator.
-- In containerized environments, NUMA policy syscalls may require extra permissions, such as `--cap-add SYS_NICE` when running via `docker run`.
+- CLI 使用会自动将多进程强制使用 `spawn` 方法。如果您通过 Python API 启用 NUMA 绑定，也请设置 `VLLM_WORKER_MULTIPROC_METHOD=spawn`。
+- 自动检测依赖于主机的 NVML 和 NUMA 支持。如果无法可靠地确定映射，请显式传递 `--numa-bind-nodes`。
+- 显式的 `--numa-bind-nodes` 和 `--numa-bind-cpus` 值必须是有效的 `numactl` 输入。vLLM 进行少量验证，但有效的绑定语义仍由 `numactl` 决定。
+- 当前实现对 GPU 执行进程（如 `EngineCore` 和多进程工作进程）进行绑定。它不适用于前端 API 服务器进程或 DP 协调器。
+- 在容器化环境中，NUMA 策略系统调用可能需要额外权限，例如在通过 `docker run` 运行时需要 `--cap-add SYS_NICE`。
 
-### CPU Backend Thread Affinity
+### CPU 后端线程亲和性
 
-The CPU backend uses a different mechanism from `--numa-bind`. CPU execution is
-configured through CPU-specific environment variables such as
-`VLLM_CPU_OMP_THREADS_BIND`, `VLLM_CPU_NUM_OF_RESERVED_CPU`, and
-`CPU_VISIBLE_MEMORY_NODES`, rather than the GPU-oriented `--numa-bind*` CLI
-options.
+CPU 后端使用与 `--numa-bind` 不同的机制。CPU 执行通过 CPU 特定的环境变量（如 `VLLM_CPU_OMP_THREADS_BIND`、`VLLM_CPU_NUM_OF_RESERVED_CPU` 和 `CPU_VISIBLE_MEMORY_NODES`）进行配置，而不是面向 GPU 的 `--numa-bind*` CLI 选项。
 
-By default, `VLLM_CPU_OMP_THREADS_BIND=auto` derives OpenMP placement from the
-available CPU and NUMA topology for each CPU worker. To override the automatic
-policy, set `VLLM_CPU_OMP_THREADS_BIND` explicitly using the CPU list format
-documented for the CPU backend, or use `nobind` to disable this behavior.
+默认情况下，`VLLM_CPU_OMP_THREADS_BIND=auto` 会根据每个 CPU 工作进程可用的 CPU 和 NUMA 拓扑派生出 OpenMP 放置策略。要覆盖自动策略，使用为 CPU 后端记录的 CPU 列表格式显式设置 `VLLM_CPU_OMP_THREADS_BIND`，或使用 `nobind` 禁用此行为。
 
-For the current CPU backend setup and tuning guidance, see:
+有关当前 CPU 后端设置和调优指南，请参见：
 
-- [Related runtime environment variables](../getting_started/installation/cpu.md#related-runtime-environment-variables)
-- [How to decide `VLLM_CPU_OMP_THREADS_BIND`](../getting_started/installation/cpu.md#how-to-decide-vllm_cpu_omp_threads_bind)
+- [相关运行时环境变量](../getting_started/installation/cpu.md#related-runtime-environment-variables)
+- [如何决定 `VLLM_CPU_OMP_THREADS_BIND`](../getting_started/installation/cpu.md#how-to-decide-vllm_cpu_omp_threads_bind)
 
-The GPU-only `--numa-bind`, `--numa-bind-nodes`, and `--numa-bind-cpus` options
-do not configure CPU worker affinity.
+仅 GPU 的 `--numa-bind`、`--numa-bind-nodes` 和 `--numa-bind-cpus` 选项不配置 CPU 工作进程的亲和性。
 
-### Batch-level DP for Multi-Modal Encoders
+### 多模态编码器的批处理级 DP
 
-By default, TP is used to shard the weights of multi-modal encoders just like for language decoders,
-in order to reduce the memory and compute load on each GPU.
+默认情况下，TP 用于像语言解码器一样分片多模态编码器的权重，以减少每个 GPU 上的内存和计算负载。
 
-However, since the size of multi-modal encoders is very small compared to language decoders,
-there is relatively little gain from TP. On the other hand, TP incurs significant communication
-overhead because of all-reduce being performed after every layer.
+然而，由于多模态编码器的大小与语言解码器相比非常小，TP 带来的收益相对较小。另一方面，TP 会在每一层之后执行 all-reduce，从而产生显著的通信开销。
 
-Given this, it may be advantageous to instead shard the batched input data using TP, essentially
-performing batch-level DP. This has been shown to improve the throughput and TTFT by around 10% for
-`tensor_parallel_size=8`. For vision encoders that use hardware-unoptimized Conv3D operations,
-batch-level DP can provide another 40% improvement compared to regular TP.
+鉴于此，使用 TP 分片批处理输入数据（本质上是执行批处理级 DP）可能更有利。这已在 `tensor_parallel_size=8` 的情况下被证明可以将吞吐量和 TTFT 提高约 10%。对于使用硬件未优化的 Conv3D 操作的视觉编码器，批处理级 DP 与常规 TP 相比可以提供额外 40% 的改进。
 
-Nevertheless, since the weights of the multi-modal encoder are replicated across each TP rank,
-there will be a minor increase in memory consumption and may cause OOM if you can barely fit the model already.
+尽管如此，由于多模态编码器的权重在每个 TP 等级上都被复制，内存消耗会略有增加，如果模型已经勉强能放得下，可能会导致 OOM。
 
-You can enable batch-level DP by setting `mm_encoder_tp_mode="data"`, for example:
+您可以通过设置 `mm_encoder_tp_mode="data"` 来启用批处理级 DP，例如：
 
 ```python
 from vllm import LLM
@@ -239,51 +205,43 @@ from vllm import LLM
 llm = LLM(
     model="Qwen/Qwen2.5-VL-72B-Instruct",
     tensor_parallel_size=4,
-    # When mm_encoder_tp_mode="data",
-    # the vision encoder uses TP=4 (not DP=1) to shard the input data,
-    # so the TP size becomes the effective DP size.
-    # Note that this is independent of the DP size for language decoder which is used in expert parallel setting.
+    # 当 mm_encoder_tp_mode="data" 时，
+    # 视觉编码器使用 TP=4（而不是 DP=1）来分片输入数据，
+    # 因此 TP 大小成为有效的 DP 大小。
+    # 请注意，这与用于语言解码器的 DP 大小无关，后者用于专家并行设置。
     mm_encoder_tp_mode="data",
-    # The language decoder uses TP=4 to shard the weights regardless
-    # of the setting of mm_encoder_tp_mode
+    # 无论 mm_encoder_tp_mode 的设置如何，
+    # 语言解码器都使用 TP=4 来分片权重
 )
 ```
 
 !!! important
-    Batch-level DP is not to be confused with API request-level DP
-    (which is instead controlled by `data_parallel_size`).
+    批处理级 DP 不要与 API 请求级 DP 混淆（后者由 `data_parallel_size` 控制）。
 
-Batch-level DP needs to be implemented on a per-model basis,
-and enabled by setting `supports_encoder_tp_data = True` in the model class.
-Regardless, you need to set `mm_encoder_tp_mode="data"` in engine arguments to use this feature.
+批处理级 DP 需要按模型逐个实现，并通过在模型类中设置 `supports_encoder_tp_data = True` 来启用。无论如何，您需要在引擎参数中设置 `mm_encoder_tp_mode="data"` 才能使用此功能。
 
-Known supported models (with corresponding benchmarks):
+已知支持的模型（附相应基准测试链接）：
 
 - dots_ocr (<https://github.com/vllm-project/vllm/pull/25466>)
-- GLM-4.1V or above (<https://github.com/vllm-project/vllm/pull/23168>)
+- GLM-4.1V 或更高版本 (<https://github.com/vllm-project/vllm/pull/23168>)
 - InternVL (<https://github.com/vllm-project/vllm/pull/23909>)
 - Kimi-VL (<https://github.com/vllm-project/vllm/pull/23817>)
 - Llama4 (<https://github.com/vllm-project/vllm/pull/18368>)
-- MiniCPM-V-2.5 or above (<https://github.com/vllm-project/vllm/pull/23327>, <https://github.com/vllm-project/vllm/pull/23948>)
-- Qwen2-VL or above (<https://github.com/vllm-project/vllm/pull/22742>, <https://github.com/vllm-project/vllm/pull/24955>, <https://github.com/vllm-project/vllm/pull/25445>)
+- MiniCPM-V-2.5 或更高版本 (<https://github.com/vllm-project/vllm/pull/23327>, <https://github.com/vllm-project/vllm/pull/23948>)
+- Qwen2-VL 或更高版本 (<https://github.com/vllm-project/vllm/pull/22742>, <https://github.com/vllm-project/vllm/pull/24955>, <https://github.com/vllm-project/vllm/pull/25445>)
 - Step3 (<https://github.com/vllm-project/vllm/pull/22697>)
 
-## Input Processing
+## 输入处理
 
-### fastokens Backend
+### fastokens 后端
 
-By default vLLM uses the standard Hugging Face `tokenizers` library to power
-the fast tokenizer. For BPE tokenizers (Qwen, Llama, DeepSeek, GPT-OSS, etc.)
-you can switch to the [fastokens](https://github.com/crusoecloud/fastokens)
-Rust backend, a drop-in replacement that's substantially faster on
-encode/decode and on streaming detokenization. Enable it by setting
-`VLLM_USE_FASTOKENS=1`:
+默认情况下，vLLM 使用标准的 Hugging Face `tokenizers` 库来驱动快速分词器。对于 BPE 分词器（Qwen、Llama、DeepSeek、GPT-OSS 等），您可以切换到 [fastokens](https://github.com/crusoecloud/fastokens) Rust 后端，这是一个即插即用的替代品，在编码/解码和流式解码标记化方面速度显著更快。通过设置 `VLLM_USE_FASTOKENS=1` 启用：
 
 ```console
 VLLM_USE_FASTOKENS=1 vllm serve Qwen/Qwen3-8B
 ```
 
-Equivalent in the offline API:
+离线 API 中的等效设置：
 
 ```python
 import os
@@ -293,94 +251,71 @@ from vllm import LLM
 llm = LLM(model="Qwen/Qwen3-8B")
 ```
 
-The `fastokens` Python package (>= 0.2.0) must be installed; if it isn't,
-vLLM raises a clear `ImportError` at tokenizer load. The override applies to
-any `--tokenizer-mode` that ends up loading an HF fast tokenizer (`hf`,
-`deepseek_v32`, `deepseek_v4`, `qwen_vl`, …). Modes that don't use the HF
-fast tokenizer (`mistral`, `grok2`, `kimi_audio`) ignore the flag.
+`fastokens` Python 包（>= 0.2.0）必须安装；如果没有安装，vLLM 在分词器加载时会引发明确的 `ImportError`。此覆盖适用于任何最终加载 HF 快速分词器的 `--tokenizer-mode`（`hf`、`deepseek_v32`、`deepseek_v4`、`qwen_vl` 等）。不使用 HF 快速分词器的模式（`mistral`、`grok2`、`kimi_audio`）会忽略此标志。
 
-Tokenizer-bound workloads — long shared prefixes, bursty short prompts,
-batch detokenization — see the largest wins. If your bottleneck is GPU
-prefill/decode, the tokenizer change is unlikely to be visible end-to-end.
+分词器密集型工作负载——长共享前缀、突发的短提示、批处理解码标记化——收益最大。如果您的瓶颈是 GPU 预填充/解码，分词器更改不太可能在端到端中可见。
 
-### Parallel Processing
+### 并行处理
 
-You can run input processing in parallel via [API server scale-out](../serving/data_parallel_deployment.md#internal-load-balancing).
-This is useful when input processing (which is run inside the API server)
-becomes a bottleneck compared to model execution (which is run inside engine core)
-and you have excess CPU capacity.
+您可以通过 [API 服务器扩展](../serving/data_parallel_deployment.md#internal-load-balancing)并行运行输入处理。当输入处理（在 API 服务器内部运行）相对于模型执行（在引擎核心内部运行）成为瓶颈，且您有额外的 CPU 容量时，这非常有用。
 
 ```console
-# Run 4 API processes and 1 engine core process
+# 运行 4 个 API 进程和 1 个引擎核心进程
 vllm serve Qwen/Qwen2.5-VL-3B-Instruct --api-server-count 4
 
-# Run 4 API processes and 2 engine core processes
+# 运行 4 个 API 进程和 2 个引擎核心进程
 vllm serve Qwen/Qwen2.5-VL-3B-Instruct --api-server-count 4 -dp 2
 ```
 
 !!! note
-    API server scale-out is only available for online inference.
+    API 服务器扩展仅适用于在线推理。
 
 !!! warning
-    By default, 8 CPU threads are used in each API server to load media items (e.g. images)
-    from request data.
+    默认情况下，每个 API 服务器使用 8 个 CPU 线程从请求数据加载媒体项目（如图像）。
 
-    If you apply API server scale-out, consider adjusting `VLLM_MEDIA_LOADING_THREAD_COUNT`
-    to avoid CPU resource exhaustion.
+    如果您应用 API 服务器扩展，请考虑调整 `VLLM_MEDIA_LOADING_THREAD_COUNT` 以避免 CPU 资源耗尽。
 
 !!! note
-    API server scale-out disables [multi-modal IPC caching](#ipc-caching)
-    because it requires a one-to-one correspondence between API and engine core processes.
+    API 服务器扩展会禁用[多模态 IPC 缓存](#ipc-caching)，因为它需要 API 和引擎核心进程之间的一一对应关系。
 
-    This does not impact [multi-modal processor caching](#processor-caching).
+    这不会影响[多模态处理器缓存](#processor-caching)。
 
-## Multi-Modal Caching
+## 多模态缓存
 
-Multi-modal caching avoids repeated transfer or processing of the same multi-modal data,
-which commonly occurs in multi-turn conversations.
+多模态缓存避免了对相同多模态数据的重复传输或处理，这在多轮对话中常见。
 
-### Processor Caching
+### 处理器缓存
 
-Multi-modal processor caching is automatically enabled
-to avoid repeatedly processing the same multi-modal inputs in `BaseMultiModalProcessor`.
+多模态处理器缓存自动启用，以避免在 `BaseMultiModalProcessor` 中重复处理相同的多模态输入。
 
-### IPC Caching
+### IPC 缓存
 
-Multi-modal IPC caching is automatically enabled when
-there is a one-to-one correspondence between API (`P0`) and engine core (`P1`) processes,
-to avoid repeatedly transferring the same multi-modal inputs between them.
+当 API（`P0`）和引擎核心（`P1`）进程之间存在一一对应关系时，多模态 IPC 缓存自动启用，以避免在它们之间重复传输相同的多模态输入。
 
-#### Key-Replicated Cache
+#### 键复制缓存
 
-By default, IPC caching uses a **key-replicated cache**, where cache keys exist
-in both the API (`P0`) and engine core (`P1`) processes, but the actual cache
-data resides only in `P1`.
+默认情况下，IPC 缓存使用**键复制缓存**，其中缓存键存在于 API（`P0`）和引擎核心（`P1`）进程中，但实际的缓存数据仅驻留在 `P1` 中。
 
-#### Shared Memory Cache
+#### 共享内存缓存
 
-When multiple worker processes are involved (e.g., when TP > 1), a
-**shared-memory cache** is more efficient. This can be enabled by setting
-`mm_processor_cache_type="shm"`. In this mode, cache keys are stored
-on `P0`, while the cache data itself lives in shared memory accessible by all
-processes.
+当涉及多个工作进程时（例如，当 TP > 1 时），**共享内存缓存**更高效。可以通过设置 `mm_processor_cache_type="shm"` 启用。在此模式下，缓存键存储在 `P0` 上，而缓存数据本身位于所有进程可访问的共享内存中。
 
-### Configuration
+### 配置
 
-You can adjust the size of the cache by setting the value of `mm_processor_cache_gb` (default 4 GiB).
+您可以通过设置 `mm_processor_cache_gb` 的值（默认为 4 GiB）来调整缓存的大小。
 
-If you do not benefit much from the cache, you can disable both IPC
-and processor caching completely via `mm_processor_cache_gb=0`.
+如果您从缓存中获益不多，可以通过 `mm_processor_cache_gb=0` 完全禁用 IPC 和处理器缓存。
 
-Examples:
+示例：
 
 ```python
-# Use a larger cache
+# 使用更大的缓存
 llm = LLM(
     model="Qwen/Qwen2.5-VL-3B-Instruct",
     mm_processor_cache_gb=8,
 )
 
-# Use a shared-memory based IPC cache
+# 使用基于共享内存的 IPC 缓存
 llm = LLM(
     model="Qwen/Qwen2.5-VL-3B-Instruct",
     tensor_parallel_size=2,
@@ -388,75 +323,75 @@ llm = LLM(
     mm_processor_cache_gb=8,
 )
 
-# Disable the cache
+# 禁用缓存
 llm = LLM(
     model="Qwen/Qwen2.5-VL-3B-Instruct",
     mm_processor_cache_gb=0,
 )
 ```
 
-### Cache Placement
+### 缓存放置
 
-Based on the configuration, the content of the multi-modal caches on `P0` and `P1` are as follows:
+根据配置，`P0` 和 `P1` 上多模态缓存的内容如下：
 
-| mm_processor_cache_type | Cache Type | `P0` Cache | `P1` Engine Cache | `P1` Worker Cache | Max. Memory |
+| mm_processor_cache_type | 缓存类型 | `P0` 缓存 | `P1` 引擎缓存 | `P1` 工作进程缓存 | 最大内存 |
 | ----------------- | ----------- | ---------- | ---------- | ----------- | ----------- |
-| lru | Processor Caching | K + V | N/A | N/A | `mm_processor_cache_gb * data_parallel_size` |
-| lru | Key-Replicated Caching | K | K + V | N/A | `mm_processor_cache_gb * api_server_count` |
-| shm | Shared Memory Caching | K | N/A | V | `mm_processor_cache_gb * api_server_count` |
-| N/A | Disabled | N/A | N/A | N/A | `0` |
+| lru | 处理器缓存 | K + V | N/A | N/A | `mm_processor_cache_gb * data_parallel_size` |
+| lru | 键复制缓存 | K | K + V | N/A | `mm_processor_cache_gb * api_server_count` |
+| shm | 共享内存缓存 | K | N/A | V | `mm_processor_cache_gb * api_server_count` |
+| N/A | 已禁用 | N/A | N/A | N/A | `0` |
 
-K: Stores the hashes of multi-modal items
-V: Stores the processed tensor data of multi-modal items
+K：存储多模态项目的哈希值
+V：存储多模态项目的处理后的张量数据
 
-## CPU Resources for GPU Deployments
+## GPU 部署的 CPU 资源
 
-vLLM V1 uses a multi-process architecture (see [V1 Process Architecture](../design/arch_overview.md#v1-process-architecture)) where each process requires CPU resources. Underprovisioning CPU cores is a common source of performance degradation, especially in virtualized environments.
+vLLM V1 使用多进程架构（参见 [V1 进程架构](../design/arch_overview.md#v1-process-architecture)），其中每个进程都需要 CPU 资源。CPU 核心配置不足是性能下降的常见原因，尤其是在虚拟化环境中。
 
-### Minimum CPU Requirements
+### 最低 CPU 要求
 
-For a deployment with `N` GPUs, there are at minimum:
+对于具有 `N` 个 GPU 的部署，至少需要：
 
-- **1 API server process** -- handles HTTP requests, tokenization, and input processing
-- **1 engine core process** -- runs the scheduler and coordinates GPU workers
-- **N GPU worker processes** -- one per GPU, executes model forward passes
+- **1 个 API 服务器进程**——处理 HTTP 请求、分词化和输入处理
+- **1 个引擎核心进程**——运行调度器并协调 GPU 工作进程
+- **N 个 GPU 工作进程**——每个 GPU 一个，执行模型前向传播
 
-This means there are always at least **`2 + N` processes** competing for CPU time.
+这意味着至少有 **`2 + N`** 个进程在竞争 CPU 时间。
 
 !!! warning
-    Using fewer physical CPU cores than processes will cause contention and significantly degrade throughput and latency. The engine core process runs a busy loop and is particularly sensitive to CPU starvation.
+    使用少于进程数的物理 CPU 核心会导致争用，并显著降低吞吐量和延迟。引擎核心进程运行一个繁忙循环，对 CPU 资源不足特别敏感。
 
-The minimum is `2 + N` physical cores (1 for the API server, 1 for the engine core, and 1 per GPU worker). In practice, allocating more cores improves performance because the OS, PyTorch background threads, and other system processes also need CPU time.
+最低要求是 `2 + N` 个物理核心（1 个用于 API 服务器，1 个用于引擎核心，每个 GPU 工作进程 1 个）。实际上，分配更多核心可以提高性能，因为操作系统、PyTorch 后台线程和其他系统进程也需要 CPU 时间。
 
 !!! important
-    Please note we are referring to **physical CPU cores** here. If your system has hyperthreading enabled, then 1 vCPU = 1 hyperthread = 1/2 physical CPU core, so you need `2 x (2 + N)` minimum vCPUs.
+    请注意，我们这里指的是**物理 CPU 核心**。如果您的系统启用了超线程，那么 1 个 vCPU = 1 个超线程 = 1/2 个物理 CPU 核心，因此您至少需要 `2 x (2 + N)` 个 vCPU。
 
-### Data Parallel and Multi-API Server Deployments
+### 数据并行和多 API 服务器部署
 
-When using data parallelism or multiple API servers, the CPU requirements increase:
-
-```console
-Minimum physical cores = A + DP + N + (1 if DP > 1 else 0)
-```
-
-where `A` is the API server count (defaults to `DP`), `DP` is the data parallel size, and `N` is the total number of GPUs. For example, with `DP=4, TP=2` on 8 GPUs:
+当使用数据并行或多个 API 服务器时，CPU 需求会增加：
 
 ```console
-4 API servers + 4 engine cores + 8 GPU workers + 1 DP coordinator = 17 processes
+最低物理核心数 = A + DP + N + (如果 DP > 1 则为 1，否则为 0)
 ```
 
-### Performance Impact
+其中 `A` 是 API 服务器数量（默认为 `DP`），`DP` 是数据并行大小，`N` 是 GPU 总数。例如，在 8 个 GPU 上使用 `DP=4, TP=2` 时：
 
-CPU underprovisioning particularly impacts:
+```console
+4 个 API 服务器 + 4 个引擎核心 + 8 个 GPU 工作进程 + 1 个 DP 协调器 = 17 个进程
+```
 
-- **Input processing throughput** -- tokenization, chat template rendering, and multi-modal data loading all run on CPU
-- **Scheduling latency** -- the engine core scheduler runs on CPU and directly affects how quickly new tokens are dispatched to the GPU workers
-- **Output processing** -- detokenization, networking, and especially streaming token responses use CPU cycles
+### 性能影响
 
-If you observe that GPU utilization is lower than expected, CPU contention may be the bottleneck. Increasing the number of available CPU cores and even the clock speed can significantly improve end-to-end performance.
+CPU 配置不足特别影响以下方面：
 
-## Attention Backend Selection
+- **输入处理吞吐量**——分词化、聊天模板渲染和多模态数据加载都在 CPU 上运行
+- **调度延迟**——引擎核心调度器在 CPU 上运行，直接影响新令牌分发到 GPU 工作进程的速度
+- **输出处理**——解码标记化、网络通信，特别是流式令牌响应，都会消耗 CPU 周期
 
-vLLM supports multiple attention backends optimized for different hardware and use cases. The backend is automatically selected based on your GPU architecture, model type, and configuration, but you can also manually specify one for optimal performance.
+如果您观察到 GPU 利用率低于预期，CPU 争用可能是瓶颈。增加可用 CPU 核心数量甚至提高时钟频率可以显著改善端到端性能。
 
-For detailed information on available backends, their feature support, and how to configure them, see the [Attention Backend Feature Support](../design/attention_backends.md) documentation.
+## 注意力后端选择
+
+vLLM 支持多种针对不同硬件和用例优化的注意力后端。后端会根据您的 GPU 架构、模型类型和配置自动选择，但您也可以手动指定以获得最佳性能。
+
+有关可用后端、其功能支持以及如何配置它们的详细信息，请参见[注意力后端功能支持](../design/attention_backends.md)文档。

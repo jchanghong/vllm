@@ -1,30 +1,30 @@
 # Dify
 
-[Dify](https://github.com/langgenius/dify) is an open-source LLM app development platform. Its intuitive interface combines agentic AI workflow, RAG pipeline, agent capabilities, model management, observability features, and more, allowing you to quickly move from prototype to production.
+[Dify](https://github.com/langgenius/dify) 是一个开源 LLM 应用开发平台。其直观的界面结合了智能体 AI 工作流、RAG 流水线、智能体能力、模型管理、可观测性功能等，使您能够快速从原型过渡到生产。
 
-It supports vLLM as a model provider to efficiently serve large language models.
+它支持 vLLM 作为模型提供者，以高效地服务大语言模型。
 
-This guide walks you through deploying Dify using a vLLM backend.
+本指南将引导您使用 vLLM 后端部署 Dify。
 
-## Prerequisites
+## 前提条件
 
-Set up the vLLM environment:
+设置 vLLM 环境：
 
 ```bash
 pip install vllm
 ```
 
-And install [Docker](https://docs.docker.com/engine/install/) and [Docker Compose](https://docs.docker.com/compose/install/).
+并安装 [Docker](https://docs.docker.com/engine/install/) 和 [Docker Compose](https://docs.docker.com/compose/install/)。
 
-## Deploy
+## 部署
 
-1. Start the vLLM server with the supported chat completion model, e.g.
+1. 启动 vLLM 服务器，使用受支持的聊天补全模型，例如：
 
     ```bash
     vllm serve Qwen/Qwen1.5-7B-Chat
     ```
 
-1. Start the Dify server with docker compose ([details](https://github.com/langgenius/dify?tab=readme-ov-file#quick-start)):
+1. 使用 docker compose 启动 Dify 服务器（[详情](https://github.com/langgenius/dify?tab=readme-ov-file#quick-start)）：
 
     ```bash
     git clone https://github.com/langgenius/dify.git
@@ -34,24 +34,24 @@ And install [Docker](https://docs.docker.com/engine/install/) and [Docker Compos
     docker compose up -d
     ```
 
-1. Open the browser to access `http://localhost/install`, config the basic login information and login.
+1. 打开浏览器访问 `http://localhost/install`，配置基本登录信息并登录。
 
-1. In the top-right user menu (under the profile icon), go to Settings, then click `Model Provider`, and locate the `vLLM` provider to install it.
+1. 在右上角用户菜单（个人资料图标下）中，进入设置，然后点击 `Model Provider`，找到 `vLLM` 提供商并安装它。
 
-1. Fill in the model provider details as follows:
+1. 填写模型提供商详细信息如下：
 
-    - **Model Type**: `LLM`
-    - **Model Name**: `Qwen/Qwen1.5-7B-Chat`
-    - **API Endpoint URL**: `http://{vllm_server_host}:{vllm_server_port}/v1`
-    - **Model Name for API Endpoint**: `Qwen/Qwen1.5-7B-Chat`
-    - **Completion Mode**: `Completion`
+    - **Model Type**：`LLM`
+    - **Model Name**：`Qwen/Qwen1.5-7B-Chat`
+    - **API Endpoint URL**：`http://{vllm_server_host}:{vllm_server_port}/v1`
+    - **Model Name for API Endpoint**：`Qwen/Qwen1.5-7B-Chat`
+    - **Completion Mode**：`Completion`
 
     ![Dify settings screen](../../assets/deployment/dify-settings.png)
 
-1. To create a test chatbot, go to `Studio → Chatbot → Create from Blank`, then select Chatbot as the type:
+1. 要创建一个测试聊天机器人，进入 `Studio → Chatbot → Create from Blank`，然后选择 Chatbot 作为类型：
 
     ![Dify create chatbot screen](../../assets/deployment/dify-create-chatbot.png)
 
-1. Click the chatbot you just created to open the chat interface and start interacting with the model:
+1. 点击您刚刚创建的聊天机器人，打开聊天界面并开始与模型交互：
 
     ![Dify chat screen](../../assets/deployment/dify-chat.png)

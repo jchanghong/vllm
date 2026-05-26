@@ -1,16 +1,16 @@
 # XPU - Intel® GPUs
 
-## Validated Hardware
+## 已验证的硬件
 
-| Hardware |
+| 硬件 |
 | -------- |
-| [Intel® Arc™ Pro B-Series Graphics](https://www.intel.com/content/www/us/en/products/docs/discrete-gpus/arc/workstations/b-series/overview.html) |
+| [Intel® Arc™ Pro B 系列显卡](https://www.intel.com/content/www/us/en/products/docs/discrete-gpus/arc/workstations/b-series/overview.html) |
 
-## Recommended Models
+## 推荐模型
 
-### Text-only Language Models
+### 纯文本语言模型
 
-| Model                                              | Architecture                                     | BF16/FP16/Dynamic FP8 | Compressed_tensors FP8 | MXFP4 |
+| 模型 | 架构 | BF16/FP16/动态 FP8 | Compressed_tensors FP8 | MXFP4 |
 | -------------------------------------------------- | ------------------------------------------------ | --------------------- | ---------------------- | ----- |
 | openai/gpt-oss-20b                                 | GPTForCausalLM                                   |                       |                        | ✅    |
 | openai/gpt-oss-120b                                | GPTForCausalLM                                   |                       |                        | ✅    |
@@ -30,7 +30,7 @@
 | baichuan-inc/Baichuan2-13B-Chat                    | BaichuanForCausalLM                              | ✅                    |                        |       |
 | THUDM/GLM-4-9B-chat                                | GLMForCausalLM                                   | ✅                    |                        |       |
 | THUDM/CodeGeex4-All-9B                             | CodeGeexForCausalLM                              | ✅                    |                        |       |
-| chuhac/TeleChat2-35B                               | LlamaForCausalLM (TeleChat2 based on Llama arch) | ✅                    |                        |       |
+| chuhac/TeleChat2-35B                               | LlamaForCausalLM (TeleChat2 基于 Llama 架构)       | ✅                    |                        |       |
 | 01-ai/Yi1.5-34B-Chat                               | YiForCausalLM                                    | ✅                    |                        |       |
 | THUDM/CodeGeex4-All-9B                             | CodeGeexForCausalLM                              | ✅                    |                        |       |
 | deepseek-ai/DeepSeek-Coder-33B-base                | DeepSeekCoderForCausalLM                         | ✅                    |                        |       |
@@ -41,9 +41,9 @@
 | Qwen/Qwen1.5-32B-Chat                              | QwenForCausalLM                                  | ✅                    |                        |       |
 | RedHatAI/Meta-Llama-3.1-8B-Instruct-FP8-dynamic    | LlamaForCausalLM                                 |                       | ✅                     |       |
 
-### Multimodal Language Models
+### 多模态语言模型
 
-| Model                        | Architecture                     | BF16 | Dynamic FP8 | MXFP4 |
+| 模型 | 架构 | BF16 | 动态 FP8 | MXFP4 |
 | ---------------------------- | -------------------------------- | ---- | ----------- | ----- |
 | OpenGVLab/InternVL3_5-8B     | InternVLForConditionalGeneration | ✅   | ✅          |       |
 | OpenGVLab/InternVL3_5-14B    | InternVLForConditionalGeneration | ✅   | ✅          |       |
@@ -54,13 +54,13 @@
 | THUDM/GLM-4v-9B              | GLM4vForConditionalGeneration    | ✅   | ✅          |       |
 | openbmb/MiniCPM-V-4          | MiniCPMVForConditionalGeneration | ✅   | ✅          |       |
 
-### Embedding and Reranker Language Models
+### 嵌入和重排序语言模型
 
-| Model                   | Architecture                   | BF16 | Dynamic FP8 | MXFP4 |
+| 模型 | 架构 | BF16 | 动态 FP8 | MXFP4 |
 | ----------------------- | ------------------------------ | ---- | ----------- | ----- |
 | Qwen/Qwen3-Embedding-8B | Qwen3ForTextEmbedding          | ✅   | ✅          |       |
 | Qwen/Qwen3-Reranker-8B  | Qwen3ForSequenceClassification | ✅   | ✅          |       |
 
-✅ Runs and optimized.  
-🟨 Runs and correct but not optimized to green yet.  
-❌ Does not pass accuracy test or does not run.  
+✅ 已运行并优化。  
+🟨 已运行且结果正确，但尚未优化至绿色级别。  
+❌ 未通过精度测试或无法运行。  

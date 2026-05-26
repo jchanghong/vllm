@@ -1,69 +1,69 @@
 <!-- markdownlint-disable MD041 -->
 --8<-- [start:installation]
 
-For GPU-accelerated inference on Apple Silicon, use [vLLM-Metal](https://github.com/vllm-project/vllm-metal), a community-maintained hardware plugin that uses MLX as the compute backend and provides native GPU acceleration via Apple's Metal framework.
+对于 Apple Silicon 上的 GPU 加速推理，请使用 [vLLM-Metal](https://github.com/vllm-project/vllm-metal)，这是一个社区维护的硬件插件，使用 MLX 作为计算后端，并通过 Apple 的 Metal 框架提供原生 GPU 加速。
 
-vLLM-Metal works with MLX-optimized models from the [mlx-community](https://huggingface.co/mlx-community) organization on Hugging Face, which provides quantized versions of popular models optimized for Apple Silicon.
+vLLM-Metal 与 Hugging Face 上 [mlx-community](https://huggingface.co/mlx-community) 组织的 MLX 优化模型兼容，该组织提供针对 Apple Silicon 优化的流行模型的量化版本。
 
 !!! tip
-    For installation and usage instructions, see the [Set up using vLLM-Metal](#set-up-using-vllm-metal) section below.
+    有关安装和使用说明，请参阅下面的[使用 vLLM-Metal 设置](#set-up-using-vllm-metal)部分。
 
 --8<-- [end:installation]
 --8<-- [start:requirements]
 
-- OS: macOS Sonoma or later
-- Hardware: Apple Silicon
-- Metal support enabled
+- 操作系统：macOS Sonoma 或更高版本
+- 硬件：Apple Silicon
+- 已启用 Metal 支持
 
 !!! note
-    See the [Set up using vLLM-Metal](#set-up-using-vllm-metal) section below for installation instructions.
+    安装说明请参阅下面的[使用 vLLM-Metal 设置](#set-up-using-vllm-metal)部分。
 
 --8<-- [end:requirements]
 --8<-- [start:set-up-using-python]
 
-## Set up using vLLM-Metal
+## 使用 vLLM-Metal 设置
 
-vLLM-Metal is distributed as a separate package that provides native GPU acceleration on Apple Silicon.
+vLLM-Metal 作为一个独立的包分发，为 Apple Silicon 提供原生 GPU 加速。
 
-To install vLLM-Metal, follow the installation instructions in the [vLLM-Metal documentation](https://github.com/vllm-project/vllm-metal#installation).
+要安装 vLLM-Metal，请按照 [vLLM-Metal 文档](https://github.com/vllm-project/vllm-metal#installation)中的安装说明操作。
 
-The installation will:
+安装过程将：
 
-1. Set up the appropriate Python environment
-2. Install MLX and required dependencies
-3. Install the vLLM-Metal package
+1. 设置适当的 Python 环境
+2. 安装 MLX 及所需的依赖项
+3. 安装 vLLM-Metal 包
 
-After installation, you can start using vLLM with Metal GPU acceleration.
+安装完成后，您就可以开始使用带有 Metal GPU 加速的 vLLM。
 
 !!! tip
-    When using vLLM-Metal, use models from the [mlx-community](https://huggingface.co/mlx-community) on Hugging Face for best performance. These models are optimized for MLX and often include quantized versions (4-bit, 8-bit) that run efficiently on Apple Silicon.
+    使用 vLLM-Metal 时，请使用 Hugging Face 上 [mlx-community](https://huggingface.co/mlx-community) 的模型以获得最佳性能。这些模型针对 MLX 进行了优化，通常包含可在 Apple Silicon 上高效运行的量化版本（4 位、8 位）。
 
-    Example model: `mlx-community/Qwen2.5-0.5B-Instruct-4bit`
+    示例模型：`mlx-community/Qwen2.5-0.5B-Instruct-4bit`
 
-### Using vLLM-Metal
+### 使用 vLLM-Metal
 
-After installation, vLLM-Metal provides an easy-to-use CLI for running an OpenAI-compatible API server:
+安装后，vLLM-Metal 提供了一个易于使用的 CLI 来运行兼容 OpenAI 的 API 服务器：
 
 ```bash
-# Activate the vLLM-Metal environment
+# 激活 vLLM-Metal 环境
 source ~/.venv-vllm-metal/bin/activate
 
-# Start the API server (specify your mlx-community model or it will use default)
+# 启动 API 服务器（指定您的 mlx-community 模型，否则将使用默认模型）
 vllm serve
 ```
 
-Once the server is running, you have multiple options to interact with it:
+服务器启动后，您有多个选项与之交互：
 
-#### Option 1: Interactive chat
+#### 选项 1：交互式聊天
 
-Open a new terminal and start an interactive chat session:
+打开一个新终端并启动交互式聊天会话：
 
 ```bash
 source ~/.venv-vllm-metal/bin/activate
 vllm chat
 ```
 
-#### Option 2: API requests with curl
+#### 选项 2：使用 curl 进行 API 请求
 
 ```bash
 curl http://localhost:8000/v1/chat/completions \
@@ -74,14 +74,14 @@ curl http://localhost:8000/v1/chat/completions \
   }'
 ```
 
-#### Option 3: Python with OpenAI SDK
+#### 选项 3：使用 OpenAI SDK 的 Python
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(
     base_url="http://localhost:8000/v1",
-    api_key="dummy"  # No auth required for local server
+    api_key="dummy"  # 本地服务器无需认证
 )
 
 response = client.chat.completions.create(
@@ -92,17 +92,17 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
-For more details on the `vllm` CLI commands, see the [OpenAI-compatible server documentation](../../serving/online_serving/openai_compatible_server.md).
+有关 `vllm` CLI 命令的更多详细信息，请参阅[兼容 OpenAI 的服务器文档](../../serving/online_serving/openai_compatible_server.md)。
 
 --8<-- [end:set-up-using-python]
 --8<-- [start:pre-built-wheels]
 
-vLLM-Metal is installed via the vLLM-Metal package. See the [Set up using vLLM-Metal](#set-up-using-vllm-metal) section above.
+vLLM-Metal 通过 vLLM-Metal 包安装。请参阅上面的[使用 vLLM-Metal 设置](#set-up-using-vllm-metal)部分。
 
 --8<-- [end:pre-built-wheels]
 --8<-- [start:build-wheel-from-source]
 
-For build instructions from source, refer to the [vLLM-Metal documentation](https://github.com/vllm-project/vllm-metal#installation).
+关于从源码构建的说明，请参考 [vLLM-Metal 文档](https://github.com/vllm-project/vllm-metal#installation)。
 
 --8<-- [end:build-wheel-from-source]
 --8<-- [start:pre-built-images]
@@ -113,13 +113,13 @@ For build instructions from source, refer to the [vLLM-Metal documentation](http
 --8<-- [end:build-image-from-source]
 --8<-- [start:supported-features]
 
-vLLM-Metal provides:
+vLLM-Metal 提供：
 
-- Native GPU acceleration using Metal
-- MLX-based compute backend optimized for Apple Silicon
-- OpenAI-compatible API server
-- Support for popular model architectures
+- 使用 Metal 的原生 GPU 加速
+- 针对 Apple Silicon 优化的基于 MLX 的计算后端
+- 兼容 OpenAI 的 API 服务器
+- 支持流行的模型架构
 
-For specific feature support and limitations, refer to the [vLLM-Metal documentation](https://github.com/vllm-project/vllm-metal).
+有关特定功能支持和限制，请参考 [vLLM-Metal 文档](https://github.com/vllm-project/vllm-metal)。
 
 --8<-- [end:supported-features]

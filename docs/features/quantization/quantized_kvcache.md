@@ -1,61 +1,61 @@
-# Quantized KV Cache
+# 量化 KV Cache
 
-## FP8 KV Cache Overview
+## FP8 KV Cache 概述
 
-Efficient memory usage is crucial for working with large language models. Quantizing the KV (Key-Value) cache to FP8 format can significantly reduce its memory footprint. This optimization enables you to store more tokens in memory, leading to improved throughput and support for longer context windows.
+高效的内存使用对于大型语言模型的工作至关重要。将 KV (Key-Value) cache 量化到 FP8 格式可以显著减少其内存占用。这一优化使您能够在内存中存储更多 token，从而提高吞吐量并支持更长的上下文窗口。
 
-> **Note:** When using the Flash Attention 3 backend with FP8 KV cache, attention operations are also performed in the quantized (FP8) domain. In this configuration, queries are quantized to FP8 in addition to keys and values.
+> **注意：** 当使用 Flash Attention 3 后端配合 FP8 KV cache 时，注意力运算也在量化 (FP8) 域中执行。在此配置下，除了键和值之外，查询也会被量化到 FP8。
 
-### Supported FP8 KV-Cache Quantization Schemes
+### 支持的 FP8 KV-Cache 量化方案
 
-vLLM supports two main quantization strategies for the FP8 KV-cache:
+vLLM 支持两种主要的 FP8 KV-cache 量化策略：
 
-- **Per-tensor quantization:**  
-  A single scale is applied for each Q, K, and V tensor individually. (`q/k/v_scale = [1]`)
-- **Per-attention-head quantization:**  
-  Each scale corresponds to an attention head: `q_scale = [num_heads]`, `k/v_scale = [num_kv_heads]`.
+- **Per-tensor 量化：**  
+  对每个 Q、K、V 张量分别应用单一的 scale。 (`q/k/v_scale = [1]`)
+- **Per-attention-head 量化：**  
+  每个 scale 对应一个注意力头：`q_scale = [num_heads]`，`k/v_scale = [num_kv_heads]`。
 
-> **Note:**  
-> Per-attention-head quantization is currently available **only with the Flash Attention backend** and requires the calibration pathway provided by **llm-compressor**.
+> **注意：**  
+> Per-attention-head 量化目前**仅适用于 Flash Attention 后端**，并且需要 **llm-compressor** 提供的校准流程。
 
-### Scale Calibration Approaches
+### Scale 校准方法
 
-You can configure how the quantization scales are computed in vLLM using three different approaches:
+您可以通过三种不同的方式在 vLLM 中配置量化 scale 的计算：
 
-1. **No calibration (default scales):**  
-   All quantization scales are set to `1.0`.  
-   _Configure with:_  
+1. **无校准（默认 scales）：**  
+   所有量化 scale 设置为 `1.0`。  
+   _配置方式：_  
    ```python
    kv_cache_dtype="fp8"
    calculate_kv_scales=False
    ```
 
-2. **Random token calibration (on-the-fly):**  
-   Scales are automatically estimated from a single batch of random tokens during warmup and then fixed.  
-   _Configure with:_  
+2. **随机 token 校准（即时计算）：**  
+   Scale 在预热期间从单个随机 token 批次中自动估算并固定。  
+   _配置方式：_  
    ```python
    kv_cache_dtype="fp8"
    calculate_kv_scales=True
    ```
 
-3. **[Recommended] Calibration with a dataset (via llm-compressor):**  
-   Scales are estimated using a curated calibration dataset for maximum accuracy.  
-   This requires the [llm-compressor](https://github.com/vllm-project/llm-compressor) library.  
-   _See example below!_
+3. **[推荐] 使用数据集校准（通过 llm-compressor）：**  
+   使用精心挑选的校准数据集来估算 scale，以获得最高精度。  
+   这需要 [llm-compressor](https://github.com/vllm-project/llm-compressor) 库。  
+   _请参见下面的示例！_
 
-#### Additional `kv_cache_dtype` Options
+#### 其他 `kv_cache_dtype` 选项
 
-- `kv_cache_dtype="auto"`: Use the model's default data type
-- `kv_cache_dtype="fp8_e4m3"`: Supported on CUDA 11.8+ and ROCm (AMD GPUs)
-- `kv_cache_dtype="fp8_e5m2"`: Supported on CUDA 11.8+
+- `kv_cache_dtype="auto"`：使用模型的默认数据类型
+- `kv_cache_dtype="fp8_e4m3"`：支持 CUDA 11.8+ 和 ROCm (AMD GPU)
+- `kv_cache_dtype="fp8_e5m2"`：支持 CUDA 11.8+
 
 ---
 
-## Examples
+## 示例
 
-### 1. No Calibration (`kv_cache_dtype="fp8"`, `calculate_kv_scales=False`)
+### 1. 无校准 (`kv_cache_dtype="fp8"`, `calculate_kv_scales=False`)
 
-All quantization scales are set to 1.0.
+所有量化 scale 均设置为 1.0。
 
 ```python
 from vllm import LLM, SamplingParams
@@ -73,9 +73,9 @@ print(out)
 
 ---
 
-### 2. Random Token Calibration (`kv_cache_dtype="fp8"`, `calculate_kv_scales=True`)
+### 2. 随机 token 校准 (`kv_cache_dtype="fp8"`, `calculate_kv_scales=True`)
 
-Scales are automatically estimated from a single batch of tokens during warmup.
+Scale 在预热期间从单个 token 批次中自动估算。
 
 ```python
 from vllm import LLM, SamplingParams
@@ -93,22 +93,21 @@ print(out)
 
 ---
 
-### 3. **[Recommended] Calibration Using a Dataset (with `llm-compressor`)**
+### 3. **[推荐] 使用数据集校准（通过 `llm-compressor`）**
 
-For the highest-quality quantization, we recommend calibrating against a dataset using `llm-compressor`. This enables advanced strategies such as per-attention-head quantization.
+为了获得最高质量的量化，我们建议使用 `llm-compressor` 对数据集进行校准。这可以实现每注意力头量化等高级策略。
 
-#### Install the required package
+#### 安装所需包
 
 ```bash
 pip install llmcompressor
 ```
 
-#### Example: Quantize Llama Attention & KV Cache to FP8
+#### 示例：将 Llama 的 Attention 和 KV Cache 量化到 FP8
 
 ```python
 """
-Quantize Llama attention + KV cache to FP8 (choose either 'tensor' or 'attn_head' strategy)
-using llm-compressor one-shot calibration.
+使用 llm-compressor 的一次性校准，将 Llama 的 Attention + KV cache 量化到 FP8（选择 'tensor' 或 'attn_head' 策略）。
 """
 
 from datasets import load_dataset
@@ -119,20 +118,20 @@ from llmcompressor.modifiers.quantization import QuantizationModifier
 from compressed_tensors.quantization import QuantizationScheme, QuantizationArgs
 
 # -----------------------------
-# Config
+# 配置
 # -----------------------------
 MODEL_ID = "meta-llama/Llama-3.1-8B-Instruct"
 DATASET_ID = "HuggingFaceH4/ultrachat_200k"
 DATASET_SPLIT = "train_sft"
-STRATEGY = "tensor"       # or "attn_head"
-NUM_CALIB_SAMPLES = 512   # Good starting value
+STRATEGY = "tensor"       # 或 "attn_head"
+NUM_CALIB_SAMPLES = 512   # 良好的起始值
 MAX_SEQ_LEN = 2048
 
 # -----------------------------
-# Helpers
+# 辅助函数
 # -----------------------------
 def process_and_tokenize(example, tokenizer: AutoTokenizer):
-    """Convert chat messages to tokens."""
+    """将聊天消息转换为 token。"""
     text = tokenizer.apply_chat_template(example["messages"], tokenize=False)
     return tokenizer(
         text,
@@ -147,15 +146,15 @@ def build_recipe(strategy: str) -> QuantizationModifier:
     return QuantizationModifier(
         config_groups={
             "attention": QuantizationScheme(
-                targets=["LlamaAttention"],  # Quantize queries: q_scale
+                targets=["LlamaAttention"],  # 量化查询：q_scale
                 input_activations=fp8_args,
             )
         },
-        kv_cache_scheme=fp8_args,           # Quantize KV cache: k/v_scale
+        kv_cache_scheme=fp8_args,           # 量化 KV cache：k/v_scale
     )
 
 # -----------------------------
-# Main
+# 主函数
 # -----------------------------
 def main():
     model = AutoModelForCausalLM.from_pretrained(MODEL_ID, torch_dtype="auto")
@@ -184,4 +183,4 @@ if __name__ == "__main__":
     main()
 ```
 
-For more detailed and up-to-date examples, see the [`llm-compressor` official examples](https://github.com/vllm-project/llm-compressor/tree/main/examples/quantization_kv_cache).
+有关更多详细和最新的示例，请参见 [`llm-compressor` 官方示例](https://github.com/vllm-project/llm-compressor/tree/main/examples/quantization_kv_cache)。

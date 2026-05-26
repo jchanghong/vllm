@@ -1,15 +1,15 @@
 # RunPod
 
-vLLM can be deployed on [RunPod](https://www.runpod.io/), a cloud GPU platform that provides on-demand and serverless GPU instances for AI inference workloads.
+vLLM 可以部署在 [RunPod](https://www.runpod.io/) 上，RunPod 是一个云 GPU 平台，提供按需和无服务器 GPU 实例用于 AI 推理工作负载。
 
-## Prerequisites
+## 前提条件
 
-- A RunPod account with GPU pod access
-- A GPU pod running a CUDA-compatible template (e.g., `runpod/pytorch`)
+- 一个具有 GPU Pod 访问权限的 RunPod 账户
+- 一个运行 CUDA 兼容模板的 GPU Pod（例如 `runpod/pytorch`）
 
-## Starting the Server
+## 启动服务器
 
-SSH into your RunPod pod and launch the vLLM OpenAI-compatible server:
+通过 SSH 登录到您的 RunPod Pod 并启动 vLLM 的 OpenAI 兼容服务器：
 
 ```bash
 vllm serve <model-name> \
@@ -19,32 +19,32 @@ vllm serve <model-name> \
 
 !!! note
 
-    Use `--host 0.0.0.0` to bind to all interfaces so the server is reachable from outside the container.
+    使用 `--host 0.0.0.0` 绑定到所有接口，以便服务器可从容器外部访问。
 
-## Exposing Port 8000
+## 暴露端口 8000
 
-RunPod exposes HTTP services through its proxy. To make port 8000 accessible:
+RunPod 通过其代理暴露 HTTP 服务。要使端口 8000 可访问：
 
-1. In the RunPod dashboard, navigate to your pod settings.
-2. Add `8000` to the list of exposed HTTP ports.
-3. After the pod restarts, RunPod provides a public URL in the format:
+1. 在 RunPod 仪表板中，导航到您的 Pod 设置。
+2. 将 `8000` 添加到暴露的 HTTP 端口列表中。
+3. Pod 重启后，RunPod 会提供一个格式如下的公共 URL：
 
     ```text
     https://<pod-id>-8000.proxy.runpod.net
     ```
 
-## Troubleshooting 502 Bad Gateway
+## 排查 502 Bad Gateway 错误
 
-A `502 Bad Gateway` error from the RunPod proxy typically means the server is not yet listening. Common causes:
+来自 RunPod 代理的 `502 Bad Gateway` 错误通常表示服务器尚未开始监听。常见原因：
 
-- **Model still loading** — Large models take time to download and load into GPU memory. Check the pod logs for progress.
-- **Wrong host binding** — Ensure you passed `--host 0.0.0.0`. Binding to `127.0.0.1` (the default) makes the server unreachable from the proxy.
-- **Port mismatch** — Verify the `--port` value matches the port exposed in the RunPod dashboard.
-- **Out of GPU memory** — The model may be too large for the allocated GPU. Check logs for CUDA OOM errors and consider using a larger instance or adding `--tensor-parallel-size` for multi-GPU pods.
+- **模型仍在加载中** — 大型模型需要时间下载并加载到 GPU 内存中。检查 Pod 日志以了解进度。
+- **主机绑定错误** — 确保您传递了 `--host 0.0.0.0`。绑定到 `127.0.0.1`（默认值）会使服务器无法从代理访问。
+- **端口不匹配** — 验证 `--port` 值与 RunPod 仪表板中暴露的端口相匹配。
+- **GPU 内存不足** — 模型可能对于分配的 GPU 来说过大。检查日志中是否有 CUDA OOM 错误，并考虑使用更大的实例或为多 GPU Pod 添加 `--tensor-parallel-size`。
 
-## Verifying the Deployment
+## 验证部署
 
-Once the server is running, test it with a curl request:
+服务器运行后，使用 curl 请求进行测试：
 
 !!! console "Command"
 
@@ -79,7 +79,7 @@ Once the server is running, test it with a curl request:
     }
     ```
 
-You can also check the server health endpoint:
+您也可以检查服务器健康状态端点：
 
 ```bash
 curl https://<pod-id>-8000.proxy.runpod.net/health

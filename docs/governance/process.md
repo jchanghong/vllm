@@ -1,161 +1,161 @@
-# Governance Process
+# 治理流程
 
-vLLM's success comes from our strong open source community. We favor informal, meritocratic norms over formal policies. This document clarifies our governance philosophy and practices.
+vLLM 的成功源于我们强大的开源社区。我们偏好非正式、精英管理的规范，而非正式政策。本文档阐明了我们的治理理念和实践。
 
-## Values
+## 价值观
 
-vLLM aims to be the fastest and easiest-to-use LLM inference and serving engine. We stay current with advances, enable innovation, and support diverse models, modalities, and hardware.
+vLLM 旨在成为最快且最易于使用的 LLM 推理和服务引擎。我们紧跟技术前沿，支持创新，并支持多样化的模型、模态和硬件。
 
-### Design Values
+### 设计价值观
 
-1. **Top performance**: System performance is our top priority. We monitor overheads, optimize kernels, and publish benchmarks. We never leave performance on the table.
-2. **Ease of use**: vLLM must be simple to install, configure, and operate. We provide clear documentation, fast startup, clean logs, helpful error messages, and monitoring guides. Many users fork our code or study it deeply, so we keep it readable and modular.
-3. **Wide coverage**: vLLM supports frontier models and high-performance accelerators. We make it easy to add new models and hardware. vLLM + PyTorch form a simple interface that avoids complexity.
-4. **Production ready**: vLLM runs 24/7 in production. It must be easy to operate and monitor for health issues.
-5. **Extensibility**: vLLM serves as fundamental LLM infrastructure. Our codebase cannot cover every use case, so we design for easy forking and customization.
+1. **顶级性能**：系统性能是我们的最高优先级。我们监控开销、优化内核并发布基准测试。我们绝不牺牲性能。
+2. **易于使用**：vLLM 必须易于安装、配置和操作。我们提供清晰的文档、快速启动、干净的日志、有用的错误消息和监控指南。许多用户 fork 我们的代码或深入研究，因此我们保持代码可读和模块化。
+3. **广泛覆盖**：vLLM 支持前沿模型和高性能加速器。我们使添加新模型和硬件变得简单。vLLM + PyTorch 构成了一个避免复杂性的简单接口。
+4. **生产就绪**：vLLM 全天候运行在生产环境中。它必须易于操作和监控健康问题。
+5. **可扩展性**：vLLM 作为基础的 LLM 基础设施。我们的代码库无法覆盖所有用例，因此我们设计为易于 fork 和定制。
 
-### Collaboration Values
+### 协作价值观
 
-1. **Tightly Knit and Fast-Moving**: Our maintainer team is aligned on vision, philosophy, and roadmap. We work closely to unblock each other and move quickly.
-2. **Individual Merit**: No one buys their way into governance. Committer status belongs to individuals, not companies. We reward contribution, maintenance, and project stewardship.
+1. **紧密协作、快速推进**：我们的维护者团队在愿景、理念和路线图上保持一致。我们紧密合作，互相解除阻塞，快速前进。
+2. **个人 merit**：任何人都不能通过金钱进入治理层。提交者身份属于个人，而非公司。我们奖励贡献、维护和项目管理。
 
-## Project Maintainers
+## 项目维护者
 
-Maintainers form a hierarchy based on sustained, high-quality contributions and alignment with our design philosophy.
+维护者根据持续的高质量贡献和与设计理念的一致性形成层级结构。
 
-### Core Maintainers
+### 核心维护者
 
-Core Maintainers function like a project planning and decision making committee. In other convention, they might be called a Technical Steering Committee (TSC). In vLLM vocabulary, they are often known as "Project Leads". They meet weekly to coordinate roadmap priorities and allocate engineering resources.
+核心维护者类似于项目规划和决策委员会。在其他惯例中，他们可能被称为技术指导委员会（TSC）。在 vLLM 术语中，他们通常被称为"项目负责人"。他们每周开会协调路线图优先级和分配工程资源。
 
-**Project Leads:**
+**项目负责人：**
 
-- Woosuk Kwon ([@WoosukKwon](https://github.com/WoosukKwon))
-- Zhuohan Li ([@zhuohan123](https://github.com/zhuohan123))
-- Simon Mo ([@simon-mo](https://github.com/simon-mo))
-- Kaichao You ([@youkaichao](https://github.com/youkaichao))
-- Robert Shaw ([@robertgshaw2-redhat](https://github.com/robertgshaw2-redhat))
-- Tyler Michael Smith ([@tlrmchlsmth](https://github.com/tlrmchlsmth))
-- Michael Goin ([@mgoin](https://github.com/mgoin))
-- Nick Hill ([@njhill](https://github.com/njhill))
-- Roger Wang ([@ywang96](https://github.com/ywang96))
-- Lu Fang ([@houseroad](https://github.com/houseroad))
-- Ye (Charlotte) Qi ([@yeqcharlotte](https://github.com/yeqcharlotte))
-- Yihua Cheng ([@ApostaC](https://github.com/ApostaC))
+- Woosuk Kwon（[@WoosukKwon](https://github.com/WoosukKwon)）
+- Zhuohan Li（[@zhuohan123](https://github.com/zhuohan123)）
+- Simon Mo（[@simon-mo](https://github.com/simon-mo)）
+- Kaichao You（[@youkaichao](https://github.com/youkaichao)）
+- Robert Shaw（[@robertgshaw2-redhat](https://github.com/robertgshaw2-redhat)）
+- Tyler Michael Smith（[@tlrmchlsmth](https://github.com/tlrmchlsmth)）
+- Michael Goin（[@mgoin](https://github.com/mgoin)）
+- Nick Hill（[@njhill](https://github.com/njhill)）
+- Roger Wang（[@ywang96](https://github.com/ywang96)）
+- Lu Fang（[@houseroad](https://github.com/houseroad)）
+- Ye (Charlotte) Qi（[@yeqcharlotte](https://github.com/yeqcharlotte)）
+- Yihua Cheng（[@ApostaC](https://github.com/ApostaC)）
 
-**Responsibilities:**
+**职责：**
 
-- Author quarterly roadmap and responsible for each development effort.
-- Making major changes to the technical direction or scope of vLLM and vLLM projects.
-- Defining the project's release strategy.
-- Work with model providers, hardware vendors, and key users of vLLM to ensure the project is on the right track.
+- 制定季度路线图并负责各项开发工作。
+- 对 vLLM 及 vLLM 项目的技术方向或范围进行重大变更。
+- 定义项目的发布策略。
+- 与模型提供商、硬件供应商和 vLLM 的关键用户合作，确保项目走在正确轨道上。
 
-### Lead Maintainers
+### 主要维护者
 
-While Core maintainers assume the day-to-day responsibilities of the project, Lead maintainers are responsible for the overall direction and strategy of the project. The following committee currently shares this role with divided responsibilities:
+核心维护者承担项目的日常职责，而主要维护者则负责项目的整体方向和战略。以下委员会目前分担此角色，各有分工：
 
-- Woosuk Kwon ([@WoosukKwon](https://github.com/WoosukKwon))
-- Zhuohan Li ([@zhuohan123](https://github.com/zhuohan123))
-- Simon Mo ([@simon-mo](https://github.com/simon-mo))
-- Kaichao You ([@youkaichao](https://github.com/youkaichao))
-- Robert Shaw ([@robertgshaw2-redhat](https://github.com/robertgshaw2-redhat))
+- Woosuk Kwon（[@WoosukKwon](https://github.com/WoosukKwon)）
+- Zhuohan Li（[@zhuohan123](https://github.com/zhuohan123)）
+- Simon Mo（[@simon-mo](https://github.com/simon-mo)）
+- Kaichou You（[@youkaichao](https://github.com/youkaichao)）
+- Robert Shaw（[@robertgshaw2-redhat](https://github.com/robertgshaw2-redhat)）
 
-**Responsibilities:**
+**职责：**
 
-- Making decisions where consensus among core maintainers cannot be reached.
-- Adopting changes to the project's technical governance.
-- Organizing the voting process for new committers.
+- 在核心维护者无法达成共识时做出决策。
+- 采纳对项目技术治理的变更。
+- 组织新提交者的投票流程。
 
-### Committers and Area Owners
+### 提交者和领域负责人
 
-Committers have write access and merge rights. They typically have deep expertise in specific areas and help the community.
+提交者拥有写入权限和合并权限。他们通常在特定领域拥有深厚专业知识，并帮助社区。
 
-**Responsibilities:**
+**职责：**
 
-- Reviewing PRs and providing feedback.
-- Addressing issues and questions from the community.
-- Own specific areas of the codebase and development efforts: reviewing PRs, addressing issues, answering questions, improving documentation.
+- 审查 PR 并提供反馈。
+- 处理社区的问题和疑问。
+- 拥有代码库和开发工作的特定领域：审查 PR、处理问题、回答问题、改进文档。
 
-Specially, committers are almost all area owners. They author subsystems, review PRs, refactor code, monitor tests, and ensure compatibility with other areas. All area owners are committers with deep expertise in that area, but not all committers own areas.
+特别地，提交者几乎都是领域负责人。他们编写子系统、审查 PR、重构代码、监控测试并确保与其他领域的兼容性。所有领域负责人都是在该领域具有深厚专业知识的提交者，但并非所有提交者都拥有领域。
 
-For a full list of committers and their respective areas, see the [committers](./committers.md) page.
+有关提交者及其各自领域的完整列表，请参见[提交者](./committers.md)页面。
 
-#### Committer Proposal Process
+#### 提交者提名流程
 
-Any committer can nominate candidates via our private committer mailing list. The process runs as follows:
+任何提交者都可以通过我们的私有提交者邮件列表提名候选人。流程如下：
 
-1. **Nominate**: A committer sends email to the committer group to nominate a candidate, highlighting the candidate’s contributions (e.g., links to PRs, reviews, RFCs, issues, benchmarks, and adoption evidence) and how they map to the standards below.
-2. **Discuss and vote**: The committer group discusses the nomination, votes, and voices concerns if needed. Shared concerns can stop the process. For concerns, the group discusses clear criteria for the person to be nominated again. Most cases are decided by consensus; in contentious cases, the lead maintainers resolve conflicts and make the decision.
-3. **Feedback period**: After a two-week feedback period (allowing time for any last input or concerns), if no blocking concerns arise and the nominator confirms with lead maintainer group to move forward (via the mailing list or committers slack channel), the nominator sends an invitation to the candidate asking them to open a PR to update their code ownership (e.g., CODEOWNERS and committers list).
-4. **Permissions and onboarding**: In parallel, the lead maintainers assign the necessary permissions in GitHub and add the new member to the committer mailing list, the committer-only Slack channel, and other communications channels as appropriate.
-5. **Finalize**: Once the CODEOWNERS/committer PR is ready and permissions are in place, the PR is merged and the new committer is welcomed.
+1. **提名**：提交者向提交者组发送邮件提名候选人，强调候选人的贡献（例如，PR、审查、RFC、问题、基准测试和采用证据的链接）以及其如何符合以下标准。
+2. **讨论和投票**：提交者组讨论提名、投票并在需要时提出疑虑。共同关注的问题可以中止流程。对于疑虑，团队讨论明确的标准，以便此人可以再次被提名。大多数情况由共识决定；在有争议的情况下，主要维护者解决冲突并做出决定。
+3. **反馈期**：经过两周的反馈期（允许最后意见或关切的时间），如果没有出现阻碍性关切，并且提名人与主要维护者组确认继续推进（通过邮件列表或提交者 Slack 频道），提名人向候选人发送邀请，请其打开 PR 更新其代码所有权（例如 CODEOWNERS 和提交者列表）。
+4. **权限和入职**：同时，主要维护者在 GitHub 中分配必要的权限，并将新成员添加到提交者邮件列表、仅限提交者的 Slack 频道以及其他适当的通信渠道。
+5. **完成**：一旦 CODEOWNERS/提交者 PR 准备就绪且权限到位，PR 被合并，新提交者受到欢迎。
 
-Committership is highly selective and merit based. The selection criteria requires:
+提交者身份具有高度选择性和基于 merit 的性质。选拔标准要求：
 
-- **Area expertise**: leading design/implementation of core subsystems, material performance or reliability improvements adopted project‑wide, or accepted RFCs that shape technical direction.
-- **Sustained contributions**: high‑quality merged contributions and reviews across releases, responsiveness to feedback, and stewardship of code health.
-- **Community leadership**: mentoring contributors, triaging issues, improving docs, and elevating project standards.
+- **领域专业知识**：领导核心子系统的设计/实现，项目范围内采用的重要性能或可靠性改进，或塑造技术方向的已接受 RFC。
+- **持续贡献**：跨版本的高质量合并贡献和审查，对反馈的响应，以及对代码健康的维护。
+- **社区领导力**：指导贡献者、分类问题、改进文档以及提升项目标准。
 
-To further illustrate, a committer typically satisfies at least two of the following accomplishment patterns:
+为了进一步说明，提交者通常满足以下成就模式中的至少两项：
 
-- Author of an accepted RFC or design that materially shaped project direction
-- Measurable, widely adopted performance or reliability improvement in core paths
-- Long‑term ownership of a subsystem with demonstrable quality and stability gains
-- Significant cross‑project compatibility or ecosystem enablement work (models, hardware, tooling)
+- 已接受 RFC 或设计的作者，实质性塑造了项目方向
+- 在核心路径中的可衡量、广泛采用的性能或可靠性改进
+- 对子系统进行长期维护，具有可证明的质量和稳定性提升
+- 重要的跨项目兼容性或生态赋能工作（模型、硬件、工具）
 
-While there isn't a quantitative bar, past committers have:
+虽然没有量化标准，但过往的提交者通常：
 
-- Submitted approximately 30+ PRs of substantial quality and scope
-- Provided high-quality reviews of approximately 10+ substantial external contributor PRs
-- Addressed multiple issues and questions from the community in issues/forums/Slack
-- Led concentrated efforts on RFCs and their implementation, or significant performance or reliability improvements adopted project‑wide
+- 提交了约 30 个以上具有实质质量和范围的 PR
+- 提供了约 10 个以上实质性外部贡献者 PR 的高质量审查
+- 处理了社区在问题/论坛/Slack 中的多个问题和疑问
+- 领导了 RFC 及其实现的集中工作，或项目范围内采用的重要性能或可靠性改进
 
-### Working Groups
+### 工作组
 
-vLLM runs informal working groups such as CI, CI infrastructure, torch compile, and startup UX. These can be loosely tracked via `#sig-` (or `#feat-`) channels in vLLM Slack. Some groups have regular sync meetings.
+vLLM 运行非正式工作组，如 CI、CI 基础设施、torch compile 和启动用户体验。这些可以通过 vLLM Slack 中的 `#sig-`（或 `#feat-`）频道进行粗略跟踪。有些组有定期同步会议。
 
-### Advisory Board
+### 顾问委员会
 
-vLLM project leads consult with an informal advisory board that is composed of model providers, hardware vendors, and ecosystem partners. This manifests as a collaboration channel in Slack and frequent communications.
+vLLM 项目负责人与由模型提供商、硬件供应商和生态系统合作伙伴组成的非正式顾问委员会进行协商。这体现为 Slack 中的协作频道和频繁沟通。
 
-## Process
+## 流程
 
-### Project Roadmap
+### 项目路线图
 
-Project Leads publish quarterly roadmaps as GitHub issues. These clarify current priorities. Unlisted topics aren't excluded but may get less review attention. See [https://roadmap.vllm.ai/](https://roadmap.vllm.ai/).
+项目负责人每季度发布路线图作为 GitHub 问题。这些明确了当前的优先级。未列出的主题并不被排除，但可能获得较少的审查关注。请参见 [https://roadmap.vllm.ai/](https://roadmap.vllm.ai/)。
 
-### Decision Making
+### 决策制定
 
-We make technical decisions in Slack and GitHub using RFCs and design docs. Discussion may happen elsewhere, but we maintain public records of significant changes: problem statements, rationale, and alternatives considered.
+我们在 Slack 和 GitHub 中使用 RFC 和设计文档进行技术决策。讨论可能发生在其他地方，但我们维护重要变更的公开记录：问题陈述、理由和考虑的替代方案。
 
-### Merging Code
+### 合并代码
 
-Contributors and maintainers often collaborate closely on code changes, especially within organizations or specific areas. Maintainers should give others appropriate review opportunities based on change significance.
+贡献者和维护者经常在代码变更上密切合作，特别是在组织内部或特定领域内。维护者应根据变更的重要性给予他人适当的审查机会。
 
-PRs requires at least one committer review and approval. If the code is covered by CODEOWNERS, the PR should be reviewed by the CODEOWNERS. There are cases where the code is trivial or hotfix, the PR can be merged by the lead maintainers directly.
+PR 需要至少一名提交者的审查和批准。如果代码由 CODEOWNERS 涵盖，PR 应由 CODEOWNERS 审查。在代码微不足道或为热修复的情况下，PR 可由主要维护者直接合并。
 
-In case where CI didn't pass due to the failure is not related to the PR, the PR can be merged by the lead maintainers using "force merge" option that overrides the CI checks.
+在 CI 因与 PR 无关的故障而未通过的情况下，PR 可由主要维护者使用覆盖 CI 检查的"强制合并"选项合并。
 
-### AI Assisted Contributions
+### AI 辅助贡献
 
-AI tools can accelerate development, but contributors remain fully responsible for all code they submit. Like the Developer Certificate of Origin, this policy centers on accountability: contributors must believe they have the right to submit their contribution under vLLM's open source license, regardless of how the code was created.
+AI 工具可以加速开发，但贡献者对其提交的所有代码承担全部责任。与开发者原创证书（Developer Certificate of Origin）一样，此政策以责任为中心：贡献者必须相信他们有权根据 vLLM 的开源许可证提交其贡献，无论代码是如何创建的。
 
-All AI-assisted contributions must meet the same quality, testing, and review standards as any other code. Contributors must review and understand AI-generated code before submission—just make sure it is good code:
+所有 AI 辅助贡献必须满足与其他代码相同的质量、测试和审查标准。贡献者必须在提交前审查并理解 AI 生成的代码——只要确保代码质量良好：
 
-- Do not submit "pure agent" PRs. The human submitter is responsible for reviewing all changed lines, validating behavior end-to-end, and running relevant tests.
-- Attribution preserves legal clarity and community trust. Contributors must disclose AI assistance in pull requests and mark commits with appropriate trailers (e.g. `Co-authored-by:`).
-- Avoid one-off "busywork" PRs (single typo, isolated style cleanup, one mutable default fix, etc.). Bundle mechanical cleanups into a clear, systematic scope.
+- 不要提交"纯代理"PR。人工提交者负责审查所有变更行、端到端验证行为并运行相关测试。
+- 署名保持法律清晰度和社区信任。贡献者必须在 PR 中披露 AI 辅助，并使用适当的提交跟踪信息（例如 `Co-authored-by:`）标记提交。
+- 避免一次性的"琐碎工作"PR（单个错字、孤立的样式清理、单个可变默认值修复等）。将机械性清理捆绑到明确、系统化的范围内。
 
 !!! warning
-    These topics are outlined for agents in [AGENTS.md](../../AGENTS.md) with instructions for how to autonomously implement them.
+    这些主题在 [AGENTS.md](../../AGENTS.md) 中为代理概述了如何自主实现的说明。
 
 ### Slack
 
-Contributors are encouraged to join `#pr-reviews` and `#contributors` channels.
+鼓励贡献者加入 `#pr-reviews` 和 `#contributors` 频道。
 
-There are `#sig-` and `#feat-` channels for discussion and coordination around specific topics.
+还有 `#sig-` 和 `#feat-` 频道用于围绕特定主题进行讨论和协调。
 
-The project maintainer group also uses a private channel for high-bandwidth collaboration.
+项目维护者组还使用私有频道进行高带宽协作。
 
-### Meetings
+### 会议
 
-We hold weekly contributor syncs with standup-style updates on progress, blockers, and plans. You can refer to the notes [standup.vllm.ai](https://standup.vllm.ai) for joining instructions.
+我们每周举行贡献者同步会议，以站会形式更新进展、阻塞项和计划。您可以参考笔记 [standup.vllm.ai](https://standup.vllm.ai) 了解加入说明。

@@ -1,43 +1,42 @@
 # INT8 W8A8
 
-vLLM supports quantizing weights and activations to INT8 for memory savings and inference acceleration.
-This quantization method is particularly useful for reducing model size while maintaining good performance.
+vLLM 支持将权重和激活值量化到 INT8，以实现内存节省和推理加速。这种量化方法特别适用于在保持良好性能的同时减小模型体积。
 
-Please visit the HF collection of [quantized INT8 checkpoints of popular LLMs ready to use with vLLM](https://huggingface.co/collections/neuralmagic/int8-llms-for-vllm-668ec32c049dca0369816415).
+请访问 HF 上[可直接与 vLLM 配合使用的流行 LLM 的 INT8 量化 checkpoint 集合](https://huggingface.co/collections/neuralmagic/int8-llms-for-vllm-668ec32c049dca0369816415)。
 
 !!! note
-    INT8 computation is supported on NVIDIA GPUs with compute capability > 7.5 (Turing, Ampere, Ada Lovelace, Hopper).
+    INT8 计算支持计算能力 > 7.5 的 NVIDIA GPU（Turing、Ampere、Ada Lovelace、Hopper）。
 
 !!! warning
-    **Blackwell GPU Limitation**: INT8 is not supported on compute capability >= 10.0 (e.g., RTX 6000 Blackwell).
-    Use [FP8 quantization](fp8.md) instead, or run on Hopper/Ada/Ampere architectures.
+    **Blackwell GPU 限制**：INT8 不支持计算能力 >= 10.0 的 GPU（例如 RTX 6000 Blackwell）。
+    请改用 [FP8 量化](fp8.md)，或在 Hopper/Ada/Ampere 架构上运行。
 
-## Prerequisites
+## 先决条件
 
-To use INT8 quantization with vLLM, you'll need to install the [llm-compressor](https://github.com/vllm-project/llm-compressor/) library:
+要在 vLLM 中使用 INT8 量化，您需要安装 [llm-compressor](https://github.com/vllm-project/llm-compressor/) 库：
 
 ```bash
 pip install llmcompressor
 ```
 
-Additionally, install `vllm` and `lm-evaluation-harness` for evaluation:
+此外，还需安装 `vllm` 和 `lm-evaluation-harness` 用于评估：
 
 ```bash
 pip install vllm "lm-eval[api]>=0.4.12"
 ```
 
-## Quantization Process
+## 量化流程
 
-The quantization process involves four main steps:
+量化过程包括四个主要步骤：
 
-1. Loading the model
-2. Preparing calibration data
-3. Applying quantization
-4. Evaluating accuracy in vLLM
+1. 加载模型
+2. 准备校准数据
+3. 应用量化
+4. 在 vLLM 中评估精度
 
-### 1. Loading the Model
+### 1. 加载模型
 
-Load your model and tokenizer using the standard `transformers` AutoModel classes:
+使用标准的 `transformers` AutoModel 类加载您的模型和 tokenizer：
 
 ```python
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -51,11 +50,9 @@ model = AutoModelForCausalLM.from_pretrained(
 tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
 ```
 
-### 2. Preparing Calibration Data
+### 2. 准备校准数据
 
-When quantizing activations to INT8, you need sample data to estimate the activation scales.
-It's best to use calibration data that closely matches your deployment data.
-For a general-purpose instruction-tuned model, you can use a dataset like `ultrachat`:
+将激活值量化到 INT8 时，需要样本数据来估算激活 scale。最好使用与您部署数据高度匹配的校准数据。对于通用的指令调优模型，可以使用诸如 `ultrachat` 之类的数据集：
 
 ??? code
 
@@ -65,7 +62,7 @@ For a general-purpose instruction-tuned model, you can use a dataset like `ultra
     NUM_CALIBRATION_SAMPLES = 512
     MAX_SEQUENCE_LENGTH = 2048
 
-    # Load and preprocess the dataset
+    # 加载并预处理数据集
     ds = load_dataset("HuggingFaceH4/ultrachat_200k", split="train_sft")
     ds = ds.shuffle(seed=42).select(range(NUM_CALIBRATION_SAMPLES))
 
@@ -80,9 +77,9 @@ For a general-purpose instruction-tuned model, you can use a dataset like `ultra
 
 </details>
 
-### 3. Applying Quantization
+### 3. 应用量化
 
-Now, apply the quantization algorithms:
+现在，应用量化算法：
 
 ??? code
 
@@ -91,13 +88,13 @@ Now, apply the quantization algorithms:
     from llmcompressor.modifiers.quantization import GPTQModifier
     from llmcompressor.modifiers.smoothquant import SmoothQuantModifier
 
-    # Configure the quantization algorithms
+    # 配置量化算法
     recipe = [
         SmoothQuantModifier(smoothing_strength=0.8),
         GPTQModifier(targets="Linear", scheme="W8A8", ignore=["lm_head"]),
     ]
 
-    # Apply quantization
+    # 应用量化
     oneshot(
         model=model,
         dataset=ds,
@@ -106,17 +103,17 @@ Now, apply the quantization algorithms:
         num_calibration_samples=NUM_CALIBRATION_SAMPLES,
     )
 
-    # Save the compressed model: Meta-Llama-3-8B-Instruct-W8A8-Dynamic-Per-Token
+    # 保存压缩模型：Meta-Llama-3-8B-Instruct-W8A8-Dynamic-Per-Token
     SAVE_DIR = MODEL_ID.split("/")[1] + "-W8A8-Dynamic-Per-Token"
     model.save_pretrained(SAVE_DIR, save_compressed=True)
     tokenizer.save_pretrained(SAVE_DIR)
     ```
 
-This process creates a W8A8 model with weights and activations quantized to 8-bit integers.
+此过程创建了一个 W8A8 模型，其中权重和激活值都量化为 8 位整数。
 
-### 4. Evaluating Accuracy
+### 4. 评估精度
 
-After quantization, you can load and run the model in vLLM:
+量化后，您可以在 vLLM 中加载并运行模型：
 
 ```python
 from vllm import LLM
@@ -124,7 +121,7 @@ from vllm import LLM
 llm = LLM("./Meta-Llama-3-8B-Instruct-W8A8-Dynamic-Per-Token")
 ```
 
-To evaluate accuracy, you can use `lm_eval`:
+要评估精度，可以使用 `lm_eval`：
 
 ```bash
 lm_eval --model vllm \
@@ -136,15 +133,15 @@ lm_eval --model vllm \
 ```
 
 !!! note
-    Quantized models can be sensitive to the presence of the `bos` token. Make sure to include the `add_bos_token=True` argument when running evaluations.
+    量化模型可能对 `bos` token 的存在敏感。运行评估时请确保包含 `add_bos_token=True` 参数。
 
-## Best Practices
+## 最佳实践
 
-- Start with 512 samples for calibration data (increase if accuracy drops)
-- Use a sequence length of 2048 as a starting point
-- Employ the chat template or instruction template that the model was trained with
-- If you've fine-tuned a model, consider using a sample of your training data for calibration
+- 从 512 个校准数据样本开始（如果精度下降则增加数量）
+- 使用 2048 的序列长度作为起始点
+- 使用模型训练时所用的聊天模板或指令模板
+- 如果您对模型进行了微调，考虑使用一部分训练数据进行校准
 
-## Troubleshooting and Support
+## 故障排除与支持
 
-If you encounter any issues or have feature requests, please open an issue on the [vllm-project/llm-compressor](https://github.com/vllm-project/llm-compressor/issues) GitHub repository.
+如果您遇到任何问题或有功能请求，请在 [vllm-project/llm-compressor](https://github.com/vllm-project/llm-compressor/issues) GitHub 仓库中提交 issue。

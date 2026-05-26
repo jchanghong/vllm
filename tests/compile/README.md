@@ -1,5 +1,5 @@
-# compile test folder structure
+# compile 测试文件夹结构
 
-- `compile/test_*.py` : various unit tests meant for testing particular code path/features. Future tests are most likely added here. New test files added here will be included in CI automatically
-- `compile/fullgraph/` : full model tests, including all tests previously in compile/piecewise. These tests do not target particular features. New test files added here will be included in CI automatically
-- `compile/distributed/` : tests that require multiple GPUs. New test files added here will **NOT** be included in CI automatically as these tests generally need to be manually configured to run in runners with particular number/type of GPUs.
+- `compile/test_*.py` : 用于测试特定代码路径/功能的各种单元测试。未来的测试最有可能添加在此处。在此处添加的新测试文件将自动包含在 CI 中。
+- `compile/fullgraph/` : 完整模型测试，包括之前位于 compile/piecewise 中的所有测试。这些测试不针对特定功能。在此处添加的新测试文件将自动包含在 CI 中。
+- `compile/distributed/` : 需要多个 GPU 的测试。在此处添加的新测试文件将**不**自动包含在 CI 中，因为这些测试通常需要手动配置以在具有特定数量/类型 GPU 的运行器上执行。

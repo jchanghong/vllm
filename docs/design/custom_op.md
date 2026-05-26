@@ -1,61 +1,61 @@
 # CustomOp
 
-`CustomOp` is an abstract class used for dispatching the forward method of various operations to the appropriate backend. It also offers a mechanism for both vLLM and OOT (Out-Of-Tree) plugins to register their custom operations.
+`CustomOp` 是一个抽象类，用于将各种操作的前向方法分派到适当的后端。它还提供了一种机制，供 vLLM 和 OOT（树外）插件注册其自定义操作。
 
-This document will introduce how CustomOp works in vLLM and how to implement a new `CustomOp`.
+本文档将介绍 CustomOp 在 vLLM 中的工作原理以及如何实现一个新的 `CustomOp`。
 
-## How CustomOp Works in vLLM
+## CustomOp 在 vLLM 中的工作原理
 
-`CustomOp` manages two dictionaries of all custom ops (i.e., op classes, indexed by registered name) in its class, for vLLM and OOT plugins respectively.
+`CustomOp` 在其类中管理两个字典，包含所有自定义操作（即操作类，按注册名称索引），分别用于 vLLM 和 OOT 插件。
 
-We can use `@CustomOp.register("op_name")` to register an op class to the `CustomOp` system. After this, the `op_name` and its class will be added into the `op_registry` dictionary. In addition, We can also register an OOT op by `@CustomOp.register_oot("op_name")`. We will introduce this mechanism in detail later.
+我们可以使用 `@CustomOp.register("op_name")` 将一个操作类注册到 `CustomOp` 系统。之后，`op_name` 及其类将被添加到 `op_registry` 字典中。此外，我们还可以通过 `@CustomOp.register_oot("op_name")` 注册一个 OOT 操作。我们将在后面详细介绍这种机制。
 
-When a `CustomOp` is called (i.e., call its `forward()` method), if it is enabled (i.e., with `--compilation_config.custom_ops '["+op_name"]'`), it will automatically dispatch the forward method to the appropriate backend according to `current_platform`. Otherwise (i.e., it is disabled), it will only call the `forward_native()` method to use PyTorch-native implementation of this forward method.
+当调用 `CustomOp` 时（即调用其 `forward()` 方法），如果它被启用（即带有 `--compilation_config.custom_ops '["+op_name"]'`），它将根据 `current_platform` 自动将前向方法分派到适当的后端。否则（即被禁用），它将只调用 `forward_native()` 方法来使用该前向方法的 PyTorch 原生实现。
 
-- **CPU platform:** dispatch to `forward_cpu()`.
-- **CUDA platform:** dispatch to `forward_cuda()`.
-- **ROCm platform:** dispatch to `forward_hip()`. If `forward_hip()` is not implemented, it will use `forward_cuda()` as a fallback.
-- **XPU platform:** dispatch to `forward_xpu()`.
-- **TPU platform:** dispatch to `forward_tpu()`.
-- **OOT platform:** dispatch to `forward_oot()`. This will only be called on OOT platforms.
-- **Default:** dispatch to `forward_native()` as a final fallback for all platforms.
-
-!!! note
-    Note that the dispatching logic might not be absolute because of class inheritance. Derived class might override the behavior.
-
-Furthermore, vLLM decides whether to enable or disable a `CustomOp` based on `compilation_config.custom_ops`. To be specific, if a `CustomOp` is not registered in `compilation_config.custom_ops` (i.e., uses the default config), it will be enabled if `compilation_config.custom_ops` contains `all`, or will be disabled if it contains `none`.
+- **CPU 平台：** 分派到 `forward_cpu()`。
+- **CUDA 平台：** 分派到 `forward_cuda()`。
+- **ROCm 平台：** 分派到 `forward_hip()`。如果未实现 `forward_hip()`，将使用 `forward_cuda()` 作为回退。
+- **XPU 平台：** 分派到 `forward_xpu()`。
+- **TPU 平台：** 分派到 `forward_tpu()`。
+- **OOT 平台：** 分派到 `forward_oot()`。这仅会在 OOT 平台上调用。
+- **默认：** 分派到 `forward_native()` 作为所有平台的最终回退。
 
 !!! note
-    Note that `all` and `none` cannot coexist in `compilation_config.custom_ops`.
+    注意，由于类继承的原因，分派逻辑可能不是绝对的。派生类可能覆盖此行为。
 
-By default, if `compilation_config.backend == "inductor"` and `compilation_config.mode != CompilationMode.NONE`, a `none` will be appended into `compilation_config.custom_ops`, otherwise a `all` will be appended. In other words, this means `CustomOp` will be disabled in some platforms (i.e., those use `inductor` as default backend for `torch.compile`) when running with torch compile mode. In this case, Inductor generates (fused) Triton kernels for those disabled custom ops.
+此外，vLLM 根据 `compilation_config.custom_ops` 决定启用或禁用 `CustomOp`。具体来说，如果 `CustomOp` 未在 `compilation_config.custom_ops` 中注册（即使用默认配置），则如果 `compilation_config.custom_ops` 包含 `all` 则启用，如果包含 `none` 则禁用。
 
 !!! note
-    For multi-modal models, vLLM has enforced the enabling of some custom ops to use device-specific deep-optimized kernels for better performance in ViT part, such as `MMEncoderAttention` and `ApplyRotaryEmb`. We can also pass a `enforce_enable=True` param to the `__init__()` method of the `CustomOp` to enforce enable itself at object-level.
+    注意，`all` 和 `none` 不能在 `compilation_config.custom_ops` 中共存。
 
-    Note that this `enforce_enable` mechanism will be removed after we add a separate `compilation_config` for multi-modal part.
+默认情况下，如果 `compilation_config.backend == "inductor"` 且 `compilation_config.mode != CompilationMode.NONE`，则 `none` 会被附加到 `compilation_config.custom_ops` 中，否则附加 `all`。换句话说，这意味着 `CustomOp` 在某些平台（即那些在 `torch.compile` 运行时使用 `inductor` 作为默认后端的平台）上会在 torch 编译模式下被禁用。在这种情况下，Inductor 会为这些禁用的自定义操作生成（融合的）Triton 内核。
 
-## How to Customise Your Configuration for CustomOp
+!!! note
+    对于多模态模型，vLLM 强制启用了某些自定义操作，以便在 ViT 部分使用设备特定的深度优化内核以获得更好的性能，例如 `MMEncoderAttention` 和 `ApplyRotaryEmb`。我们也可以在 `CustomOp` 的 `__init__()` 方法中传递 `enforce_enable=True` 参数，以在对象级别强制启用自身。
 
-vLLM also offers fine-grained control over which custom ops to enable or disable for users, by manually passing a `--compilation_config.custom_ops '["..."]'` when launching a server.
+    注意，此 `enforce_enable` 机制将在我们为多模态部分添加单独的 `compilation_config` 后移除。
 
-For example:
+## 如何自定义 CustomOp 的配置
 
-- Use `--compilation_config.custom_ops '["all"]'` to enable all custom ops.
-- Use `--compilation_config.custom_ops '["none"]'` to disable all custom ops.
-- Use `--compilation_config.custom_ops '["all,-op1"]'` to enable all custom ops except op1 (i.e., prefixed with a `-` means "disable").
-- Use `--compilation_config.custom_ops '["none,+op1,+op2"]'` to only enable op1 and op2 (i.e., prefixed with a `+` means "enable").
+vLLM 还为用户提供了细粒度的控制，以启用或禁用特定的自定义操作，方法是在启动服务器时手动传递 `--compilation_config.custom_ops '["..."]'`。
 
-## Types of Supported CustomOp in vLLM
+例如：
 
-**1. Attention:**
+- 使用 `--compilation_config.custom_ops '["all"]'` 启用所有自定义操作。
+- 使用 `--compilation_config.custom_ops '["none"]'` 禁用所有自定义操作。
+- 使用 `--compilation_config.custom_ops '["all,-op1"]'` 启用除 op1 之外的所有自定义操作（即前缀为 `-` 表示"禁用"）。
+- 使用 `--compilation_config.custom_ops '["none,+op1,+op2"]'` 仅启用 op1 和 op2（即前缀为 `+` 表示"启用"）。
+
+## vLLM 中支持的自定义操作类型
+
+**1. 注意力：**
 
 ```python
 --8<-- "vllm/model_executor/layers/mla.py:multi_head_latent_attention"
 
 ```
 
-**2. Activation:**
+**2. 激活：**
 
 ```python
 --8<-- "vllm/model_executor/layers/activation.py:silu_and_mul"
@@ -81,7 +81,7 @@ For example:
 --8<-- "vllm/model_executor/layers/activation.py:fatrelu_and_mul"
 ```
 
-**3. MM-Conv:**
+**3. MM-Conv：**
 
 ```python
 --8<-- "vllm/model_executor/layers/conv.py:conv2d"
@@ -89,7 +89,7 @@ For example:
 --8<-- "vllm/model_executor/layers/conv.py:conv3d"
 ```
 
-**4. Embedding:**
+**4. 嵌入：**
 
 ```python
 --8<-- "vllm/model_executor/layers/vocab_parallel_embedding.py:vocab_parallel_embedding"
@@ -97,7 +97,7 @@ For example:
 --8<-- "vllm/model_executor/layers/vocab_parallel_embedding.py:parallel_lm_head"
 ```
 
-**5. Linear:**
+**5. 线性：**
 
 ```python
 --8<-- "vllm/model_executor/layers/linear.py:row_parallel_linear"
@@ -107,13 +107,13 @@ For example:
 --8<-- "vllm/model_executor/layers/linear.py:replicated_linear"
 ```
 
-**6. Logits Processor:**
+**6. Logits 处理器：**
 
 ```python
 --8<-- "vllm/model_executor/layers/logits_processor.py:logits_processor"
 ```
 
-**7. Mamba:**
+**7. Mamba：**
 
 ```python
 --8<-- "vllm/model_executor/layers/mamba/mamba_mixer.py:mamba_mixer"
@@ -127,7 +127,7 @@ For example:
 --8<-- "vllm/model_executor/layers/mamba/short_conv.py:short_conv"
 ```
 
-**8. MoE:**
+**8. MoE：**
 
 ```python
 --8<-- "vllm/model_executor/layers/fused_moe/layer.py:fused_moe"
@@ -141,7 +141,7 @@ For example:
 --8<-- "vllm/model_executor/layers/fused_moe/router/grouped_topk_router.py:grouped_topk"
 ```
 
-**9. Norm:**
+**9. 归一化：**
 
 ```python
 --8<-- "vllm/model_executor/layers/layernorm.py:rms_norm"
@@ -151,13 +151,13 @@ For example:
 --8<-- "vllm/model_executor/layers/layernorm.py:gemma_rms_norm"
 ```
 
-**10. Quantization:**
+**10. 量化：**
 
 ```python
 --8<-- "vllm/model_executor/layers/quantization/input_quant_fp8.py:quant_fp8"
 ```
 
-**11. Rope:**
+**11. RoPE：**
 
 ```python
 --8<-- "vllm/model_executor/layers/rotary_embedding/base.py:rotary_embedding"
@@ -167,7 +167,7 @@ For example:
 --8<-- "vllm/model_executor/layers/rotary_embedding/common.py:apply_rotary_emb"
 ```
 
-**12. Encoder:**
+**12. 编码器：**
 
 ```python
 --8<-- "vllm/model_executor/models/deepencoder2.py:qwen2_decoder"
@@ -177,19 +177,19 @@ For example:
 --8<-- "vllm/model_executor/models/deepencoder.py:rel_pos_attention"
 ```
 
-## Guidelines for Implementing a New CustomOp
+## 实现新 CustomOp 的指南
 
-### Implement a New CustomOp in vLLM
+### 在 vLLM 中实现新的 CustomOp
 
-This part is a tutorial of how to implement a New `CustomOp` in vLLM.
+本部分是如何在 vLLM 中实现新的 `CustomOp` 的教程。
 
-Steps:
+步骤：
 
-1. Implement a new op class, which extends from `CustomOp` base class.
-2. Add the `@CustomOp.register("op_name")` decorator on this op class to register it into `CustomOp` system.
-3. Implement different `forward_xxx()` method according to your needs.
+1. 实现一个新的操作类，该类继承自 `CustomOp` 基类。
+2. 在此操作类上添加 `@CustomOp.register("op_name")` 装饰器，将其注册到 `CustomOp` 系统。
+3. 根据需要实现不同的 `forward_xxx()` 方法。
 
-Taking `MMEncoderAttention` as an example:
+以 `MMEncoderAttention` 为例：
 
 ??? code
 
@@ -207,7 +207,7 @@ Taking `MMEncoderAttention` as an example:
             multimodal_config: MultiModalConfig | None = None,
         ) -> None:
             super().__init__()
-            # Init...
+            # 初始化...
 
         def forward_native(
             self,
@@ -215,9 +215,9 @@ Taking `MMEncoderAttention` as an example:
             key: torch.Tensor,
             value: torch.Tensor,
             cu_seqlens: torch.Tensor | None = None,
-            max_seqlen: torch.Tensor | None = None,  # Only used for Flash Attention
+            max_seqlen: torch.Tensor | None = None,  # 仅用于 Flash Attention
         ) -> torch.Tensor:
-            # Call TORCH_SDPA implementation...
+            # 调用 TORCH_SDPA 实现...
 
         def forward_cuda(
             self,
@@ -225,9 +225,9 @@ Taking `MMEncoderAttention` as an example:
             key: torch.Tensor,
             value: torch.Tensor,
             cu_seqlens: torch.Tensor | None = None,
-            max_seqlen: torch.Tensor | None = None,  # Only used for Flash Attention
+            max_seqlen: torch.Tensor | None = None,  # 仅用于 Flash Attention
         ) -> torch.Tensor:
-            # Call FA or TORCH_SDPA implementation...
+            # 调用 FA 或 TORCH_SDPA 实现...
 
         def forward_cpu(
             self,
@@ -235,9 +235,9 @@ Taking `MMEncoderAttention` as an example:
             key: torch.Tensor,
             value: torch.Tensor,
             cu_seqlens: torch.Tensor | None = None,
-            max_seqlen: torch.Tensor | None = None,  # Only used for Flash Attention
+            max_seqlen: torch.Tensor | None = None,  # 仅用于 Flash Attention
         ) -> torch.Tensor:
-            # Call TORCH_SDPA implementation...
+            # 调用 TORCH_SDPA 实现...
 
         def forward_xpu(
             self,
@@ -245,9 +245,9 @@ Taking `MMEncoderAttention` as an example:
             key: torch.Tensor,
             value: torch.Tensor,
             cu_seqlens: torch.Tensor | None = None,
-            max_seqlen: torch.Tensor | None = None,  # Only used for Flash Attention
+            max_seqlen: torch.Tensor | None = None,  # 仅用于 Flash Attention
         ) -> torch.Tensor:
-            # Call FA implementation...
+            # 调用 FA 实现...
 
         def forward_tpu(
             self,
@@ -255,27 +255,26 @@ Taking `MMEncoderAttention` as an example:
             key: torch.Tensor,
             value: torch.Tensor,
             cu_seqlens: torch.Tensor | None = None,
-            max_seqlen: torch.Tensor | None = None,  # Only used for Flash Attention
+            max_seqlen: torch.Tensor | None = None,  # 仅用于 Flash Attention
         ) -> torch.Tensor:
-            # Call PALLAS implementation...
+            # 调用 PALLAS 实现...
     ```
 
-### Register a New CustomOp in OOT Device Plugins
+### 在 OOT 设备插件中注册新的 CustomOp
 
-Currently, thanks to [vLLM's hardware-plugin mechanism](./plugin_system.md), there are various OOT device plugins emerging out to enable vLLM seamlessly runs on different hardwares. You can also find more details about this mechanism at [Introducing vLLM Hardware Plugin, Best Practice from Ascend NPU](https://blog.vllm.ai/2025/05/12/hardware-plugin.html).
+目前，得益于 [vLLM 的硬件插件机制](./plugin_system.md)，出现了各种 OOT 设备插件，使 vLLM 能够在不同硬件上无缝运行。您可以在[介绍 vLLM 硬件插件，Ascend NPU 最佳实践](https://blog.vllm.ai/2025/05/12/hardware-plugin.html)中找到关于此机制的更多细节。
 
-- **Official device plugins:** [vllm-ascend](https://github.com/vllm-project/vllm-ascend) (for Huawei Ascend NPU), [vllm-spyre](https://github.com/vllm-project/vllm-spyre)
-(for Spyre), [vllm-gaudi](https://github.com/vllm-project/vllm-gaudi) (for Intel Gaudi), [vllm-neuron](https://github.com/vllm-project/vllm-neuron) (for AWS Neuron), [vllm-meta](https://github.com/vllm-project/vllm-metal) (for Apple Silicon), etc.
-- **Non-official device plugins:** [vllm-metax](https://github.com/MetaX-MACA/vLLM-metax) (for MetaX GPU), [vllm-kunlun](https://github.com/baidu/vLLM-Kunlun) (for Baidu Kunlun XPU), [vllm-musa](https://github.com/MooreThreads/vllm-musa) (for Moore Threads GPU), etc.
+- **官方设备插件：** [vllm-ascend](https://github.com/vllm-project/vllm-ascend)（用于华为昇腾 NPU）、[vllm-spyre](https://github.com/vllm-project/vllm-spyre)（用于 Spyre）、[vllm-gaudi](https://github.com/vllm-project/vllm-gaudi)（用于 Intel Gaudi）、[vllm-neuron](https://github.com/vllm-project/vllm-neuron)（用于 AWS Neuron）、[vllm-meta](https://github.com/vllm-project/vllm-metal)（用于 Apple Silicon）等。
+- **非官方设备插件：** [vllm-metax](https://github.com/MetaX-MACA/vLLM-metax)（用于 MetaX GPU）、[vllm-kunlun](https://github.com/baidu/vLLM-Kunlun)（用于百度昆仑 XPU）、[vllm-musa](https://github.com/MooreThreads/vllm-musa)（用于摩尔线程 GPU）等。
 
-In this case, `CustomOp` can enable these hardware manufacturers to seamlessly replace vLLM's operations with their deep-optimized kernels for specific devices at runtime, by just registering an OOT `CustomOp` and implementing the `forward_oot()` method.
+在这种情况下，`CustomOp` 使这些硬件制造商能够在运行时无缝地用其深度优化的内核替换 vLLM 的操作，只需注册一个 OOT `CustomOp` 并实现 `forward_oot()` 方法即可。
 
-Now, this part will show you how to register an OOT `CustomOp` for a device plugin.
+现在，本部分将展示如何为设备插件注册一个 OOT `CustomOp`。
 
-Taking `MMEncoderAttention` as an example:
+以 `MMEncoderAttention` 为例：
 
-1. Implement a `CustomMMEncoderAttention` class which extends from `MMEncoderAttention` and implement its `forward_oot()` method.
-2. Register your `CustomMMEncoderAttention` into vLLM to replace `MMEncoderAttention`.
+1. 实现一个 `CustomMMEncoderAttention` 类，该类继承自 `MMEncoderAttention` 并实现其 `forward_oot()` 方法。
+2. 将您的 `CustomMMEncoderAttention` 注册到 vLLM 以替换 `MMEncoderAttention`。
 
 ??? code
 
@@ -291,15 +290,15 @@ Taking `MMEncoderAttention` as an example:
             super().__init__(...)
 
         def forward_oot(...):
-            # Call optimized device-specific kernels.
+            # 调用优化的设备特定内核。
             ...
     ```
 
-In this case, a new item `{"MMEncoderAttention": CustomMMEncoderAttention}` will be added into `op_registry_oot`. When initializing a `MMEncoderAttention` op object, if the class name (i.e., `MMEncoderAttention`) is contained in the keys of `op_registry_oot`, vLLM will replace it with our registered class (i.e., `CustomMMEncoderAttention`) and instantiate it.
+在这种情况下，一个新条目 `{"MMEncoderAttention": CustomMMEncoderAttention}` 将被添加到 `op_registry_oot` 中。当初始化 `MMEncoderAttention` 操作对象时，如果类名（即 `MMEncoderAttention`）包含在 `op_registry_oot` 的键中，vLLM 将用我们注册的类（即 `CustomMMEncoderAttention`）替换它并实例化。
 
-After that, when this `MMEncoderAttention` op is called, your `forward_oot()` will be called if it is enabled. Thus, you will get expected performance on your hardwares without directly modify vLLM.
+之后，当调用此 `MMEncoderAttention` 操作时，如果它被启用，您的 `forward_oot()` 将被调用。因此，您将在您的硬件上获得预期的性能，而无需直接修改 vLLM。
 
-In addition, you can also register all your `CustomOp` at one place for better management.
+此外，您还可以在一个地方注册所有 `CustomOp` 以进行更好的管理。
 
 ??? code
 

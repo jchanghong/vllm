@@ -1,11 +1,11 @@
 # Lobe Chat
 
-[Lobe Chat](https://github.com/lobehub/lobe-chat) is an open-source, modern-design ChatGPT/LLMs UI/Framework.
+[Lobe Chat](https://github.com/lobehub/lobe-chat) 是一个开源、现代设计的 ChatGPT/LLMs UI/框架。
 
-Supports speech-synthesis, multi-modal, and extensible (function call) plugin system.
+支持语音合成、多模态和可扩展的（函数调用）插件系统。
 
-One-click FREE deployment of your private OpenAI ChatGPT/Claude/Gemini/Groq/Ollama chat application.
+一键免费部署您私有的 OpenAI ChatGPT/Claude/Gemini/Groq/Ollama 聊天应用程序。
 
-It supports vLLM as an AI model provider to efficiently serve large language models.
+它支持将 vLLM 作为 AI 模型提供者，以高效地服务大语言模型。
 
-For details, see the tutorial [Using vLLM in LobeChat](https://lobehub.com/docs/usage/providers/vllm).
+有关详细信息，请参阅教程 [在 LobeChat 中使用 vLLM](https://lobehub.com/docs/usage/providers/vllm)。

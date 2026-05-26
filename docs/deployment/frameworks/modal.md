@@ -1,5 +1,5 @@
 # Modal
 
-vLLM can be run on cloud GPUs with [Modal](https://modal.com), a serverless computing platform designed for fast auto-scaling.
+vLLM 可以在云端 GPU 上通过 [Modal](https://modal.com) 运行，Modal 是一个专为快速自动缩放设计的无服务器计算平台。
 
-For details on how to deploy vLLM on Modal, see [this tutorial in the Modal documentation](https://modal.com/docs/examples/vllm_inference).
+有关如何在 Modal 上部署 vLLM 的详细信息，请参阅 [Modal 文档中的本教程](https://modal.com/docs/examples/vllm_inference)。

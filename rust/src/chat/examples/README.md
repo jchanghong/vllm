@@ -1,6 +1,6 @@
-# Chat Smoke Test
+# 聊天冒烟测试
 
-Start a fresh headless `vllm` engine:
+启动一个新的无头 `vllm` 引擎：
 
 ```bash
 source ../vllm/.venv/bin/activate
@@ -18,7 +18,7 @@ python3 -m vllm.entrypoints.cli.main serve Qwen/Qwen3-0.6B \
   --dtype float16
 ```
 
-Run the Rust chat smoke test through the `vllm-chat` interface:
+通过 `vllm-chat` 接口运行 Rust 聊天冒烟测试：
 
 ```bash
 cargo run -p vllm-chat --example external_engine_chat_qwen -- \
@@ -27,13 +27,13 @@ cargo run -p vllm-chat --example external_engine_chat_qwen -- \
   --prompt 'What is the capital of France? Answer with one word.'
 ```
 
-The example now defaults to `Qwen/Qwen3-0.6B`. The current `vllm-chat`
-request model stays text-first and supports either plain string content or
-OpenAI-style text blocks, while the output side now emits structured assistant
-events and automatically separates reasoning blocks for supported models. Tool
-use and multimodal inputs are still out of scope. It uses the Rust
-`tokenizers` library for the tokenizer itself, plus standard Hugging Face
-config files to load the chat template and EOS metadata.
+该示例现在默认使用 `Qwen/Qwen3-0.6B`。当前的 `vllm-chat`
+请求模型保持文本优先，支持纯字符串内容或
+OpenAI 风格的文本块，而输出端现在会发出结构化的助手
+事件，并自动为支持的模型分离推理块。工具
+使用和多模态输入仍不在范围之内。它使用 Rust
+`tokenizers` 库作为分词器本身，并加载标准的 Hugging Face
+配置文件来获取聊天模板和 EOS 元数据。
 
-IMPORTANT: Restart `vllm` each time you run the smoke test. The current headless
-engine cannot safely handle frontend reconnects after the client shuts down.
+重要提示：每次运行冒烟测试时，都必须重启 `vllm`。当前的无头
+引擎在客户端关闭后无法安全地处理前端重连。

@@ -1,29 +1,26 @@
+# 分布式 KV 缓存传输
 
-# Distributed KV cache transfer
+本文件夹实现了跨 vLLM 实例的分布式 KV 缓存传输。
+目前主要用例是分离式预填充（disaggregated prefilling）。
 
-This folder implements distributed KV cache transfer across vLLM instances.
-Currently the main use case is for disaggregated prefilling.
+## 抽象层
 
-## Abstractions
+KV 缓存传输包含三层抽象：
 
-The KV cache transfer contains three layer of abstractions:
+- **KV 管道**：用于 torch.tensor 传输的 FIFO 管道。关键 API：`send_tensor` 和 `recv_tensor`。
+- **KV 查找缓冲区**：用于 KV 缓存的查找缓冲区。键：令牌（tokens），值：KV 缓存（和/或隐藏状态）。关键 API：`insert` 和 `drop_select`（类似于 SQL 语义）。
+- **KV 连接器**：将 KV 管道和 KV 查找缓冲区连接到 vLLM 的连接器。关键 API：`send_kv_caches_and_hidden_states` 和 `recv_kv_caches_and_hidden_states`。
 
-- KV pipe: a FIFO pipe for torch.tensor transmission. Key APIs: `send_tensor` and `recv_tensor`.
-- KV lookup buffer: a lookup buffer for KV caches. Key: the tokens, value: the KV caches (and/or hidden states). Key APIs: `insert` and `drop_select` (similar to SQL semantics).
-- KV connector: a connector that connects the KV pipe and KV lookup buffer to vLLM. Key APIs: `send_kv_caches_and_hidden_states` and `recv_kv_caches_and_hidden_states`.
+为什么需要 KV 查找缓冲区：仅靠 FIFO 管道是不够的，因为预填充 vLLM 工作节点处理请求的顺序可能与解码 vLLM 工作节点不同。假设 QPS 非常高，预填充工作节点可能按 A -> B -> C 的顺序处理请求，但解码工作节点可能先处理请求 C。这种情况无法被 FIFO 管道自然处理，因此我们提供 KV 查找缓冲区来帮助将 FIFO 管道转换为查找缓冲区。
 
-Why we need KV lookup buffer: FIFO pipe itself is not enough as prefill vLLM worker may process requests in a different order compared to decode vLLM worker. Say the QPS is really high, prefill worker may handle requests in order A -> B -> C, but the decode worker may process request C first. This is not the case that can be naturally handled by FIFO pipe, so we provide KV lookup buffer to help translate a FIFO pipe to a lookup buffer.
+注意：KV 管道层是可绕过的：如果你的分布式通信服务已经支持基于键值的查找（如 Redis 或 RDMA 数据库），可以跳过这一层。
 
-NOTE: KV pipe layer is bypassable: you can skip this layer if your distributed
-communication service already supports key-value-based lookup (like redis or
-RDMA database).
+注意：如果你不仅想传输 KV 缓存，还想调整 vLLM 的模型执行流程（例如，允许 vLLM 在某些令牌上接收 KV 缓存，并在剩余令牌上执行预填充），你可以同时绕过 KV 管道层和 KV 查找缓冲区层，直接在 KV 连接器层上实现。请记住，由于 vLLM 的模型输入不断变化，当 vLLM 有新的更新时，这种实现很可能会失效。
 
-NOTE: If you want to not only transfer KV caches, but adjust the model execution flow of vLLM as well (for example, allow vLLM to receive KV caches on some tokens and do prefill on the remaining tokens), you can bypass both KV pipe layer and KV lookup buffer layer, and directly implement on KV connector layer. Bear in mind that as vLLM's model input is constantly changing, this implementation will likely be broken when vLLM has new updates.
+## 分离式预填充
 
-## Disaggregated prefilling
+示例用法见[此文件](../../../examples/disaggregated/disaggregated_prefill.sh)。
 
-The example usage is in [this file](../../../examples/disaggregated/disaggregated_prefill.sh).
+以下是我们运行分离式预填充的示意图。
 
-Here is the diagram of how we run disaggregated prefilling.
-
-![Disaggregated prefill workflow](./disagg_prefill_workflow.jpg)
+![分离式预填充工作流程](./disagg_prefill_workflow.jpg)

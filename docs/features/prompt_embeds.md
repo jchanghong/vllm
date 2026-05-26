@@ -1,40 +1,40 @@
-# Prompt Embedding Inputs
+# 提示嵌入输入
 
-This page teaches you how to pass prompt embedding inputs to vLLM.
+本页介绍如何将提示嵌入输入传递给 vLLM。
 
-## What are prompt embeddings?
+## 什么是提示嵌入？
 
-The traditional flow of text data for a Large Language Model goes from text to token ids (via a tokenizer) then from token ids to prompt embeddings. For a traditional decoder-only model (such as meta-llama/Llama-3.1-8B-Instruct), this step of converting token ids to prompt embeddings happens via a look-up from a learned embedding matrix, but the model is not limited to processing only the embeddings corresponding to its token vocabulary.
+大语言模型传统的数据处理流程是从文本到 token ID（通过分词器），然后从 token ID 到提示嵌入。对于传统的仅解码器模型（例如 meta-llama/Llama-3.1-8B-Instruct），将 token ID 转换为提示嵌入这一步是通过从学习的嵌入矩阵中查找完成的，但模型并非仅限于处理与其 token 词汇表对应的嵌入。
 
-## Offline Inference
+## 离线推理
 
-To input multi-modal data, follow this schema in [vllm.inputs.EmbedsPrompt][]:
+要输入多模态数据，请遵循 [vllm.inputs.EmbedsPrompt][] 中的以下模式：
 
-- `prompt_embeds`: A torch tensor representing a sequence of prompt/token embeddings. This has the shape (sequence_length, hidden_size), where sequence length is the number of tokens embeddings and hidden_size is the hidden size (embedding size) of the model.
+- `prompt_embeds`：一个 torch 张量，表示一系列提示/token 嵌入。其形状为 (sequence_length, hidden_size)，其中 sequence_length 是 token 嵌入的数量，hidden_size 是模型的隐藏大小（嵌入大小）。
 
-### Hugging Face Transformers Inputs
+### Hugging Face Transformers 输入
 
-You can pass prompt embeddings from Hugging Face Transformers models to the  `'prompt_embeds'` field of the prompt embedding dictionary, as shown in the following examples:
+您可以将 Hugging Face Transformers 模型中的提示嵌入传递给提示嵌入字典的 `'prompt_embeds'` 字段，如下例所示：
 
 [examples/features/prompt_embed/prompt_embed_offline.py](../../examples/features/prompt_embed/prompt_embed_offline.py)
 
-## Online Serving
+## 在线服务
 
-Our OpenAI-compatible server accepts prompt embeddings inputs via both the [Completions API](https://platform.openai.com/docs/api-reference/completions) and the [Chat Completions API](https://platform.openai.com/docs/api-reference/chat). Both are enabled by the `--enable-prompt-embeds` flag in `vllm serve`.
+我们的 OpenAI 兼容服务器通过 [Completions API](https://platform.openai.com/docs/api-reference/completions) 和 [Chat Completions API](https://platform.openai.com/docs/api-reference/chat) 接受提示嵌入输入。两者都通过 `vllm serve` 中的 `--enable-prompt-embeds` 标志启用。
 
 ### Completions API
 
-Prompt embeddings inputs are added via a `'prompt_embeds'` key in the JSON request body.
+提示嵌入输入通过 JSON 请求体中的 `'prompt_embeds'` 键添加。
 
-When a mixture of `'prompt_embeds'` and `'prompt'` inputs are provided in a single request, the prompt embeds are always returned first.
+当单个请求中同时提供 `'prompt_embeds'` 和 `'prompt'` 输入时，提示嵌入总是首先返回。
 
-Prompt embeddings are passed in as base64 encoded torch tensors.
+提示嵌入以 base64 编码的 torch 张量形式传入。
 
-The Completions endpoint does **not** apply a chat template to `prompt_embeds`. If the model assumes some chat template, the caller is responsible for producing embeddings for the full, already-templated prompt: apply the chat template, then embed the resulting token IDs. Anything the model would normally need (system prompt, role markers, generation prompt, etc.) must already be baked into the embedded tokens.
+Completions 端点 **不会** 对 `prompt_embeds` 应用聊天模板。如果模型假定使用某种聊天模板，则由调用者负责为完整且已应用模板的提示生成嵌入：先应用聊天模板，然后对生成的 token ID 进行嵌入。模型通常需要的任何内容（系统提示、角色标记、生成提示等）都必须已包含在嵌入的 token 中。
 
 ### Chat Completions API
 
-Prompt embeddings can be included as content parts in chat messages, interleaved with text:
+提示嵌入可以作为聊天消息中的内容部分包含在内，与文本交错排列：
 
 ```json
 {
@@ -57,23 +57,23 @@ Prompt embeddings can be included as content parts in chat messages, interleaved
 }
 ```
 
-Each `prompt_embeds` content part contains a `data` field with a base64-encoded `torch.Tensor` of shape `(num_tokens, hidden_size)`. Multiple `prompt_embeds` parts can appear in any message, in any position relative to text parts. The server expands each part into the correct number of placeholder tokens during chat template rendering, then splices the pre-computed embeddings into the model's input at the corresponding positions.
+每个 `prompt_embeds` 内容部分包含一个 `data` 字段，其值为一个形状为 `(num_tokens, hidden_size)` 的 base64 编码 `torch.Tensor`。多个 `prompt_embeds` 部分可以出现在任何消息中，并且可以位于相对于文本部分的任何位置。服务器在渲染聊天模板时将每个部分扩展为正确数量的占位符 token，然后在对应位置将预计算的嵌入拼接到模型的输入中。
 
-Unlike the Completions API, a `prompt_embeds` content part should encode **only** the content, not a templated conversation. The server wraps the chat template around the embedded content at request time, the same way it would for a plain text `content` string. Embedding a full templated conversation here would double-apply the template and produce incorrect inputs to the model.
+与 Completions API 不同，`prompt_embeds` 内容部分应仅编码 **内容本身**，而不是已应用模板的对话。服务器会在请求时将聊天模板包裹在嵌入内容周围，就像处理纯文本 `content` 字符串一样。如果在此处嵌入完整的已应用模板对话，将导致模板被重复应用，从而产生错误的模型输入。
 
 !!! warning
-    The vLLM engine may crash if incorrect shape of embeddings is passed.
-    Only enable this flag for trusted users!
+    如果传递的嵌入形状不正确，vLLM 引擎可能会崩溃。
+    仅对受信任的用户启用此标志！
 
-### Transformers Inputs via OpenAI Client
+### 通过 OpenAI 客户端的 Transformers 输入
 
-First, launch the OpenAI-compatible server:
+首先，启动 OpenAI 兼容服务器：
 
 ```bash
 vllm serve meta-llama/Llama-3.2-1B-Instruct --runner generate \
   --max-model-len 4096 --enable-prompt-embeds
 ```
 
-Then, you can use the OpenAI client as follows:
+然后，您可以使用如下 OpenAI 客户端：
 
 [examples/features/prompt_embed/prompt_embed_inference_with_openai_client.py](../../examples/features/prompt_embed/prompt_embed_inference_with_openai_client.py)

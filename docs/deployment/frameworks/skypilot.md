@@ -4,44 +4,44 @@
   <img src="https://imgur.com/yxtzPEu.png" alt="vLLM"/>
 </p>
 
-vLLM can be **run and scaled to multiple service replicas on clouds and Kubernetes** with [SkyPilot](https://github.com/skypilot-org/skypilot), an open-source framework for running LLMs on any cloud. More examples for various open models, such as Llama-3, Mixtral, etc., can be found in [SkyPilot AI gallery](https://skypilot.readthedocs.io/en/latest/gallery/index.html).
+vLLM 可以通过 [SkyPilot](https://github.com/skypilot-org/skypilot) **在云和 Kubernetes 上运行并扩展至多个服务副本**，SkyPilot 是一个用于在任何云上运行 LLM 的开源框架。更多关于各种开放模型（如 Llama-3、Mixtral 等）的示例，请参阅 [SkyPilot AI 画廊](https://skypilot.readthedocs.io/en/latest/gallery/index.html)。
 
-## Prerequisites
+## 前提条件
 
-- Go to the [HuggingFace model page](https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct) and request access to the model `meta-llama/Meta-Llama-3-8B-Instruct`.
-- Check that you have installed SkyPilot ([docs](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html)).
-- Check that `sky check` shows clouds or Kubernetes are enabled.
+- 前往 [HuggingFace 模型页面](https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct) 并申请访问模型 `meta-llama/Meta-Llama-3-8B-Instruct`。
+- 确保您已安装 SkyPilot（[文档](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html)）。
+- 确保 `sky check` 显示已启用云或 Kubernetes。
 
 ```bash
 pip install skypilot-nightly
 sky check
 ```
 
-## Run on a single instance
+## 在单实例上运行
 
-See the vLLM SkyPilot YAML for serving, [serving.yaml](https://github.com/skypilot-org/skypilot/blob/master/llm/vllm/serve.yaml).
+请参阅用于服务的 vLLM SkyPilot YAML 文件 [serving.yaml](https://github.com/skypilot-org/skypilot/blob/master/llm/vllm/serve.yaml)。
 
 ??? code "Yaml"
 
     ```yaml
     resources:
-      accelerators: {L4, A10g, A10, L40, A40, A100, A100-80GB} # We can use cheaper accelerators for 8B model.
+      accelerators: {L4, A10g, A10, L40, A40, A100, A100-80GB} # 8B 模型可使用更便宜的加速器。
       use_spot: True
-      disk_size: 512  # Ensure model checkpoints can fit.
+      disk_size: 512  # 确保模型检查点能够容纳。
       disk_tier: best
-      ports: 8081  # Expose to internet traffic.
+      ports: 8081  # 暴露于互联网流量。
 
     envs:
       PYTHONUNBUFFERED: 1
       MODEL_NAME: meta-llama/Meta-Llama-3-8B-Instruct
-      HF_TOKEN: <your-huggingface-token>  # Change to your own huggingface token, or use --env to pass.
+      HF_TOKEN: <your-huggingface-token>  # 替换为您自己的 huggingface token，或使用 --env 传递。
 
     setup: |
       conda create -n vllm python=3.10 -y
       conda activate vllm
 
       pip install vllm==0.4.0.post1
-      # Install Gradio for web UI.
+      # 安装 Gradio 用于 Web UI。
       pip install gradio openai
       pip install flash-attn==2.5.7
 
@@ -66,19 +66,19 @@ See the vLLM SkyPilot YAML for serving, [serving.yaml](https://github.com/skypil
         --stop-token-ids 128009,128001
     ```
 
-Start the serving the Llama-3 8B model on any of the candidate GPUs listed (L4, A10g, ...):
+在列出的任何候选 GPU（L4、A10g 等）上启动 Llama-3 8B 模型的服务：
 
 ```bash
 HF_TOKEN="your-huggingface-token" sky launch serving.yaml --env HF_TOKEN
 ```
 
-Check the output of the command. There will be a shareable gradio link (like the last line of the following). Open it in your browser to use the LLaMA model to do the text completion.
+查看命令的输出。将会有一个可共享的 gradio 链接（如下面的最后一行）。在浏览器中打开它，使用 LLaMA 模型进行文本补全。
 
 ```console
 (task, pid=7431) Running on public URL: https://<gradio-hash>.gradio.live
 ```
 
-**Optional**: Serve the 70B model instead of the default 8B and use more GPU:
+**可选**：提供 70B 模型而非默认的 8B 模型，并使用更多 GPU：
 
 ```bash
 HF_TOKEN="your-huggingface-token" \
@@ -88,9 +88,9 @@ HF_TOKEN="your-huggingface-token" \
   --env MODEL_NAME=meta-llama/Meta-Llama-3-70B-Instruct
 ```
 
-## Scale up to multiple replicas
+## 扩展至多个副本
 
-SkyPilot can scale up the service to multiple service replicas with built-in autoscaling, load-balancing and fault-tolerance. You can do it by adding a services section to the YAML file.
+SkyPilot 可以通过内置的自动缩放、负载均衡和容错功能，将服务扩展到多个服务副本。只需在 YAML 文件中添加 services 部分即可实现。
 
 ??? code "Yaml"
 
@@ -124,23 +124,23 @@ SkyPilot can scale up the service to multiple service replicas with built-in aut
           max_completion_tokens: 1
 
     resources:
-      accelerators: {L4, A10g, A10, L40, A40, A100, A100-80GB} # We can use cheaper accelerators for 8B model.
+      accelerators: {L4, A10g, A10, L40, A40, A100, A100-80GB} # 8B 模型可使用更便宜的加速器。
       use_spot: True
-      disk_size: 512  # Ensure model checkpoints can fit.
+      disk_size: 512  # 确保模型检查点能够容纳。
       disk_tier: best
-      ports: 8081  # Expose to internet traffic.
+      ports: 8081  # 暴露于互联网流量。
 
     envs:
       PYTHONUNBUFFERED: 1
       MODEL_NAME: meta-llama/Meta-Llama-3-8B-Instruct
-      HF_TOKEN: <your-huggingface-token>  # Change to your own huggingface token, or use --env to pass.
+      HF_TOKEN: <your-huggingface-token>  # 替换为您自己的 huggingface token，或使用 --env 传递。
 
     setup: |
       conda create -n vllm python=3.10 -y
       conda activate vllm
 
       pip install vllm==0.4.0.post1
-      # Install Gradio for web UI.
+      # 安装 Gradio 用于 Web UI。
       pip install gradio openai
       pip install flash-attn==2.5.7
 
@@ -154,7 +154,7 @@ SkyPilot can scale up the service to multiple service replicas with built-in aut
         2>&1 | tee api_server.log
     ```
 
-Start the serving the Llama-3 8B model on multiple replicas:
+在多个副本上启动 Llama-3 8B 模型的服务：
 
 ```bash
 HF_TOKEN="your-huggingface-token" \
@@ -162,13 +162,13 @@ HF_TOKEN="your-huggingface-token" \
   --env HF_TOKEN
 ```
 
-Wait until the service is ready:
+等待服务就绪：
 
 ```bash
 watch -n10 sky serve status vllm
 ```
 
-Example outputs:
+示例输出：
 
 ```console
 Services
@@ -181,7 +181,7 @@ vllm          1   1        xx.yy.zz.121  18 mins ago  1x GCP([Spot]{'L4': 1})  R
 vllm          2   1        xx.yy.zz.245  18 mins ago  1x GCP([Spot]{'L4': 1})  READY   us-east4
 ```
 
-After the service is READY, you can find a single endpoint for the service and access the service with the endpoint:
+服务就绪后，您可以找到服务的单一端点并通过该端点访问服务：
 
 ??? console "Commands"
 
@@ -205,7 +205,7 @@ After the service is READY, you can find a single endpoint for the service and a
       }'
     ```
 
-To enable autoscaling, you could replace the `replicas` with the following configs in `service`:
+要启用自动缩放，您可以将 `service` 中的 `replicas` 替换为以下配置：
 
 ```yaml
 service:
@@ -215,7 +215,7 @@ service:
     target_qps_per_replica: 2
 ```
 
-This will scale the service up to when the QPS exceeds 2 for each replica.
+当每个副本的 QPS 超过 2 时，此配置将自动扩展服务。
 
 ??? code "Yaml"
 
@@ -225,7 +225,7 @@ This will scale the service up to when the QPS exceeds 2 for each replica.
         min_replicas: 2
         max_replicas: 4
         target_qps_per_replica: 2
-      # An actual request for readiness probe.
+      # 用于就绪检查的实际请求。
       readiness_probe:
         path: /v1/chat/completions
         post_data:
@@ -236,23 +236,23 @@ This will scale the service up to when the QPS exceeds 2 for each replica.
           max_completion_tokens: 1
 
     resources:
-      accelerators: {L4, A10g, A10, L40, A40, A100, A100-80GB} # We can use cheaper accelerators for 8B model.
+      accelerators: {L4, A10g, A10, L40, A40, A100, A100-80GB} # 8B 模型可使用更便宜的加速器。
       use_spot: True
-      disk_size: 512  # Ensure model checkpoints can fit.
+      disk_size: 512  # 确保模型检查点能够容纳。
       disk_tier: best
-      ports: 8081  # Expose to internet traffic.
+      ports: 8081  # 暴露于互联网流量。
 
     envs:
       PYTHONUNBUFFERED: 1
       MODEL_NAME: meta-llama/Meta-Llama-3-8B-Instruct
-      HF_TOKEN: <your-huggingface-token>  # Change to your own huggingface token, or use --env to pass.
+      HF_TOKEN: <your-huggingface-token>  # 替换为您自己的 huggingface token，或使用 --env 传递。
 
     setup: |
       conda create -n vllm python=3.10 -y
       conda activate vllm
 
       pip install vllm==0.4.0.post1
-      # Install Gradio for web UI.
+      # 安装 Gradio 用于 Web UI。
       pip install gradio openai
       pip install flash-attn==2.5.7
 
@@ -266,28 +266,28 @@ This will scale the service up to when the QPS exceeds 2 for each replica.
         2>&1 | tee api_server.log
     ```
 
-To update the service with the new config:
+使用新配置更新服务：
 
 ```bash
 HF_TOKEN="your-huggingface-token" sky serve update vllm serving.yaml --env HF_TOKEN
 ```
 
-To stop the service:
+停止服务：
 
 ```bash
 sky serve down vllm
 ```
 
-### **Optional**: Connect a GUI to the endpoint
+### **可选**：将 GUI 连接到端点
 
-It is also possible to access the Llama-3 service with a separate GUI frontend, so the user requests send to the GUI will be load-balanced across replicas.
+也可以使用单独的 GUI 前端访问 Llama-3 服务，这样发送到 GUI 的用户请求将在副本之间进行负载均衡。
 
 ??? code "Yaml"
 
     ```yaml
     envs:
       MODEL_NAME: meta-llama/Meta-Llama-3-8B-Instruct
-      ENDPOINT: x.x.x.x:3031 # Address of the API server running vllm.
+      ENDPOINT: x.x.x.x:3031 # 运行 vllm 的 API 服务器地址。
 
     resources:
       cpus: 2
@@ -296,7 +296,7 @@ It is also possible to access the Llama-3 service with a separate GUI frontend, 
       conda create -n vllm python=3.10 -y
       conda activate vllm
 
-      # Install Gradio for web UI.
+      # 安装 Gradio 用于 Web UI。
       pip install gradio openai
 
     run: |
@@ -312,7 +312,7 @@ It is also possible to access the Llama-3 service with a separate GUI frontend, 
         --stop-token-ids 128009,128001 | tee ~/gradio.log
     ```
 
-1. Start the chat web UI:
+1. 启动聊天 Web UI：
 
     ```bash
     sky launch \
@@ -320,7 +320,7 @@ It is also possible to access the Llama-3 service with a separate GUI frontend, 
       --env ENDPOINT=$(sky serve status --endpoint vllm)
     ```
 
-2. Then, we can access the GUI at the returned gradio link:
+2. 然后，我们可以通过返回的 gradio 链接访问 GUI：
 
     ```console
     | INFO | stdout | Running on public URL: https://6141e84201ce0bb4ed.gradio.live

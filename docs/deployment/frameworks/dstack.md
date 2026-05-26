@@ -4,16 +4,16 @@
     <img src="https://i.ibb.co/71kx6hW/vllm-dstack.png" alt="vLLM_plus_dstack"/>
 </p>
 
-vLLM can be run on a cloud based GPU machine with [dstack](https://dstack.ai/), an open-source framework for running LLMs on any cloud. This tutorial assumes that you have already configured credentials, gateway, and GPU quotas on your cloud environment.
+vLLM 可以在基于云的 GPU 机器上通过 [dstack](https://dstack.ai/) 运行，dstack 是一个用于在任何云上运行 LLM 的开源框架。本教程假设您已经在云环境中配置了凭据、网关和 GPU 配额。
 
-To install dstack client, run:
+安装 dstack 客户端：
 
 ```bash
 pip install dstack[all]
 dstack server
 ```
 
-Next, to configure your dstack project, run:
+接下来，配置您的 dstack 项目：
 
 ```bash
 mkdir -p vllm-dstack
@@ -21,7 +21,7 @@ cd vllm-dstack
 dstack init
 ```
 
-Next, to provision a VM instance with LLM of your choice (`NousResearch/Llama-2-7b-chat-hf` for this example), create the following `serve.dstack.yml` file for the dstack `Service`:
+然后，要配置一个运行您选择的 LLM（本示例使用 `NousResearch/Llama-2-7b-chat-hf`）的 VM 实例，请为 dstack `Service` 创建以下 `serve.dstack.yml` 文件：
 
 ??? code "Config"
 
@@ -43,7 +43,7 @@ Next, to provision a VM instance with LLM of your choice (`NousResearch/Llama-2-
         name: NousResearch/Llama-2-7b-chat-hf
     ```
 
-Then, run the following CLI for provisioning:
+然后，运行以下 CLI 进行配置：
 
 ??? console "Command"
 
@@ -74,7 +74,7 @@ Then, run the following CLI for provisioning:
     Service is published at ...
     ```
 
-After the provisioning, you can interact with the model by using the OpenAI SDK:
+配置完成后，您可以使用 OpenAI SDK 与模型交互：
 
 ??? code
 
@@ -100,4 +100,4 @@ After the provisioning, you can interact with the model by using the OpenAI SDK:
     ```
 
 !!! note
-    dstack automatically handles authentication on the gateway using dstack's tokens. Meanwhile, if you don't want to configure a gateway, you can provision dstack `Task` instead of `Service`. The `Task` is for development purpose only. If you want to know more about hands-on materials how to serve vLLM using dstack, check out [this repository](https://github.com/dstackai/dstack-examples/tree/main/deployment/vllm)
+    dstack 使用 dstack 的令牌在网关上自动处理身份验证。同时，如果您不想配置网关，可以配置 dstack `Task` 而不是 `Service`。`Task` 仅用于开发目的。如果您想了解更多关于如何使用 dstack 提供 vLLM 服务的实践材料，请查看[此仓库](https://github.com/dstackai/dstack-examples/tree/main/deployment/vllm)

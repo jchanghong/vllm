@@ -1,46 +1,46 @@
-# Monitoring Dashboards
+# 监控仪表板
 
-This directory contains monitoring dashboard configurations for vLLM, providing
-comprehensive observability for your vLLM deployments.
+此目录包含用于 vLLM 的监控仪表板配置，为您的 vLLM 部署提供
+全面的可观测性。
 
-## Dashboard Platforms
+## 仪表板平台
 
-We provide dashboards for two popular observability platforms:
+我们为两个流行的可观测性平台提供了仪表板：
 
 - **[Grafana](https://grafana.com)**
 - **[Perses](https://perses.dev)**
 
-## Dashboard Format Approach
+## 仪表板格式方案
 
-All dashboards are provided in **native formats** that work across different
-deployment methods:
+所有仪表板均以**原生格式**提供，适用于不同的
+部署方式：
 
 ### Grafana (JSON)
 
-- ✅ Works with any Grafana instance (cloud, self-hosted, Docker)
-- ✅ Direct import via Grafana UI or API
-- ✅ Can be wrapped in Kubernetes operators when needed
-- ✅ No vendor lock-in or deployment dependencies
+- ✅ 适用于任何 Grafana 实例（云端、自托管、Docker）
+- ✅ 通过 Grafana UI 或 API 直接导入
+- ✅ 必要时可包装在 Kubernetes Operator 中
+- ✅ 无供应商锁定或部署依赖
 
 ### Perses (YAML)
 
-- ✅ Works with standalone Perses instances
-- ✅ Compatible with Perses API and CLI
-- ✅ Supports Dashboard-as-Code workflows
-- ✅ Can be wrapped in Kubernetes operators when needed
+- ✅ 适用于独立 Perses 实例
+- ✅ 兼容 Perses API 和 CLI
+- ✅ 支持仪表板即代码（Dashboard-as-Code）工作流
+- ✅ 必要时可包装在 Kubernetes Operator 中
 
-## Dashboard Contents
+## 仪表板内容
 
-Both platforms provide equivalent monitoring capabilities:
+两个平台提供同等的监控能力：
 
-| Dashboard | Description |
+| 仪表板 | 描述 |
 | --------- | ----------- |
-| **Performance Statistics** | Tracks latency, throughput, and performance metrics |
-| **Query Statistics** | Monitors request volume, query performance, and KPIs |
+| **性能统计** | 跟踪延迟、吞吐量和性能指标 |
+| **查询统计** | 监控请求量、查询性能和关键指标 |
 
-## Quick Start
+## 快速开始
 
-First, navigate to this example's directory:
+首先，导航到此示例的目录：
 
 ```bash
 cd examples/observability/dashboards
@@ -48,7 +48,7 @@ cd examples/observability/dashboards
 
 ### Grafana
 
-Import the JSON directly into the Grafana UI, or use the API:
+将 JSON 直接导入 Grafana UI，或使用 API：
 
 ```bash
 curl -X POST http://grafana/api/dashboards/db \
@@ -58,30 +58,30 @@ curl -X POST http://grafana/api/dashboards/db \
 
 ### Perses
 
-Import via the Perses CLI:
+通过 Perses CLI 导入：
 
 ```bash
 percli apply -f perses/performance_statistics.yaml
 ```
 
-## Requirements
+## 要求
 
-- **Prometheus** metrics from your vLLM deployment
-- **Data source** configured in your monitoring platform
-- **vLLM metrics** enabled and accessible
+- 来自 vLLM 部署的 **Prometheus** 指标
+- 在您的监控平台中配置了**数据源**
+- **vLLM 指标**已启用并可访问
 
-## Platform-Specific Documentation
+## 平台特定文档
 
-For detailed deployment instructions and platform-specific options, see:
+有关详细的部署说明和平台特定选项，请参阅：
 
-- **[Grafana Documentation](grafana)** - JSON dashboards, operator usage, manual import
-- **[Perses Documentation](perses)** - YAML specs, CLI usage, operator wrapping
+- **[Grafana 文档](grafana)** - JSON 仪表板、Operator 用法、手动导入
+- **[Perses 文档](perses)** - YAML 规范、CLI 用法、Operator 封装
 
-## Contributing
+## 贡献
 
-When adding new dashboards, please:
+在添加新的仪表板时，请：
 
-1. Provide native formats (JSON for Grafana, YAML specs for Perses)
-2. Update platform-specific README files
-3. Ensure dashboards work across deployment methods
-4. Test with the latest platform versions
+1. 提供原生格式（Grafana 使用 JSON，Perses 使用 YAML 规范）
+2. 更新特定平台的 README 文件
+3. 确保仪表板在各种部署方法下都能工作
+4. 使用最新的平台版本进行测试

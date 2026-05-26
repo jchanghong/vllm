@@ -1,6 +1,6 @@
-# Draft Models
+# 草稿模型 (Draft Models)
 
-The following code configures vLLM in an offline mode to use speculative decoding with a draft model, speculating 5 tokens at a time.
+以下代码在离线模式下配置 vLLM，使用草稿模型进行投机解码，每次推测 5 个 token。
 
 ```python
 from vllm import LLM, SamplingParams
@@ -25,7 +25,7 @@ for output in outputs:
     print(f"Prompt: {prompt!r}, Generated text: {generated_text!r}")
 ```
 
-To perform the equivalent launch in online mode, use the following server-side code:
+要在在线模式下执行等效启动，请使用以下服务端代码：
 
 ```bash
 vllm serve Qwen/Qwen3-4B-Thinking-2507 \
@@ -38,7 +38,7 @@ vllm serve Qwen/Qwen3-4B-Thinking-2507 \
     --speculative-config '{"model": "Qwen/Qwen3-0.6B", "num_speculative_tokens": 5, "method": "draft_model"}'
 ```
 
-The code used to request as completions as a client remains unchanged:
+作为客户端请求补全的代码保持不变：
 
 ??? code
 
@@ -77,8 +77,4 @@ The code used to request as completions as a client remains unchanged:
     ```
 
 !!! warning
-    Note: Please use `--speculative-config` to set all configurations related
-    to speculative decoding. The previous method of specifying the model
-    through `--speculative-model` and adding related parameters such as
-    `--num-speculative-tokens` separately has been deprecated. For supported
-    keys and examples, see the [`--speculative-config` schema](README.md#--speculative-config-schema).
+    注意：请使用 `--speculative-config` 设置所有与投机解码相关的配置。之前通过 `--speculative-model` 指定模型并单独添加 `--num-speculative-tokens` 等相关参数的方式已弃用。支持的键和示例请参阅 [`--speculative-config` 模式](README.md#--speculative-config-schema)。

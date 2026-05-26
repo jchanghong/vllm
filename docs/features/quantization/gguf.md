@@ -1,19 +1,19 @@
 # GGUF
 
 !!! warning
-    Please note that GGUF support in vLLM is highly experimental and under-optimized at the moment, it might be incompatible with other features. Currently, you can use GGUF as a way to reduce memory footprint. If you encounter any issues, please report them to the vLLM team.
+    请注意，vLLM 中的 GGUF 支持目前处于高度实验性阶段且优化不足，可能与其他功能不兼容。目前，你可以使用 GGUF 作为减少内存占用的一种方式。如果遇到任何问题，请向 vLLM 团队报告。
 
 !!! warning
-    Currently, vllm only supports loading single-file GGUF models. If you have a multi-files GGUF model, you can use [gguf-split](https://github.com/ggerganov/llama.cpp/pull/6135) tool to merge them to a single-file model.
+    目前，vLLM 仅支持加载单文件 GGUF 模型。如果你有多文件 GGUF 模型，可以使用 [gguf-split](https://github.com/ggerganov/llama.cpp/pull/6135) 工具将其合并为单文件模型。
 
-To run a GGUF model with vLLM, you can use the `repo_id:quant_type` format to load directly from HuggingFace. For example, to load a Q4_K_M quantized model from [unsloth/Qwen3-0.6B-GGUF](https://huggingface.co/unsloth/Qwen3-0.6B-GGUF):
+要在 vLLM 中运行 GGUF 模型，你可以使用 `repo_id:quant_type` 格式直接从 HuggingFace 加载。例如，从 [unsloth/Qwen3-0.6B-GGUF](https://huggingface.co/unsloth/Qwen3-0.6B-GGUF) 加载 Q4_K_M 量化模型：
 
 ```bash
-# We recommend using the tokenizer from base model to avoid long-time and buggy tokenizer conversion.
+# 建议使用基础模型的 tokenizer，以避免耗时且易出错的 tokenizer 转换。
 vllm serve unsloth/Qwen3-0.6B-GGUF:Q4_K_M --tokenizer Qwen/Qwen3-0.6B
 ```
 
-You can also add `--tensor-parallel-size 2` to enable tensor parallelism inference with 2 GPUs:
+你也可以添加 `--tensor-parallel-size 2` 来启用 2 个 GPU 的张量并行推理：
 
 ```bash
 vllm serve unsloth/Qwen3-0.6B-GGUF:Q4_K_M \
@@ -21,7 +21,7 @@ vllm serve unsloth/Qwen3-0.6B-GGUF:Q4_K_M \
    --tensor-parallel-size 2
 ```
 
-Alternatively, you can download and use a local GGUF file:
+或者，你可以下载并使用本地 GGUF 文件：
 
 ```bash
 wget https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_K_M.gguf
@@ -29,25 +29,25 @@ vllm serve ./Qwen3-0.6B-Q4_K_M.gguf --tokenizer Qwen/Qwen3-0.6B
 ```
 
 !!! warning
-    We recommend using the tokenizer from base model instead of GGUF model. Because the tokenizer conversion from GGUF is time-consuming and unstable, especially for some models with large vocab size.
+    我们建议使用基础模型的 tokenizer 而非 GGUF 模型的 tokenizer。因为从 GGUF 转换 tokenizer 耗时且不稳定，特别是对于词汇量较大的模型。
 
-GGUF assumes that HuggingFace can convert the metadata to a config file. In case HuggingFace doesn't support your model you can manually create a config and pass it as hf-config-path
+GGUF 假设 HuggingFace 可以将元数据转换为配置文件。如果 HuggingFace 不支持你的模型，你可以手动创建配置并通过 `hf-config-path` 传递：
 
 ```bash
-# If your model is not supported by HuggingFace you can manually provide a HuggingFace compatible config path
+# 如果 HuggingFace 不支持你的模型，你可以手动提供 HuggingFace 兼容的配置路径
 vllm serve unsloth/Qwen3-0.6B-GGUF:Q4_K_M \
    --tokenizer Qwen/Qwen3-0.6B \
    --hf-config-path Qwen/Qwen3-0.6B
 ```
 
-You can also use the GGUF model directly through the LLM entrypoint:
+你也可以直接通过 LLM 入口点使用 GGUF 模型：
 
 ??? code
 
       ```python
       from vllm import LLM, SamplingParams
 
-      # In this script, we demonstrate how to pass input to the chat method:
+      # 在本脚本中，我们演示如何向 chat 方法传递输入：
       conversation = [
          {
             "role": "system",
@@ -67,19 +67,19 @@ You can also use the GGUF model directly through the LLM entrypoint:
          },
       ]
 
-      # Create a sampling params object.
+      # 创建采样参数对象。
       sampling_params = SamplingParams(temperature=0.8, top_p=0.95)
 
-      # Create an LLM using repo_id:quant_type format.
+      # 使用 repo_id:quant_type 格式创建 LLM。
       llm = LLM(
          model="unsloth/Qwen3-0.6B-GGUF:Q4_K_M",
          tokenizer="Qwen/Qwen3-0.6B",
       )
-      # Generate texts from the prompts. The output is a list of RequestOutput objects
-      # that contain the prompt, generated text, and other information.
+      # 根据提示生成文本。输出是 RequestOutput 对象的列表，
+      # 包含提示、生成的文本和其他信息。
       outputs = llm.chat(conversation, sampling_params)
 
-      # Print the outputs.
+      # 打印输出。
       for output in outputs:
          prompt = output.prompt
          generated_text = output.outputs[0].text

@@ -1,29 +1,28 @@
 # NVIDIA Model Optimizer
 
-The [NVIDIA Model Optimizer](https://github.com/NVIDIA/Model-Optimizer) is a library designed to optimize models for inference with NVIDIA GPUs. It includes tools for Post-Training Quantization (PTQ) and Quantization Aware Training (QAT) of Large Language Models (LLMs), Vision Language Models (VLMs), and diffusion models.
+[NVIDIA Model Optimizer](https://github.com/NVIDIA/Model-Optimizer) 是一个旨在优化模型以在 NVIDIA GPU 上进行推理的库。它包含了用于大型语言模型 (LLM)、视觉语言模型 (VLM) 以及扩散模型的训练后量化 (PTQ) 和量化感知训练 (QAT) 工具。
 
-We recommend installing the library with:
+我们建议通过以下方式安装该库：
 
 ```bash
 pip install nvidia-modelopt
 ```
 
-## Supported ModelOpt checkpoint formats
+## 支持的 ModelOpt checkpoint 格式
 
-vLLM detects ModelOpt checkpoints via `hf_quant_config.json` and supports the
-following `quantization.quant_algo` values:
+vLLM 通过 `hf_quant_config.json` 检测 ModelOpt checkpoint，并支持以下 `quantization.quant_algo` 取值：
 
-- `FP8`: per-tensor weight scale (+ optional static activation scale).
-- `FP8_PER_CHANNEL_PER_TOKEN`: per-channel weight scale and dynamic per-token activation quantization.
-- `FP8_PB_WO` (ModelOpt may emit `fp8_pb_wo`): block-scaled FP8 weight-only (typically 128×128 blocks).
-- `NVFP4`: ModelOpt NVFP4 checkpoints (use `quantization="modelopt_fp4"`).
-- `MXFP8`: ModelOpt MXFP8 checkpoints (use `quantization="modelopt_mxfp8"`).
+- `FP8`：per-tensor 权重 scale（+ 可选的静态激活 scale）。
+- `FP8_PER_CHANNEL_PER_TOKEN`：per-channel 权重 scale 和动态 per-token 激活量化。
+- `FP8_PB_WO`（ModelOpt 可能输出 `fp8_pb_wo`）：block 缩放的 FP8 仅权重（通常为 128×128 blocks）。
+- `NVFP4`：ModelOpt NVFP4 checkpoint（使用 `quantization="modelopt_fp4"`）。
+- `MXFP8`：ModelOpt MXFP8 checkpoint（使用 `quantization="modelopt_mxfp8"`）。
 
-## Quantizing HuggingFace Models with PTQ
+## 使用 PTQ 量化 HuggingFace 模型
 
-You can quantize HuggingFace models using the example scripts provided in the Model Optimizer repository. The primary script for LLM PTQ is typically found within the `examples/llm_ptq` directory.
+您可以使用 Model Optimizer 仓库中提供的示例脚本来量化 HuggingFace 模型。LLM PTQ 的主要脚本通常位于 `examples/llm_ptq` 目录中。
 
-Below is an example showing how to quantize a model using modelopt's PTQ API:
+以下示例展示了如何使用 modelopt 的 PTQ API 量化一个模型：
 
 ??? code
 
@@ -31,22 +30,22 @@ Below is an example showing how to quantize a model using modelopt's PTQ API:
     import modelopt.torch.quantization as mtq
     from transformers import AutoModelForCausalLM
 
-    # Load the model from HuggingFace
+    # 从 HuggingFace 加载模型
     model = AutoModelForCausalLM.from_pretrained("<path_or_model_id>")
 
-    # Select the quantization config, for example, FP8
+    # 选择量化配置，例如 FP8
     config = mtq.FP8_DEFAULT_CFG
 
-    # Define a forward loop function for calibration
+    # 定义用于校准的前向循环函数
     def forward_loop(model):
         for data in calib_set:
             model(data)
 
-    # PTQ with in-place replacement of quantized modules
+    # PTQ，原地替换量化模块
     model = mtq.quantize(model, config, forward_loop)
     ```
 
-After the model is quantized, you can export it to a quantized checkpoint using the export API:
+模型量化后，您可以使用导出 API 将其导出为量化 checkpoint：
 
 ```python
 import torch
@@ -54,12 +53,12 @@ from modelopt.torch.export import export_hf_checkpoint
 
 with torch.inference_mode():
     export_hf_checkpoint(
-        model,  # The quantized model.
-        export_dir,  # The directory where the exported files will be stored.
+        model,  # 量化后的模型。
+        export_dir,  # 导出文件存放的目录。
     )
 ```
 
-The quantized checkpoint can then be deployed with vLLM. As an example, the following code shows how to deploy `nvidia/Llama-3.1-8B-Instruct-FP8`, which is the FP8 quantized checkpoint derived from `meta-llama/Llama-3.1-8B-Instruct`, using vLLM:
+然后，量化后的 checkpoint 可以使用 vLLM 进行部署。例如，以下代码展示了如何使用 vLLM 部署 `nvidia/Llama-3.1-8B-Instruct-FP8`（这是从 `meta-llama/Llama-3.1-8B-Instruct` 派生的 FP8 量化 checkpoint）：
 
 ??? code
 
@@ -69,7 +68,7 @@ The quantized checkpoint can then be deployed with vLLM. As an example, the foll
     def main():
         model_id = "nvidia/Llama-3.1-8B-Instruct-FP8"
 
-        # Ensure you specify quantization="modelopt" when loading the modelopt checkpoint
+        # 加载 modelopt checkpoint 时请确保指定 quantization="modelopt"
         llm = LLM(model=model_id, quantization="modelopt", trust_remote_code=True)
 
         sampling_params = SamplingParams(temperature=0.8, top_p=0.9)
@@ -92,9 +91,9 @@ The quantized checkpoint can then be deployed with vLLM. As an example, the foll
         main()
     ```
 
-## Running the OpenAI-compatible server
+## 运行兼容 OpenAI 的服务器
 
-To serve a local ModelOpt checkpoint via the OpenAI-compatible API:
+要通过兼容 OpenAI 的 API 提供本地 ModelOpt checkpoint 服务：
 
 ```bash
 vllm serve <path_to_exported_checkpoint> \
@@ -102,10 +101,9 @@ vllm serve <path_to_exported_checkpoint> \
   --host 0.0.0.0 --port 8000
 ```
 
-## Testing (local checkpoints)
+## 测试（本地 checkpoint）
 
-vLLM's ModelOpt unit tests are gated by local checkpoint paths and are skipped
-by default in CI. To run the tests locally:
+vLLM 的 ModelOpt 单元测试以本地 checkpoint 路径为条件，默认在 CI 中跳过。要在本地运行测试：
 
 ```bash
 export VLLM_TEST_MODELOPT_FP8_PC_PT_MODEL_PATH=<path_to_fp8_pc_pt_checkpoint>

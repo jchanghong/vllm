@@ -1,73 +1,57 @@
-# Fusion torch.compile passes
+# Fusion torch.compile 传递
 
-vLLM applies a set of kernel/operator fusions at compile time (via custom [`torch.compile`](torch_compile.md) Inductor passes)
-to separate optimizations from model definitions and avoid breaking layer abstractions in model code.
-These fusions are controlled by fields in [`PassConfig`][vllm.config.compilation.PassConfig] and are automatically enabled
-at appropriate [optimization levels](optimization_levels.md).
+vLLM 在编译时（通过自定义的 [`torch.compile`](torch_compile.md) Inductor 传递）应用一组内核/算子融合，以将优化与模型定义分离，并避免破坏模型代码中的层抽象。这些融合由 [`PassConfig`][vllm.config.compilation.PassConfig] 中的字段控制，并在适当的[优化级别](optimization_levels.md)下自动启用。
 
-## Quick Reference
+## 快速参考
 
-The table below maps each fusion to its controlling flag/config knob, the
-operations it fuses, what level enables it by default, and an indicative speedup.
-The Fullgraph column indicates whether the fusion requires the entire model graph to be
-visible (either via Inductor partition or `splitting_ops=[]`),
-and the last column indicates whether the fusion activates for all `num_tokens`
-or just on the low or high end.
+下表将每个融合映射到其控制标志/配置旋钮、融合的操作、默认启用的级别以及指示性的加速比。Fullgraph 列表示该融合是否需要整个模型图可见（通过 Inductor 分区或 `splitting_ops=[]`），最后一列表示该融合是在所有 `num_tokens` 下激活，还是仅在低端或高端激活。
 
 !!! info
-    Speedup depends heavily on the exact model, batch size, and hardware.
-    If tuning performance by hand, always benchmark your exact use-case with and without the fusion to verify the impact.
+    加速比严重依赖于具体的模型、批量大小和硬件。如果手动调优性能，请始终在有和无该融合的情况下对您的确切用例进行基准测试，以验证影响。
 
-| Fusion                                                                         | `PassConfig` flag            | Fused operations                               | Default at                     | E2E Speedup        | Fullgraph | `num_tokens` |
-| ------------------------------------------------------------------------------ | ---------------------------- | ---------------------------------------------- | ------------------------------ | ------------------ | --------- | ------------ |
-| [AllReduce + RMSNorm](#allreduce--rmsnorm-fuse_allreduce_rms)                  | `fuse_allreduce_rms`         | All-reduce → RMSNorm (+residual_add) (→ quant) | O2 (Hopper/Blackwell + TP > 1) | 5-20%              | No        | Low          |
-| [MiniMax QK Norm](#minimax-qk-norm-fuse_minimax_qk_norm)                       | `fuse_minimax_qk_norm`       | Q/K variance all-reduce → Q/K RMSNorm          | Off by default                 | 2-3%               | No        | Low          |
-| [Attention + Quant](#attention--quantization-fuse_attn_quant)                  | `fuse_attn_quant`            | Attention output → FP8/NVFP4 quant             | Off by default                 | 3-7%               | Yes       | Always       |
-| [MLA Attention + Quant](#attention--quantization-fuse_attn_quant)              | `fuse_attn_quant`            | MLA Attention output → FP8/NVFP4 quant         | Off by default                 | TBD                | Yes       | Always       |
-| [RoPE + KV-Cache Update](#rope--kv-cache-update-fuse_rope_kvcache)             | `fuse_rope_kvcache`          | Rotary embedding → KV cache write              | O2 (ROCm/AITER only)           | 2-4%               | No        | Low          |
-| [QK Norm + RoPE](#qk-norm--rope-enable_qk_norm_rope_fusion)                    | `enable_qk_norm_rope_fusion` | Q/K RMSNorm → rotary embedding                 | Off by default                 | 2-3%               | No        | Low          |
-| [Sequence Parallelism](#sequence-parallelism-enable_sp)                        | `enable_sp`                  | AllReduce → ReduceScatter + AllGather          | Off by default                 | Prereq for AsyncTP | Yes       | High         |
-| [AsyncTP GEMM + collective](#asynctp-gemm--collective-overlap-fuse_gemm_comms) | `fuse_gemm_comms`            | GEMM → reduce-scatter / all-gather → GEMM      | Off by default                 | 7-10%              | Yes       | High         |
-| [RMSNorm + Quant](#rmsnorm--quantization-fuse_norm_quant)                      | `fuse_norm_quant`            | RMSNorm (+residual add) → FP8/FP4 quant        | O1 (conditional)               | 1-4%               | No        | Always       |
-| [SiLU+Mul + Quant](#silumul--quantization-fuse_act_quant)                      | `fuse_act_quant`             | SiLU+Mul activation → FP8/FP4 quant            | O1 (conditional)               | 1-4%               | No        | Always       |
-| [RMSNorm + Padding](#rmsnorm--padding-fuse_act_padding)                        | `fuse_act_padding`           | Residual add + RMSNorm → padding               | O1 (ROCm/AITER only)           | TBD                | No        | Always       |
-| [MLA Dual RMSNorm](#mla-dual-rmsnorm-fuse_mla_dual_rms_norm)                   | `fuse_mla_dual_rms_norm`     | Paired Q + KV RMSNorm → single kernel          | O1 (ROCm/AITER only)           | ~2%                | No        | Always       |
+| 融合 | `PassConfig` 标志 | 融合的操作 | 默认级别 | 端到端加速比 | Fullgraph | `num_tokens` |
+| - | - | - | - | - | - | - |
+| [AllReduce + RMSNorm](#allreduce--rmsnorm-fuse_allreduce_rms) | `fuse_allreduce_rms` | 全规约 → RMSNorm（+残差相加）（→ 量化） | O2（Hopper/Blackwell + TP > 1） | 5-20% | 否 | 低 |
+| [MiniMax QK Norm](#minimax-qk-norm-fuse_minimax_qk_norm) | `fuse_minimax_qk_norm` | Q/K 方差全规约 → Q/K RMSNorm | 默认关闭 | 2-3% | 否 | 低 |
+| [Attention + Quant](#attention--quantization-fuse_attn_quant) | `fuse_attn_quant` | 注意力输出 → FP8/NVFP4 量化 | 默认关闭 | 3-7% | 是 | 始终 |
+| [MLA Attention + Quant](#attention--quantization-fuse_attn_quant) | `fuse_attn_quant` | MLA 注意力输出 → FP8/NVFP4 量化 | 默认关闭 | 待定 | 是 | 始终 |
+| [RoPE + KV-Cache Update](#rope--kv-cache-update-fuse_rope_kvcache) | `fuse_rope_kvcache` | 旋转嵌入 → KV 缓存写入 | O2（仅 ROCm/AITER） | 2-4% | 否 | 低 |
+| [QK Norm + RoPE](#qk-norm--rope-enable_qk_norm_rope_fusion) | `enable_qk_norm_rope_fusion` | Q/K RMSNorm → 旋转嵌入 | 默认关闭 | 2-3% | 否 | 低 |
+| [Sequence Parallelism](#sequence-parallelism-enable_sp) | `enable_sp` | AllReduce → ReduceScatter + AllGather | 默认关闭 | AsyncTP 的前提条件 | 是 | 高 |
+| [AsyncTP GEMM + collective](#asynctp-gemm--collective-overlap-fuse_gemm_comms) | `fuse_gemm_comms` | GEMM → reduce-scatter / all-gather → GEMM | 默认关闭 | 7-10% | 是 | 高 |
+| [RMSNorm + Quant](#rmsnorm--quantization-fuse_norm_quant) | `fuse_norm_quant` | RMSNorm（+残差相加）→ FP8/FP4 量化 | O1（条件性） | 1-4% | 否 | 始终 |
+| [SiLU+Mul + Quant](#silumul--quantization-fuse_act_quant) | `fuse_act_quant` | SiLU+Mul 激活 → FP8/FP4 量化 | O1（条件性） | 1-4% | 否 | 始终 |
+| [RMSNorm + Padding](#rmsnorm--padding-fuse_act_padding) | `fuse_act_padding` | 残差相加 + RMSNorm → 填充 | O1（仅 ROCm/AITER） | 待定 | 否 | 始终 |
+| [MLA Dual RMSNorm](#mla-dual-rmsnorm-fuse_mla_dual_rms_norm) | `fuse_mla_dual_rms_norm` | 配对的 Q + KV RMSNorm → 单内核 | O1（仅 ROCm/AITER） | ~2% | 否 | 始终 |
 
-## Support Matrix
+## 支持矩阵
 
-The table below lists the quantization schemes supported by each fusion on each platform.
-**—** means the fusion is not available on that platform. The latest and in-progress work is available in the tracking issue:
-[#36066](https://github.com/vllm-project/vllm/issues/36066)
+下表列出了每个平台上每个融合支持的量化方案。**—** 表示该平台不支持该融合。最新及正在进行的工作请参见追踪问题：[#36066](https://github.com/vllm-project/vllm/issues/36066)
 
-| Fusion                       | SM100 (Blackwell)                        | SM90 (Hopper)                            | SM89 (Ada)                               | SM80 (Ampere) | ROCm                                     |
-| ---------------------------- | ---------------------------------------- | ---------------------------------------- | ---------------------------------------- | ------------- | ---------------------------------------- |
-| `fuse_allreduce_rms`         | FP16/BF16, FP8 static, NVFP4             | FP16/BF16, FP8 static                    | —                                        | —             | —                                        |
-| `fuse_minimax_qk_norm`\*     | FP16/BF16                                | FP16/BF16                                | FP16/BF16                                | FP16/BF16     | —                                        |
-| `fuse_attn_quant`\*          | FP8 static\*, NVFP4\*                    | FP8 static\*                             | FP8 static\*                             | —             | FP8 static\*                             |
-| `fuse_attn_quant` (MLA)\*    | FP8 static\*, FP8 per-group\*, NVFP4\*   | FP8 static\*, FP8 per-group\*            | FP8 static\*, FP8 per-group\*            | —             | FP8 static\* (untested)                  |
-| `fuse_rope_kvcache`          | —                                        | —                                        | —                                        | —             | FP16/BF16                                |
-| `enable_qk_norm_rope_fusion` | FP16/BF16                                | FP16/BF16                                | FP16/BF16†                               | FP16/BF16†    | —                                        |
-| `enable_sp`                  | FP16/BF16, FP8 static†                   | FP16/BF16, FP8 static                    | FP16/BF16†                               | FP16/BF16†    | —                                        |
-| `fuse_gemm_comms`            | FP16/BF16, FP8 static†                   | FP16/BF16, FP8 static                    | FP16/BF16†                               | FP16/BF16†    | —                                        |
-| `fuse_norm_quant`            | FP8 static, FP8 per-token, FP8 per-group | FP8 static, FP8 per-token, FP8 per-group | FP8 static, FP8 per-token, FP8 per-group | —             | FP8 static, FP8 per-token, FP8 per-group |
-| `fuse_act_quant`             | FP8 static, NVFP4                        | FP8 static, FP8 per-group (128/64)       | FP8 static, FP8 per-group (128/64)       | —             | FP8 per-group                            |
-| `fuse_act_padding`           | —                                        | —                                        | —                                        | —             | FP16/BF16                                |
-| `fuse_mla_dual_rms_norm`     | —                                        | —                                        | —                                        | —             | BF16                                     |
+| 融合 | SM100（Blackwell） | SM90（Hopper） | SM89（Ada） | SM80（Ampere） | ROCm |
+| - | - | - | - | - | - |
+| `fuse_allreduce_rms` | FP16/BF16、FP8 static、NVFP4 | FP16/BF16、FP8 static | — | — | — |
+| `fuse_minimax_qk_norm`\* | FP16/BF16 | FP16/BF16 | FP16/BF16 | FP16/BF16 | — |
+| `fuse_attn_quant`\* | FP8 static\*、NVFP4\* | FP8 static\* | FP8 static\* | — | FP8 static\* |
+| `fuse_attn_quant`（MLA）\* | FP8 static\*、FP8 per-group\*、NVFP4\* | FP8 static\*、FP8 per-group\* | FP8 static\*、FP8 per-group\* | — | FP8 static\*（未测试） |
+| `fuse_rope_kvcache` | — | — | — | — | FP16/BF16 |
+| `enable_qk_norm_rope_fusion` | FP16/BF16 | FP16/BF16 | FP16/BF16† | FP16/BF16† | — |
+| `enable_sp` | FP16/BF16、FP8 static† | FP16/BF16、FP8 static | FP16/BF16† | FP16/BF16† | — |
+| `fuse_gemm_comms` | FP16/BF16、FP8 static† | FP16/BF16、FP8 static | FP16/BF16† | FP16/BF16† | — |
+| `fuse_norm_quant` | FP8 static、FP8 per-token、FP8 per-group | FP8 static、FP8 per-token、FP8 per-group | FP8 static、FP8 per-token、FP8 per-group | — | FP8 static、FP8 per-token、FP8 per-group |
+| `fuse_act_quant` | FP8 static、NVFP4 | FP8 static、FP8 per-group（128/64） | FP8 static、FP8 per-group（128/64） | — | FP8 per-group |
+| `fuse_act_padding` | — | — | — | — | FP16/BF16 |
+| `fuse_mla_dual_rms_norm` | — | — | — | — | BF16 |
 
-\* `fuse_attn_quant` support depends on the attention backend in use; not all backends support
-fused quantization output. See the [`fuse_attn_quant` section](#attention--quantization-fuse_attn_quant)
-for per-backend details.
+\* `fuse_attn_quant` 的支持取决于所使用的注意力后端；并非所有后端都支持融合量化输出。有关每个后端的详细信息，请参见 [`fuse_attn_quant` 部分](#attention--quantization-fuse_attn_quant)。
 
-\* `fuse_minimax_qk_norm` is a model-specific pass for `MiniMaxM2ForCausalLM`. It also requires
-tensor parallelism (`tp_size > 1`) and the CUDA custom op `minimax_allreduce_rms_qk`.
+\* `fuse_minimax_qk_norm` 是特定于 `MiniMaxM2ForCausalLM` 模型的传递。它还需要张量并行（`tp_size > 1`）和 CUDA 自定义算子 `minimax_allreduce_rms_qk`。
 
-† `enable_sp` and `fuse_gemm_comms` are only autoconfigured for SM90 today;
-other architectures support requires setting `PassConfig.sp_min_token_num` explicitly.
-SM100 support also requires setting `VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel`.
+† `enable_sp` 和 `fuse_gemm_comms` 目前仅在 SM90 上自动配置；其他架构支持需要显式设置 `PassConfig.sp_min_token_num`。SM100 支持还需要设置 `VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel`。
 
-## Enabling / Disabling Fusions
+## 启用/禁用融合
 
-Fusions are exposed through `PassConfig`, which is nested inside `CompilationConfig`:
+融合通过 `PassConfig` 暴露，该配置嵌套在 `CompilationConfig` 中：
 
 ```python
 from vllm import LLM
@@ -75,138 +59,115 @@ from vllm.config import CompilationConfig, PassConfig
 
 llm = LLM(
     model="...",
-    optimization_level=2, # Default optimization level
+    optimization_level=2, # 默认优化级别
     compilation_config=CompilationConfig(
         pass_config=PassConfig(
             fuse_norm_quant=True,
             fuse_act_quant=True,
-            fuse_allreduce_rms=False,  # disable a specific fusion
+            fuse_allreduce_rms=False,  # 禁用特定融合
         )
     ),
 )
 ```
 
-Fusions can also be enabled using command-line flags with any `vllm ...` command:
+融合也可以通过命令行标志在任何 `vllm ...` 命令中启用：
 
 ```bash
-# Enable O2 defaults, but turn off allreduce fusion
+# 启用 O2 默认值，但关闭 allreduce 融合
 vllm serve meta-llama/Llama-3.1-8B-Instruct -O2 -cc.pass_config.fuse_allreduce_rms=False
 
-# The above is equivalent to the more verbose:
+# 以上等价于更详细的写法：
 vllm serve meta-llama/Llama-3.1-8B-Instruct -O2 --compilation-config '{"pass_config": {"fuse_allreduce_rms": false}}'
 
-# Same syntax in other commands, e.g. vllm bench:
+# 其他命令中使用相同语法，例如 vllm bench：
 vllm bench latency --model=meta-llama/Llama-3.1-8B-Instruct -O2 -cc.pass_config.fuse_allreduce_rms=False
 ```
 
-Fields set explicitly by the user always take precedence over optimization-level defaults.
+用户显式设置的字段始终优先于优化级别默认值。
 
-## Fusion Details
+## 融合详情
 
-### AllReduce + RMSNorm (`fuse_allreduce_rms`)
+### AllReduce + RMSNorm（`fuse_allreduce_rms`）
 
 !!! warning
-    TP+DP and TP+PP combinations are currently broken
-    ([#34458](https://github.com/vllm-project/vllm/issues/34458) and
-    [#35426](https://github.com/vllm-project/vllm/issues/35426)).
-    Only supported on NVIDIA Hopper (SM90) and Blackwell (SM100) with FlashInfer installed.
+    TP+DP 和 TP+PP 组合目前存在问题
+    （[#34458](https://github.com/vllm-project/vllm/issues/34458) 和
+    [#35426](https://github.com/vllm-project/vllm/issues/35426)）。
+    仅在安装了 FlashInfer 的 NVIDIA Hopper（SM90）和 Blackwell（SM100）上支持。
 
-**What it fuses.** Fuses the tensor-parallel all-reduce collective with the subsequent residual add,
-RMSNorm, and optionally a quantization step into a single FlashInfer / TRT-LLM communication kernel.
-This fusion is only profitable for small `num_tokens`,
-so the fusion is only performed in the lower compiled range.
+**融合内容。** 将张量并行全规约集合通信与后续的残差相加、RMSNorm 以及可选的量化步骤融合为单个 FlashInfer / TRT-LLM 通信内核。
+此融合仅对较小的 `num_tokens` 有益，因此仅在较低的编译范围内执行。
 
-Patterns covered:
+覆盖的模式：
 
-- `AllReduce → RMSNorm(+residual_add)`: CUDA sm90+ with FlashInfer
-- `AllReduce → RMSNorm(+residual_add) → FP8 static quant`: CUDA sm90+ with FlashInfer
-- `AllReduce → RMSNorm(+residual_add) → NVFP4 dynamic quant`: CUDA sm100+ with FlashInfer
+- `AllReduce → RMSNorm(+residual_add)`：CUDA sm90+ 与 FlashInfer
+- `AllReduce → RMSNorm(+residual_add) → FP8 static quant`：CUDA sm90+ 与 FlashInfer
+- `AllReduce → RMSNorm(+residual_add) → NVFP4 dynamic quant`：CUDA sm100+ 与 FlashInfer
 
-The maximum tensor size below which the fused kernel is used is hardware-dependent (64 MB for TP=2
-on SM90/SM100) and configurable via `PassConfig.fi_allreduce_fusion_max_size_mb`.
+使用融合内核的张量大小上限取决于硬件（SM90/SM100 上 TP=2 时为 64 MB），可通过 `PassConfig.fi_allreduce_fusion_max_size_mb` 配置。
 
-**Code locations.**
+**代码位置。**
 
-- Pass: [`vllm/compilation/passes/fusion/allreduce_rms_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/allreduce_rms_fusion.py)
-- FlashInfer all-reduce: [`vllm/distributed/device_communicators/flashinfer_all_reduce.py`](https://github.com/vllm-project/vllm/blob/main/vllm/distributed/device_communicators/flashinfer_all_reduce.py)
-- Benchmark: [`benchmarks/kernels/benchmark_fused_collective.py`](https://github.com/vllm-project/vllm/blob/main/benchmarks/kernels/benchmark_fused_collective.py)
+- 传递：[`vllm/compilation/passes/fusion/allreduce_rms_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/allreduce_rms_fusion.py)
+- FlashInfer 全规约：[`vllm/distributed/device_communicators/flashinfer_all_reduce.py`](https://github.com/vllm-project/vllm/blob/main/vllm/distributed/device_communicators/flashinfer_all_reduce.py)
+- 基准测试：[`benchmarks/kernels/benchmark_fused_collective.py`](https://github.com/vllm-project/vllm/blob/main/benchmarks/kernels/benchmark_fused_collective.py)
 
-### Attention + Quantization (`fuse_attn_quant`)
+### Attention + Quantization（`fuse_attn_quant`）
 
 !!! info
-    `fuse_attn_quant` is currently not enabled at any optimization level by default and must be set
-    explicitly. It requires the full model graph to be visible (Inductor partition or `splitting_ops=[]`).
+    `fuse_attn_quant` 目前默认不在任何优化级别启用，必须显式设置。它需要整个模型图可见（Inductor 分区或 `splitting_ops=[]`）。
 
-**What it fuses.** Fuses the attention output quantization directly after the attention computation,
-eliminating a full-precision memory round-trip of the attention output. This fusion supports both
-standard `Attention` and `MLAAttention` (used by DeepSeek-V2/V3/R1 models). Patterns covered:
+**融合内容。** 将注意力输出量化直接在注意力计算之后融合，消除了注意力输出的全精度内存往返。此融合支持标准 `Attention` 和 `MLAAttention`（用于 DeepSeek-V2/V3/R1 模型）。覆盖的模式：
 
-`Attention → FP8 static quant`:
+`Attention → FP8 static quant`：
 
-- `TRITON_ATTN`: CUDA, ROCm
-- `FLASHINFER`: CUDA sm100+ with FlashInfer installed
-- `ROCM_ATTN`: ROCm
-- `ROCM_AITER_UNIFIED_ATTN`: ROCm with AITER
+- `TRITON_ATTN`：CUDA、ROCm
+- `FLASHINFER`：安装了 FlashInfer 的 CUDA sm100+
+- `ROCM_ATTN`：ROCm
+- `ROCM_AITER_UNIFIED_ATTN`：带 AITER 的 ROCm
 
-`Attention → NVFP4 dynamic quant`:
+`Attention → NVFP4 dynamic quant`：
 
-- `FLASHINFER`: CUDA sm100+ with FlashInfer installed
+- `FLASHINFER`：安装了 FlashInfer 的 CUDA sm100+
 
-`MLAAttention → FP8 static, FP8 per-group, NVFP4 dynamic quant`
+`MLAAttention → FP8 static、FP8 per-group、NVFP4 dynamic quant`
 
-The MLA fusion operates at the graph level on the `unified_mla_attention_with_output` op and works
-with all MLA decode and prefill backend combinations. Unlike standard `Attention` backends (where
-the kernel writes FP8 output directly), no MLA prefill or decode backend currently supports direct
-FP8/FP4 output. The fusion writes to an intermediate buffer and quantizes in a separate step, so
-there is no memory round-trip elimination yet.
+MLA 融合在图级别对 `unified_mla_attention_with_output` 算子进行操作，适用于所有 MLA 解码和预填充后端组合。与标准 `Attention` 后端（内核直接写入 FP8 输出）不同，目前没有 MLA 预填充或解码后端支持直接的 FP8/FP4 输出。融合写入中间缓冲区并在单独的步骤中量化，因此尚未消除内存往返。
 
 !!! info
-    The MLA attention fusion is not expected to yield a measurable speedup yet.
-    This will improve once MLA prefill/decode kernels support direct FP8/FP4 output.
+    MLA 注意力融合预计不会产生可测量的加速。一旦 MLA 预填充/解码内核支持直接的 FP8/FP4 输出，这种情况将得到改善。
 
-Other attention backends do not support fused output quantization yet.
+其他注意力后端尚不支持融合输出量化。
 
-**Code locations.**
+**代码位置。**
 
-- Pass (Attention): [`vllm/compilation/passes/fusion/attn_quant_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/attn_quant_fusion.py)
-- Pass (MLAAttention): [`vllm/compilation/passes/fusion/mla_attn_quant_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/mla_attn_quant_fusion.py)
-- Attention backends: [`vllm/v1/attention/backends/`](https://github.com/vllm-project/vllm/blob/main/vllm/v1/attention/backends/)
+- 传递（Attention）：[`vllm/compilation/passes/fusion/attn_quant_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/attn_quant_fusion.py)
+- 传递（MLAAttention）：[`vllm/compilation/passes/fusion/mla_attn_quant_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/mla_attn_quant_fusion.py)
+- 注意力后端：[`vllm/v1/attention/backends/`](https://github.com/vllm-project/vllm/blob/main/vllm/v1/attention/backends/)
 
-### RoPE + KV-Cache Update (`fuse_rope_kvcache`)
-
-!!! info
-    ROCm/AITER-only. Not available on NVIDIA CUDA or CPU. The fusion is only enabled for
-    `num_tokens ≤ 256` by default due to AITER fused kernel performance issues.
-    This threshold is configurable via `PassConfig.rope_kvcache_fusion_max_token_num`.
-
-**What it fuses.** Fuses the rotary positional embedding kernel with the KV-cache scatter/write into
-a single kernel, avoiding separate reads and writes of the key and value tensors.
-
-Requires: AMD ROCm with AITER enabled, the `rotary_embedding` custom op active (automatic),
-and the `kv_cache` update op visible in the graph: either by using Inductor graph partition
-or removed from `splitting_ops`.
-If these conditions are set, the fusion is enabled automatically for optimization level O1 and above.
-
-**Code locations.**
-
-- Pass: [`vllm/compilation/passes/fusion/rope_kvcache_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/rope_kvcache_fusion.py)
-
-### MiniMax QK Norm (`fuse_minimax_qk_norm`)
+### RoPE + KV-Cache Update（`fuse_rope_kvcache`）
 
 !!! info
-    This is a MiniMax-specific compile pass. It is currently only enabled when all of the following hold:
-    the model architecture is `MiniMaxM2ForCausalLM`, tensor parallelism is enabled (`tp_size > 1`),
-    and the CUDA custom op `minimax_allreduce_rms_qk` is available. It is not enabled by default at any
-    optimization level.
+    仅 ROCm/AITER。在 NVIDIA CUDA 或 CPU 上不可用。由于 AITER 融合内核性能问题，该融合默认仅在 `num_tokens ≤ 256` 时启用。此阈值可通过 `PassConfig.rope_kvcache_fusion_max_token_num` 配置。
 
-**What it fuses.** Fuses the MiniMax M2 Q/K normalization path that performs an all-reduce over the
-per-token Q/K variances before applying RMS normalization to Q and K.
+**融合内容。** 将旋转位置嵌入内核与 KV 缓存分散/写入融合为单个内核，避免了对键和值张量的单独读取和写入。
 
-This pass is distinct from [`enable_qk_norm_rope_fusion`](#qk-norm--rope-enable_qk_norm_rope_fusion):
-`fuse_minimax_qk_norm` targets MiniMax M2's tensor-parallel all-reduce + RMSNorm sequence, while
-`enable_qk_norm_rope_fusion` targets the later Q/K RMSNorm + RoPE sequence used by several other models.
+需要：启用 AITER 的 AMD ROCm、激活的 `rotary_embedding` 自定义算子（自动），以及在图中可见的 `kv_cache` 更新操作：通过使用 Inductor 图分区或从 `splitting_ops` 中移除。如果满足这些条件，融合会在优化级别 O1 及以上自动启用。
 
-Example:
+**代码位置。**
+
+- 传递：[`vllm/compilation/passes/fusion/rope_kvcache_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/rope_kvcache_fusion.py)
+
+### MiniMax QK Norm（`fuse_minimax_qk_norm`）
+
+!!! info
+    这是特定于 MiniMax 的编译传递。目前仅在以下所有条件满足时启用：模型架构为 `MiniMaxM2ForCausalLM`、启用了张量并行（`tp_size > 1`）、且 CUDA 自定义算子 `minimax_allreduce_rms_qk` 可用。默认不在任何优化级别启用。
+
+**融合内容。** 融合 MiniMax M2 的 Q/K 归一化路径，该路径在对 Q 和 K 应用 RMS 归一化之前，对每个 token 的 Q/K 方差执行全规约。
+
+此传递与 [`enable_qk_norm_rope_fusion`](#qk-norm--rope-enable_qk_norm_rope_fusion) 不同：`fuse_minimax_qk_norm` 针对 MiniMax M2 的张量并行全规约 + RMSNorm 序列，而 `enable_qk_norm_rope_fusion` 针对多个其他模型使用的后续 Q/K RMSNorm + RoPE 序列。
+
+示例：
 
 ```bash
 vllm serve MiniMaxAI/MiniMax-M2.5 \
@@ -214,218 +175,186 @@ vllm serve MiniMaxAI/MiniMax-M2.5 \
   --compilation-config '{"mode": 3, "pass_config": {"fuse_minimax_qk_norm": true}}'
 ```
 
-**Code locations.**
+**代码位置。**
 
-- Pass: [`vllm/compilation/passes/fusion/minimax_qk_norm_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/minimax_qk_norm_fusion.py)
-- CUDA op: [`csrc/minimax_reduce_rms_kernel.cu`](https://github.com/vllm-project/vllm/blob/main/csrc/minimax_reduce_rms_kernel.cu) (`minimax_allreduce_rms_qk`)
-- Workspace helper: [`vllm/model_executor/layers/mamba/lamport_workspace.py`](https://github.com/vllm-project/vllm/blob/main/vllm/model_executor/layers/mamba/lamport_workspace.py)
+- 传递：[`vllm/compilation/passes/fusion/minimax_qk_norm_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/minimax_qk_norm_fusion.py)
+- CUDA 算子：[`csrc/minimax_reduce_rms_kernel.cu`](https://github.com/vllm-project/vllm/blob/main/csrc/minimax_reduce_rms_kernel.cu)（`minimax_allreduce_rms_qk`）
+- 工作空间辅助：[`vllm/model_executor/layers/mamba/lamport_workspace.py`](https://github.com/vllm-project/vllm/blob/main/vllm/model_executor/layers/mamba/lamport_workspace.py)
 
-### Sequence Parallelism (`enable_sp`)
+### Sequence Parallelism（`enable_sp`）
 
-**What it fuses.** Replaces all-reduce collectives with reduce-scatter + local RMSNorm + all-gather,
-splitting the sequence dimension across TP ranks. This restructures the graph so the subsequent AsyncTP
-pass can fuse the reduce-scatter / all-gather with the surrounding GEMMs.
+**融合内容。** 用 reduce-scatter + 本地 RMSNorm + all-gather 替换全规约集合通信，将序列维度分割到各 TP 等级。这重构了图，使得后续的 AsyncTP 传递可以将 reduce-scatter / all-gather 与周围的 GEMM 融合。
 
-Sequence Parallelism itself does not directly improve performance; it is a prerequisite for the
-AsyncTP pass (`fuse_gemm_comms`). SP is only applied above a minimum token threshold that is
-autoconfigured based on device capability and model `hidden_size`. Currently only active on
-H100/SM90 for models with `hidden_size >= 8192`. The threshold is configurable via
-`PassConfig.sp_min_token_num`.
+序列并行本身并不直接提升性能；它是 AsyncTP 传递（`fuse_gemm_comms`）的前提条件。SP 仅在某个最小 token 阈值以上应用，该阈值根据设备能力和模型 `hidden_size` 自动配置。目前仅在 H100/SM90 上对 `hidden_size >= 8192` 的模型激活。阈值可通过 `PassConfig.sp_min_token_num` 配置。
 
-The general transformation:
+一般变换：
 
 ```text
-Input → AllReduce → RMSNorm → Output
-becomes:
-Input → ReduceScatter → local RMSNorm → AllGather → Output
+输入 → AllReduce → RMSNorm → 输出
+变为：
+输入 → ReduceScatter → 本地 RMSNorm → AllGather → 输出
 ```
 
-Patterns covered:
+覆盖的模式：
 
-- First block: `AllReduce → RMSNorm` → `ReduceScatter → RMSNorm → AllGather`
-- Middle blocks: `AllReduce → fused_add_RMSNorm` → `ReduceScatter → fused_add_RMSNorm → AllGather`
-- Both with optional `→ FP8 static quant` suffix
+- 第一个块：`AllReduce → RMSNorm` → `ReduceScatter → RMSNorm → AllGather`
+- 中间块：`AllReduce → fused_add_RMSNorm` → `ReduceScatter → fused_add_RMSNorm → AllGather`
+- 两者均可选地带有 `→ FP8 static quant` 后缀
 
-Requires: `use_inductor_graph_partition=True` **or** piecewise compilation with static sizes
-divisible by `tensor_parallel_size`.
+需要：`use_inductor_graph_partition=True` **或** 使用可被 `tensor_parallel_size` 整除的静态大小的逐段编译。
 
-Supported hardware: Only tested on NVIDIA CUDA, possibly works on ROCm. FP8 all-gather requires sm90+.
+支持的硬件：仅在 NVIDIA CUDA 上测试，可能在 ROCm 上有效。FP8 all-gather 需要 sm90+。
 
-**Code locations.**
+**代码位置。**
 
-- Pass: [`vllm/compilation/passes/fusion/sequence_parallelism.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/sequence_parallelism.py)
+- 传递：[`vllm/compilation/passes/fusion/sequence_parallelism.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/sequence_parallelism.py)
 
-### AsyncTP GEMM + Collective Overlap (`fuse_gemm_comms`)
+### AsyncTP GEMM + Collective Overlap（`fuse_gemm_comms`）
 
 !!! info
-    Requires `enable_sp=True` (enabled automatically). This pass is a no-op if Sequence Parallelism has not been applied.
+    需要 `enable_sp=True`（自动启用）。如果未应用序列并行，此传递为无操作。
 
-**What it fuses.** After Sequence Parallelism transforms the graph, fuses GEMM kernels with the
-surrounding reduce-scatter (output projection) and all-gather (input projection) using
-`torch.ops.symm_mem` symmetric-memory primitives, overlapping communication and computation.
-This overlap is only profitable for large `num_tokens`, so the fusion (and preceding SP)
-is only performed in the higher compiled range above `PassConfig.sp_min_token_num`.
+**融合内容。** 在序列并行变换图之后，使用 `torch.ops.symm_mem` 对称内存原语将 GEMM 内核与周围的 reduce-scatter（输出投影）和 all-gather（输入投影）融合，使通信和计算重叠。这种重叠仅对较大的 `num_tokens` 有益，因此融合（及其前置的 SP）仅在高于 `PassConfig.sp_min_token_num` 的较高编译范围内执行。
 
-Patterns covered:
+覆盖的模式：
 
 - `GEMM → reduce-scatter` → `fused_matmul_reduce_scatter`
 - `all-gather → GEMM` → `all_gather_matmul`
-- FP8 scaled variants of both patterns
+- 两种模式的 FP8 scaled 变体
 
-Supported hardware: NVIDIA CUDA with symmetric-memory (`torch.distributed._symmetric_memory`) support.
+支持的硬件：支持对称内存（`torch.distributed._symmetric_memory`）的 NVIDIA CUDA。
 
-On B200, pattern-matching fp8 FlashInfer scaled MM is not supported, so it must be disabled
-([#27893](https://github.com/vllm-project/vllm/issues/27893))
+在 B200 上，不支持 FP8 FlashInfer scaled MM 的模式匹配，因此必须禁用它
+（[#27893](https://github.com/vllm-project/vllm/issues/27893)）
 
 ```shell
 VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel ...
 ```
 
-**Code locations.**
+**代码位置。**
 
-- Pass: [`vllm/compilation/passes/fusion/collective_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/collective_fusion.py)
-- Sequence parallelism pass: [`vllm/compilation/passes/fusion/sequence_parallelism.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/sequence_parallelism.py)
+- 传递：[`vllm/compilation/passes/fusion/collective_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/collective_fusion.py)
+- 序列并行传递：[`vllm/compilation/passes/fusion/sequence_parallelism.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/sequence_parallelism.py)
 
-### QK Norm + RoPE (`enable_qk_norm_rope_fusion`)
+### QK Norm + RoPE（`enable_qk_norm_rope_fusion`）
 
 !!! info
-    Only applicable to models that apply per-head RMSNorm to Q and K before rotary positional
-    embedding (e.g. Qwen). Not enabled by default at any optimization level due to perf issues on H100:
-    [#34391](https://github.com/vllm-project/vllm/issues/34391)
+    仅适用于在旋转位置嵌入前对 Q 和 K 应用逐头 RMSNorm 的模型（例如 Qwen）。由于 H100 上的性能问题，默认不在任何优化级别启用：[#34391](https://github.com/vllm-project/vllm/issues/34391)
 
-**What it fuses.** Fuses the sequence: split QKV → reshape → Q/K RMSNorm → reshape → rotary
-embedding into a single `fused_qk_norm_rope` CUDA kernel.
+**融合内容。** 将以下序列融合为单个 `fused_qk_norm_rope` CUDA 内核：拆分 QKV → 重塑 → Q/K RMSNorm → 重塑 → 旋转嵌入。
 
 ```text
-# Unfused:
+# 未融合：
 q, k, v = split(qkv)
 q_norm = rms_norm(q.view(heads))
 k_norm = rms_norm(k.view(kv_heads))
 q_rope, k_rope = rotary_embedding(q_norm, k_norm, ...)
 
-# Fused:
+# 融合后：
 fused_qk_norm_rope(qkv, ...)
 ```
 
-Supported hardware: CUDA (sm80+) only, tested only on sm90 and sm100.
+支持的硬件：仅 CUDA（sm80+），仅在 sm90 和 sm100 上测试。
 
-**Code locations.**
+**代码位置。**
 
-- Pass: [`vllm/compilation/passes/fusion/qk_norm_rope_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/qk_norm_rope_fusion.py)
-- CUDA kernel: [`csrc/ops.h`](https://github.com/vllm-project/vllm/blob/main/csrc/ops.h) (`fused_qk_norm_rope`)
+- 传递：[`vllm/compilation/passes/fusion/qk_norm_rope_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/qk_norm_rope_fusion.py)
+- CUDA 内核：[`csrc/ops.h`](https://github.com/vllm-project/vllm/blob/main/csrc/ops.h)（`fused_qk_norm_rope`）
 
-### RMSNorm + Quantization (`fuse_norm_quant`)
-
-!!! warning
-    On NVIDIA, Inductor actually generates a faster fused kernel than our custom CUDA kernel.
-    Hence, this fusion is only enabled when either `rms_norm` or `quant_fp8` is using a custom kernel.
-
-**What it fuses.** Combines the custom `rms_norm` / `fused_add_rms_norm`
-operations with subsequent quantization into a single fused kernel,
-eliminating an intermediate read/write of the full-precision activation tensor.
-Two variants are fused:
-
-- *Plain RMSNorm + quant*: `rms_norm(x) → quant_fp8(y)`
-- *Fused-add RMSNorm + quant*: `fused_add_rms_norm(x, residual) → quant_fp8(y)` — also updates the residual in-place.
-
-Note that AITER fusions are currently in a separate pass in `vllm.compilation.passes.fusion.rocm_aiter_fusion`.
-
-Supported quantization scheme/hardware combinations:
-
-- FP8 static per-tensor: CUDA & HIP kernel
-- FP8 dynamic per-token: CUDA & HIP kernel, AITER
-- FP8 dynamic per-token-group (128/64): CUDA & HIP kernel, AITER
-
-**Code locations.**
-
-- Pass: [`vllm/compilation/passes/fusion/rms_quant_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/rms_quant_fusion.py)
-- ROCm AITER pass: [`vllm/compilation/passes/fusion/rocm_aiter_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/rocm_aiter_fusion.py)
-- CUDA/HIP kernels: [`csrc/layernorm_quant_kernels.cu`](https://github.com/vllm-project/vllm/blob/main/csrc/layernorm_quant_kernels.cu)
-
-### SiLU+Mul + Quantization (`fuse_act_quant`)
+### RMSNorm + Quantization（`fuse_norm_quant`）
 
 !!! warning
-    Same as `fuse_norm_quant`: on NVIDIA, Inductor generates a faster fused kernel than our custom ops.
-    This fusion is only enabled when either `silu_and_mul` or `quant_fp8` are using a custom kernel,
-    or for NVFP4-quantized models (where FP4 quant is always a custom op).
+    在 NVIDIA 上，Inductor 实际生成的融合内核比我们的自定义 CUDA 内核更快。因此，此融合仅在 `rms_norm` 或 `quant_fp8` 使用自定义内核时启用。
 
-**What it fuses.** Fuses the `silu_and_mul` gate-up projection activation with subsequent quantization into a single kernel,
-avoiding materialization of the full-precision post-activation tensor.
+**融合内容。** 将自定义的 `rms_norm` / `fused_add_rms_norm` 操作与后续的量化合并为单个融合内核，消除了中间的全精度激活张量的读取/写入。融合两种变体：
 
-Note that AITER fusions are in a separate pass in `vllm.compilation.passes.fusion.rocm_aiter_fusion`.
+- *Plain RMSNorm + quant*：`rms_norm(x) → quant_fp8(y)`
+- *Fused-add RMSNorm + quant*：`fused_add_rms_norm(x, residual) → quant_fp8(y)` — 同时就地更新残差。
 
-Supported quantization scheme/hardware combinations:
+注意，AITER 融合目前位于 `vllm.compilation.passes.fusion.rocm_aiter_fusion` 中的单独传递中。
 
-- FP8 static per-tensor: CUDA & HIP kernel
-- FP8 dynamic per-group (128/64): CUDA kernel (sm89+, not active when DeepGemm is used on sm100+)
-- NVFP4 dynamic: CUDA sm100+ only with FlashInfer
-- FP8 per-token-group (128): ROCm AITER only
+支持的量化方案/硬件组合：
 
-**Code locations.**
+- FP8 static per-tensor：CUDA & HIP 内核
+- FP8 dynamic per-token：CUDA & HIP 内核、AITER
+- FP8 dynamic per-token-group（128/64）：CUDA & HIP 内核、AITER
 
-- Pass: [`vllm/compilation/passes/fusion/act_quant_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/act_quant_fusion.py)
-- ROCm AITER pass: [`vllm/compilation/passes/fusion/rocm_aiter_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/rocm_aiter_fusion.py)
-- CUDA/HIP kernels: [`csrc/quantization/`](https://github.com/vllm-project/vllm/blob/main/csrc/quantization/)
-- Fused SiLU+Mul+BlockQuant kernel: [`csrc/quantization/fused_kernels/fused_silu_mul_block_quant.cu`](https://github.com/vllm-project/vllm/blob/main/csrc/quantization/fused_kernels/fused_silu_mul_block_quant.cu)
+**代码位置。**
 
-### RMSNorm + Padding (`fuse_act_padding`)
+- 传递：[`vllm/compilation/passes/fusion/rms_quant_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/rms_quant_fusion.py)
+- ROCm AITER 传递：[`vllm/compilation/passes/fusion/rocm_aiter_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/rocm_aiter_fusion.py)
+- CUDA/HIP 内核：[`csrc/layernorm_quant_kernels.cu`](https://github.com/vllm-project/vllm/blob/main/csrc/layernorm_quant_kernels.cu)
+
+### SiLU+Mul + Quantization（`fuse_act_quant`）
+
+!!! warning
+    与 `fuse_norm_quant` 相同：在 NVIDIA 上，Inductor 生成的融合内核比我们的自定义算子更快。此融合仅在 `silu_and_mul` 或 `quant_fp8` 使用自定义内核时启用，或用于 NVFP4 量化模型（其中 FP4 量化始终是自定义算子）。
+
+**融合内容。** 将 `silu_and_mul` 门控上投影激活与后续量化融合为单个内核，避免了全精度后激活张量的具体化。
+
+注意，AITER 融合位于 `vllm.compilation.passes.fusion.rocm_aiter_fusion` 中的单独传递中。
+
+支持的量化方案/硬件组合：
+
+- FP8 static per-tensor：CUDA & HIP 内核
+- FP8 dynamic per-group（128/64）：CUDA 内核（sm89+，在 sm100+ 上使用 DeepGemm 时不激活）
+- NVFP4 dynamic：仅 CUDA sm100+ 与 FlashInfer
+- FP8 per-token-group（128）：仅 ROCm AITER
+
+**代码位置。**
+
+- 传递：[`vllm/compilation/passes/fusion/act_quant_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/act_quant_fusion.py)
+- ROCm AITER 传递：[`vllm/compilation/passes/fusion/rocm_aiter_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/rocm_aiter_fusion.py)
+- CUDA/HIP 内核：[`csrc/quantization/`](https://github.com/vllm-project/vllm/blob/main/csrc/quantization/)
+- 融合的 SiLU+Mul+BlockQuant 内核：[`csrc/quantization/fused_kernels/fused_silu_mul_block_quant.cu`](https://github.com/vllm-project/vllm/blob/main/csrc/quantization/fused_kernels/fused_silu_mul_block_quant.cu)
+
+### RMSNorm + Padding（`fuse_act_padding`）
 
 !!! info
-    ROCm/AITER-only. Targeted at GPT-OSS models.
+    仅 ROCm/AITER。针对 GPT-OSS 模型。
 
-**What it fuses.** Fuses a residual add + RMSNorm with a subsequent padding operation that pads
-the hidden dimension to a multiple required by downstream AITER Triton GEMM kernels.
+**融合内容。** 将残差相加 + RMSNorm 与后续的填充操作融合，该填充操作将隐藏维度填充为下游 AITER Triton GEMM 内核所需的倍数。
 
-Requires: AMD ROCm with AITER RMSNorm enabled. Enabled by default in optimization level O1 and above
-when the hidden size is 2880 and AITER Triton GEMMs *not* enabled.
+需要：启用 AITER RMSNorm 的 AMD ROCm。当隐藏大小为 2880 且 AITER Triton GEMM **未**启用时，默认在优化级别 O1 及以上启用。
 
-**Code locations.**
+**代码位置。**
 
-- Pass: [`vllm/compilation/passes/fusion/rocm_aiter_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/rocm_aiter_fusion.py) (`RocmAiterTritonAddRMSNormPadFusionPass`)
+- 传递：[`vllm/compilation/passes/fusion/rocm_aiter_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/rocm_aiter_fusion.py)（`RocmAiterTritonAddRMSNormPadFusionPass`）
 
-### MLA Dual RMSNorm (`fuse_mla_dual_rms_norm`)
+### MLA Dual RMSNorm（`fuse_mla_dual_rms_norm`）
 
 !!! info
-    ROCm/AITER-only. Targeted at DeepSeek-V3 / Kimi-K2 MLA attention.
+    仅 ROCm/AITER。针对 DeepSeek-V3 / Kimi-K2 MLA 注意力。
 
 !!! note
-    When the native implementation of `rms_norm` is used (the default on CUDA and
-    ROCm for now), Inductor's built-in fusion already handles merging these norms
-    automatically. This explicit pass targets the case where AITER's custom
-    `rms_norm` op is active, which Inductor cannot fuse on its own.
+    当使用 `rms_norm` 的原生实现（目前 CUDA 和 ROCm 上的默认设置）时，Inductor 的内置融合已自动处理这些范数的合并。此显式传递针对 AITER 的自定义 `rms_norm` 算子激活的情况，Inductor 无法自行融合该算子。
 
-**What it fuses.** Fuses the paired `q_a_layernorm` and `kv_a_layernorm` RMS norm
-operations in MLA attention into a single `fused_qk_rmsnorm` HIP kernel call via AITER,
-reducing kernel launch overhead from 2 launches to 1 per MLA layer.
+**融合内容。** 将 MLA 注意力中配对的 `q_a_layernorm` 和 `kv_a_layernorm` RMS 归一化操作融合为单个通过 AITER 的 `fused_qk_rmsnorm` HIP 内核调用，将每个 MLA 层的内核启动开销从 2 次减少到 1 次。
 
 ```text
-# Unfused:
+# 未融合：
 q_c, kv_lora = split(projected, [q_dim, kv_dim])
 kv_c, k_pe   = split(kv_lora,  [kv_c_dim, k_pe_dim])
 q_c  = rms_norm(q_c,  q_weight,  eps)
 kv_c = rms_norm(kv_c, kv_weight, eps)
 
-# Fused:
+# 融合后：
 q_c, kv_lora = split(projected, [q_dim, kv_dim])
 kv_c, k_pe   = split(kv_lora,  [kv_c_dim, k_pe_dim])
 q_normed, kv_normed = fused_mla_dual_rms_norm(
     q_c, q_weight, kv_c, kv_weight, eps1, eps2)
 ```
 
-Requires: AMD ROCm with AITER enabled. Enabled by default at optimization level O1 and above
-when AITER is available.
+需要：启用 AITER 的 AMD ROCm。当 AITER 可用时，默认在优化级别 O1 及以上启用。
 
-**Code locations.**
+**代码位置。**
 
-- Pass: [`vllm/compilation/passes/fusion/rocm_aiter_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/rocm_aiter_fusion.py) (`MLADualRMSNormFusionPass`)
-- Custom op: [`vllm/_aiter_ops.py`](https://github.com/vllm-project/vllm/blob/main/vllm/_aiter_ops.py) (`fused_mla_dual_rms_norm`)
-- AITER kernel: [`fused_qk_rmsnorm`](https://github.com/ROCm/aiter/pull/2442)
+- 传递：[`vllm/compilation/passes/fusion/rocm_aiter_fusion.py`](https://github.com/vllm-project/vllm/blob/main/vllm/compilation/passes/fusion/rocm_aiter_fusion.py)（`MLADualRMSNormFusionPass`）
+- 自定义算子：[`vllm/_aiter_ops.py`](https://github.com/vllm-project/vllm/blob/main/vllm/_aiter_ops.py)（`fused_mla_dual_rms_norm`）
+- AITER 内核：[`fused_qk_rmsnorm`](https://github.com/ROCm/aiter/pull/2442)
 
-## See Also
+## 另请参阅
 
-- [Optimization Levels](optimization_levels.md) — high-level presets that set
-  fusion defaults.
-- [torch.compile in vLLM](torch_compile.md) — how the Inductor pass pipeline
-  works.
-- [Attention Backends](attention_backends.md) — attention-specific kernel
-  selection.
+- [优化级别](optimization_levels.md) — 设置融合默认值的高级预设。
+- [vLLM 中的 torch.compile](torch_compile.md) — Inductor 传递管道的工作原理。
+- [注意力后端](attention_backends.md) — 特定于注意力的内核选择。

@@ -1,18 +1,12 @@
 # vllm bench mm-processor
 
-## Overview
+## 概述
 
-`vllm bench mm-processor` profiles the multimodal input processor pipeline of
-vision-language models. It measures per-stage latency from the HuggingFace
-processor through to the encoder forward pass, helping you identify
-preprocessing bottlenecks and understand how different image resolutions or
-item counts affect end-to-end request time.
+`vllm bench mm-processor` 对视觉语言模型的多模态输入处理器流水线进行性能分析。它测量从 HuggingFace 处理器到编码器前向传递的每个阶段延迟，帮助你识别预处理瓶颈，并理解不同图像分辨率或项目数量如何影响端到端请求时间。
 
-The benchmark supports two data sources: synthetic random multimodal inputs
-(`random-mm`) and HuggingFace datasets (`hf`). Warmup requests are run before
-measurement to ensure stable results.
+该基准测试支持两种数据源：合成随机多模态输入（`random-mm`）和 HuggingFace 数据集（`hf`）。在测量前会运行预热请求以确保结果稳定。
 
-## Quick Start
+## 快速开始
 
 ```bash
 vllm bench mm-processor \
@@ -26,30 +20,27 @@ vllm bench mm-processor \
   --random-mm-bucket-config '{(256, 256, 1): 0.7, (720, 1280, 1): 0.3}'
 ```
 
-## Measured Stages
+## 测量阶段
 
-| Stage | Description |
+| 阶段 | 描述 |
 | ----- | ----------- |
-| `get_mm_hashes_secs` | Time spent hashing multimodal inputs |
-| `get_cache_missing_items_secs` | Time spent looking up the processor cache |
-| `apply_hf_processor_secs` | Time spent in the HuggingFace processor |
-| `merge_mm_kwargs_secs` | Time spent merging multimodal kwargs |
-| `apply_prompt_updates_secs` | Time spent updating prompt tokens |
-| `preprocessor_total_secs` | Total preprocessing time |
-| `encoder_forward_secs` | Time spent in the encoder model forward pass |
-| `num_encoder_calls` | Number of encoder invocations per request |
+| `get_mm_hashes_secs` | 对多模态输入进行哈希处理的时间 |
+| `get_cache_missing_items_secs` | 查找处理器缓存的时间 |
+| `apply_hf_processor_secs` | HuggingFace 处理器中的处理时间 |
+| `merge_mm_kwargs_secs` | 合并多模态 kwargs 的时间 |
+| `apply_prompt_updates_secs` | 更新提示 token 的时间 |
+| `preprocessor_total_secs` | 预处理总时间 |
+| `encoder_forward_secs` | 编码器模型前向传递时间 |
+| `num_encoder_calls` | 每个请求的编码器调用次数 |
 
-The benchmark also reports end-to-end latency (TTFT + decode time) per
-request. Use `--metric-percentiles` to select which percentiles to report
-(default: p99) and `--output-json` to save results.
+该基准测试还会报告每个请求的端到端延迟（TTFT + 解码时间）。使用 `--metric-percentiles` 选择要报告的百分位数（默认：p99），使用 `--output-json` 保存结果。
 
-For more examples (HF datasets, warmup, JSON output), see
-[Benchmarking CLI — Multimodal Processor Benchmark](../../benchmarking/cli.md#multimodal-processor-benchmark).
+更多示例（HF 数据集、预热、JSON 输出），请参见[基准测试 CLI — 多模态处理器基准测试](../../benchmarking/cli.md#多模态处理器基准测试)。
 
-## JSON CLI Arguments
+## JSON CLI 参数
 
 --8<-- "docs/cli/json_tip.inc.md"
 
-## Arguments
+## 参数
 
 --8<-- "docs/generated/argparse/bench_mm_processor.inc.md"

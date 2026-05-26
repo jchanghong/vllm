@@ -1,15 +1,15 @@
-# Using Kubernetes
+# 使用 Kubernetes
 
-Deploying vLLM on Kubernetes is a scalable and efficient way to serve machine learning models. This guide walks you through deploying vLLM using native Kubernetes.
+在 Kubernetes 上部署 vLLM 是一种可扩展且高效的方式来提供机器学习模型服务。本指南将引导您使用原生 Kubernetes 部署 vLLM。
 
-- [Deployment with CPUs](#deployment-with-cpus)
-- [Deployment with GPUs](#deployment-with-gpus)
-- [Serving with gRPC](#serving-with-grpc)
-- [Troubleshooting](#troubleshooting)
-    - [Startup Probe or Readiness Probe Failure, container log contains "KeyboardInterrupt: terminated"](#startup-probe-or-readiness-probe-failure-container-log-contains-keyboardinterrupt-terminated)
-- [Conclusion](#conclusion)
+- [使用 CPU 部署](#deployment-with-cpus)
+- [使用 GPU 部署](#deployment-with-gpus)
+- [使用 gRPC 提供服务](#serving-with-grpc)
+- [故障排除](#troubleshooting)
+    - [启动探针或就绪探针失败，容器日志包含 "KeyboardInterrupt: terminated"](#startup-probe-or-readiness-probe-failure-container-log-contains-keyboardinterrupt-terminated)
+- [总结](#conclusion)
 
-Alternatively, you can deploy vLLM to Kubernetes using any of the following:
+或者，您也可以使用以下任一方式将 vLLM 部署到 Kubernetes：
 
 - [Helm](frameworks/helm.md)
 - [NVIDIA Dynamo](integrations/dynamo.md)
@@ -25,14 +25,14 @@ Alternatively, you can deploy vLLM to Kubernetes using any of the following:
 - [vllm-project/AIBrix](integrations/aibrix.md)
 - [vllm-project/production-stack](integrations/production-stack.md)
 
-## Deployment with CPUs
+## 使用 CPU 部署
 
 !!! note
-    The use of CPUs here is for demonstration and testing purposes only and its performance will not be on par with GPUs.
+    此处使用 CPU 仅用于演示和测试目的，其性能无法与 GPU 相提并论。
 
-First, create a Kubernetes PVC and Secret for downloading and storing Hugging Face model:
+首先，创建一个 Kubernetes PVC 和 Secret，用于下载和存储 Hugging Face 模型：
 
-??? console "Config"
+??? console "配置"
 
     ```bash
     cat <<EOF |kubectl apply -f -
@@ -58,18 +58,17 @@ First, create a Kubernetes PVC and Secret for downloading and storing Hugging Fa
     EOF
     ```
 
-Here, the `token` field stores your **Hugging Face access token**. For details on how to generate a token,
-see the [Hugging Face documentation](https://huggingface.co/docs/hub/en/security-tokens).
+此处，`token` 字段存储您的 **Hugging Face 访问令牌**。有关如何生成令牌的详细信息，请参阅 [Hugging Face 文档](https://huggingface.co/docs/hub/en/security-tokens)。
 
-Next, start the vLLM server as a Kubernetes Deployment and Service.
+接下来，以 Kubernetes Deployment 和 Service 的形式启动 vLLM 服务器。
 
-Note that you will want to configure your vLLM image based on your processor arch:
+注意，您需要根据处理器架构配置 vLLM 镜像：
 
-??? console "Config"
+??? console "配置"
 
     ```bash
-    VLLM_IMAGE=public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:latest       # use this for x86_64
-    VLLM_IMAGE=public.ecr.aws/q9t5s3a7/vllm-arm64-cpu-release-repo:latest # use this for arm64
+    VLLM_IMAGE=public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:latest       # x86_64 使用此镜像
+    VLLM_IMAGE=public.ecr.aws/q9t5s3a7/vllm-arm64-cpu-release-repo:latest # arm64 使用此镜像
     cat <<EOF |kubectl apply -f -
     apiVersion: apps/v1
     kind: Deployment
@@ -123,7 +122,7 @@ Note that you will want to configure your vLLM image based on your processor arc
     EOF
     ```
 
-We can verify that the vLLM server has started successfully via the logs (this might take a couple of minutes to download the model):
+我们可以通过日志验证 vLLM 服务器是否已成功启动（下载模型可能需要几分钟）：
 
 ```bash
 kubectl logs -l app.kubernetes.io/name=vllm
@@ -134,13 +133,13 @@ INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 ```
 
-## Deployment with GPUs
+## 使用 GPU 部署
 
-**Pre-requisite**: Ensure that you have a running [Kubernetes cluster with GPUs](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/).
+**前置条件**：确保您有一个运行中的 [带有 GPU 的 Kubernetes 集群](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/)。
 
-1. Create a PVC, Secret and Deployment for vLLM
+1. 为 vLLM 创建 PVC、Secret 和 Deployment
 
-      PVC is used to store the model cache and it is optional, you can use hostPath or other storage options
+      PVC 用于存储模型缓存，是可选的；您也可以使用 hostPath 或其他存储选项。
 
       <details>
       <summary>Yaml</summary>
@@ -163,7 +162,7 @@ INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 
       </details>
 
-      Secret is optional and only required for accessing gated models, you can skip this step if you are not using gated models
+      Secret 是可选的，仅在访问受限模型时需要；如果您不使用受限模型，可以跳过此步骤。
 
       ```yaml
       apiVersion: v1
@@ -176,11 +175,11 @@ INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
         token: "REPLACE_WITH_TOKEN"
       ```
   
-      Next to create the deployment file for vLLM to run the model server. The following example deploys the `Mistral-7B-Instruct-v0.3` model.
+      接下来，创建 Deployment 文件以运行 vLLM 模型服务器。以下示例部署了 `Mistral-7B-Instruct-v0.3` 模型。
 
-      Here are two examples for using NVIDIA GPU and AMD GPU.
+      以下是使用 NVIDIA GPU 和 AMD GPU 的两个示例。
 
-      NVIDIA GPU:
+      NVIDIA GPU：
 
       <details>
       <summary>Yaml</summary>
@@ -207,7 +206,7 @@ INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
             - name: cache-volume
               persistentVolumeClaim:
                 claimName: mistral-7b
-            # vLLM needs to access the host's shared memory for tensor parallel inference.
+            # vLLM 需要访问主机的共享内存以进行张量并行推理。
             - name: shm
               emptyDir:
                 medium: Memory
@@ -257,9 +256,9 @@ INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 
       </details>
 
-      AMD GPU:
+      AMD GPU：
 
-      You can refer to the `deployment.yaml` below if using AMD ROCm GPU like MI300X.
+      如果您使用的是 AMD ROCm GPU（如 MI300X），可以参考下面的 `deployment.yaml`。
 
       <details>
       <summary>Yaml</summary>
@@ -287,7 +286,7 @@ INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
             - name: cache-volume
               persistentVolumeClaim:
                 claimName: mistral-7b
-            # vLLM needs to access the host's shared memory for tensor parallel inference.
+            # vLLM 需要访问主机的共享内存以进行张量并行推理。
             - name: shm
               emptyDir:
                 medium: Memory
@@ -334,11 +333,11 @@ INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 
       </details>
 
-      You can get the full example with steps and sample yaml files from <https://github.com/ROCm/k8s-device-plugin/tree/master/example/vllm-serve>.
+      您可以从 <https://github.com/ROCm/k8s-device-plugin/tree/master/example/vllm-serve> 获取包含步骤和示例 yaml 文件的完整示例。
 
-2. Create a Kubernetes Service for vLLM
+2. 为 vLLM 创建 Kubernetes Service
 
-      Next, create a Kubernetes Service file to expose the `mistral-7b` deployment:
+      接下来，创建 Kubernetes Service 文件以暴露 `mistral-7b` 部署：
 
       <details>
       <summary>Yaml</summary>
@@ -355,7 +354,7 @@ INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
           port: 80
           protocol: TCP
           targetPort: 8000
-        # The label selector should match the deployment labels & it is useful for prefix caching feature
+        # 标签选择器应与部署标签匹配，对前缀缓存功能有用
         selector:
           app: mistral-7b
         sessionAffinity: None
@@ -364,16 +363,16 @@ INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 
       </details>
 
-3. Deploy and Test
+3. 部署和测试
 
-      Apply the deployment and service configurations using `kubectl apply -f <filename>`:
+      使用 `kubectl apply -f <filename>` 应用部署和服务配置：
 
       ```bash
       kubectl apply -f deployment.yaml
       kubectl apply -f service.yaml
       ```
 
-      To test the deployment, run the following `curl` command:
+      要测试部署，运行以下 `curl` 命令：
 
       ```bash
       curl http://mistral-7b.default.svc.cluster.local/v1/completions \
@@ -386,19 +385,19 @@ INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
             }'
       ```
 
-      If the service is correctly deployed, you should receive a response from the vLLM model.
+      如果服务正确部署，您将收到来自 vLLM 模型的响应。
 
-## Serving with gRPC
+## 使用 gRPC 提供服务
 
-vLLM can serve models over gRPC instead of HTTP by passing the `--grpc` flag. This requires the optional gRPC dependencies:
+vLLM 可以通过传递 `--grpc` 标志来通过 gRPC 而非 HTTP 提供模型服务。这需要可选的 gRPC 依赖：
 
 ```bash
 pip install vllm[grpc]
 ```
 
-When using `--grpc`, the server exposes the standard [gRPC Health Checking Protocol](https://github.com/grpc/grpc/blob/master/doc/health-checking.md) (`grpc.health.v1.Health`), which integrates with Kubernetes [native gRPC probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-a-grpc-liveness-probe) (available since Kubernetes 1.24).
+使用 `--grpc` 时，服务器会暴露标准的 [gRPC 健康检查协议](https://github.com/grpc/grpc/blob/master/doc/health-checking.md)（`grpc.health.v1.Health`），该协议可与 Kubernetes [原生 gRPC 探针](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-a-grpc-liveness-probe)（自 Kubernetes 1.24 起可用）集成。
 
-To deploy with gRPC, change the `vllm serve` command to include `--grpc` and replace `httpGet` probes with `grpc` probes:
+要使用 gRPC 部署，更改 `vllm serve` 命令以包含 `--grpc`，并将 `httpGet` 探针替换为 `grpc` 探针：
 
 ```yaml
 containers:
@@ -423,25 +422,25 @@ containers:
 ```
 
 !!! note
-    The gRPC health service checks the engine status on every probe. If the engine is unhealthy or the server is shutting down, the probe returns `NOT_SERVING`.
+    gRPC 健康服务会在每次探测时检查引擎状态。如果引擎不健康或服务器正在关闭，探针将返回 `NOT_SERVING`。
 
-You can also verify the health service manually with `grpcurl`:
+您也可以使用 `grpcurl` 手动验证健康服务：
 
 ```bash
 grpcurl -plaintext localhost:50051 grpc.health.v1.Health/Check
 ```
 
-## Troubleshooting
+## 故障排除
 
-### Startup Probe or Readiness Probe Failure, container log contains "KeyboardInterrupt: terminated"
+### 启动探针或就绪探针失败，容器日志包含 "KeyboardInterrupt: terminated"
 
-If the startup or readiness probe failureThreshold is too low for the time needed to start up the server, Kubernetes scheduler will kill the container. A couple of indications that this has happened:
+如果启动探针或就绪探针的 failureThreshold 对于服务器启动所需时间来说太低，Kubernetes 调度程序将杀死容器。以下迹象表明发生了这种情况：
 
-1. container log contains "KeyboardInterrupt: terminated"
-2. `kubectl get events` shows message `Container $NAME failed startup probe, will be restarted`
+1. 容器日志包含 "KeyboardInterrupt: terminated"
+2. `kubectl get events` 显示消息 `Container $NAME failed startup probe, will be restarted`
 
-To mitigate, increase the failureThreshold to allow more time for the model server to start serving. You can identify an ideal failureThreshold by removing the probes from the manifest and measuring how much time it takes for the model server to show it's ready to serve.
+要缓解此问题，请增加 failureThreshold 以允许模型服务器有更多时间启动服务。您可以通过从清单中移除探针，然后测量模型服务器显示就绪所需的时间来确定理想的 failureThreshold。
 
-## Conclusion
+## 总结
 
-Deploying vLLM with Kubernetes allows for efficient scaling and management of ML models leveraging GPU resources. By following the steps outlined above, you should be able to set up and test a vLLM deployment within your Kubernetes cluster. If you encounter any issues or have suggestions, please feel free to contribute to the documentation.
+使用 Kubernetes 部署 vLLM 能够有效扩缩容和管理利用 GPU 资源的 ML 模型。通过遵循上述步骤，您应该能够在 Kubernetes 集群中设置和测试 vLLM 部署。如果您遇到任何问题或有任何建议，请随时为文档做出贡献。

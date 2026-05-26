@@ -1,28 +1,28 @@
-# Multimodal Inputs
+# 多模态输入
 
-This page teaches you how to pass multi-modal inputs to [multi-modal models](../models/supported_models.md#list-of-multimodal-language-models) in vLLM.
+本页面介绍如何在 vLLM 中将多模态输入传递给[多模态模型](../models/supported_models.md#list-of-multimodal-language-models)。
 
 !!! note
-    We are actively iterating on multi-modal support. See [this RFC](https://github.com/vllm-project/vllm/issues/4194) for upcoming changes,
-    and [open an issue on GitHub](https://github.com/vllm-project/vllm/issues/new/choose) if you have any feedback or feature requests.
+    我们正在积极探索多模态支持。请参阅[此 RFC](https://github.com/vllm-project/vllm/issues/4194)了解即将到来的更改，
+    如有任何反馈或功能请求，请[在 GitHub 上提交 issue](https://github.com/vllm-project/vllm/issues/new/choose)。
 
 !!! tip
-    When serving multi-modal models, consider setting `--allowed-media-domains` to restrict domain that vLLM can access to prevent it from accessing arbitrary endpoints that can potentially be vulnerable to Server-Side Request Forgery (SSRF) attacks. You can provide a list of domains for this arg. For example: `--allowed-media-domains upload.wikimedia.org github.com www.bogotobogo.com`
+    在服务多模态模型时，请考虑设置 `--allowed-media-domains` 来限制 vLLM 可以访问的域名，以防止它访问可能容易受到服务端请求伪造（SSRF）攻击的任意端点。您可以为该参数提供一个域名列表。例如：`--allowed-media-domains upload.wikimedia.org github.com www.bogotobogo.com`
 
-    Also, consider setting `VLLM_MEDIA_URL_ALLOW_REDIRECTS=0` to prevent HTTP redirects from being followed to bypass domain restrictions.
+    另外，请考虑设置 `VLLM_MEDIA_URL_ALLOW_REDIRECTS=0` 以防止 HTTP 重定向被用于绕过域名限制。
 
-    This restriction is especially important if you run vLLM in a containerized environment where the vLLM pods may have unrestricted access to internal networks.
+    如果您在容器化环境中运行 vLLM，这种限制尤其重要，因为 vLLM pods 可能不受限制地访问内部网络。
 
-## Offline Inference
+## 离线推理
 
-To input multi-modal data, follow this schema in [vllm.inputs.PromptType][]:
+要输入多模态数据，请遵循 [vllm.inputs.PromptType][] 中的以下模式：
 
-- `prompt`: The prompt should follow the format that is documented on HuggingFace.
-- `multi_modal_data`: This is a dictionary that follows the schema defined in [vllm.inputs.MultiModalDataDict][].
+- `prompt`：提示词应遵循 HuggingFace 上记录的格式。
+- `multi_modal_data`：这是一个字典，遵循 [vllm.inputs.MultiModalDataDict][] 中定义的模式。
 
-### Image Inputs
+### 图像输入
 
-You can pass a single image to the `'image'` field of the multi-modal dictionary, as shown in the following examples:
+您可以将单张图像传递给多模态字典的 `'image'` 字段，如下例所示：
 
 ??? code
 
@@ -31,13 +31,13 @@ You can pass a single image to the `'image'` field of the multi-modal dictionary
 
     llm = LLM(model="llava-hf/llava-1.5-7b-hf")
 
-    # Refer to the HuggingFace repo for the correct format to use
+    # 参考 HuggingFace 仓库了解正确的格式
     prompt = "USER: <image>\nWhat is the content of this image?\nASSISTANT:"
 
-    # Load the image using PIL.Image
+    # 使用 PIL.Image 加载图像
     image = PIL.Image.open(...)
 
-    # Single prompt inference
+    # 单提示词推理
     outputs = llm.generate({
         "prompt": prompt,
         "multi_modal_data": {"image": image},
@@ -47,7 +47,7 @@ You can pass a single image to the `'image'` field of the multi-modal dictionary
         generated_text = o.outputs[0].text
         print(generated_text)
 
-    # Batch inference
+    # 批量推理
     image_1 = PIL.Image.open(...)
     image_2 = PIL.Image.open(...)
     outputs = llm.generate(
@@ -68,9 +68,9 @@ You can pass a single image to the `'image'` field of the multi-modal dictionary
         print(generated_text)
     ```
 
-Full example: [examples/generate/multimodal/vision_language_offline.py](../../examples/generate/multimodal/vision_language_offline.py)
+完整示例：[examples/generate/multimodal/vision_language_offline.py](../../examples/generate/multimodal/vision_language_offline.py)
 
-To substitute multiple images inside the same text prompt, you can pass in a list of images instead:
+要在同一文本提示中替换多张图像，您可以传入一个图像列表：
 
 ??? code
 
@@ -79,15 +79,15 @@ To substitute multiple images inside the same text prompt, you can pass in a lis
 
     llm = LLM(
         model="microsoft/Phi-3.5-vision-instruct",
-        trust_remote_code=True,  # Required to load Phi-3.5-vision
-        max_model_len=4096,  # Otherwise, it may not fit in smaller GPUs
-        limit_mm_per_prompt={"image": 2},  # The maximum number to accept
+        trust_remote_code=True,  # 加载 Phi-3.5-vision 所需
+        max_model_len=4096,  # 否则可能无法放入较小的 GPU
+        limit_mm_per_prompt={"image": 2},  # 最大可接受数量
     )
 
-    # Refer to the HuggingFace repo for the correct format to use
+    # 参考 HuggingFace 仓库了解正确的格式
     prompt = "<|user|>\n<|image_1|>\n<|image_2|>\nWhat is the content of each image?<|end|>\n<|assistant|>\n"
 
-    # Load the images using PIL.Image
+    # 使用 PIL.Image 加载图像
     image1 = PIL.Image.open(...)
     image2 = PIL.Image.open(...)
 
@@ -101,9 +101,9 @@ To substitute multiple images inside the same text prompt, you can pass in a lis
         print(generated_text)
     ```
 
-Full example: [examples/generate/multimodal/vision_language_multi_image_offline.py](../../examples/generate/multimodal/vision_language_multi_image_offline.py)
+完整示例：[examples/generate/multimodal/vision_language_multi_image_offline.py](../../examples/generate/multimodal/vision_language_multi_image_offline.py)
 
-If using the [LLM.chat](../models/generative_models.md#llmchat) method, you can pass images directly in the message content using various formats: image URLs, PIL Image objects, or pre-computed embeddings:
+如果使用 [LLM.chat](../models/generative_models.md#llmchat) 方法，您可以直接在消息内容中使用多种格式传递图像：图像 URL、PIL Image 对象或预计算的嵌入：
 
 ??? code
 
@@ -143,7 +143,7 @@ If using the [LLM.chat](../models/generative_models.md#llmchat) method, you can 
         },
     ]
 
-    # Perform inference and log output.
+    # 执行推理并输出日志。
     outputs = llm.chat(conversation)
 
     for o in outputs:
@@ -151,18 +151,18 @@ If using the [LLM.chat](../models/generative_models.md#llmchat) method, you can 
         print(generated_text)
     ```
 
-Multi-image input can be extended to perform video captioning. We show this with [Qwen2-VL](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) as it supports videos:
+多图像输入可以扩展用于视频字幕。我们以 [Qwen2-VL](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) 为例，因为它支持视频：
 
 ??? code
 
     ```python
     from vllm import LLM
 
-    # Specify the maximum number of frames per video to be 4. This can be changed.
+    # 指定每个视频的最大帧数为 4。此值可更改。
     llm = LLM("Qwen/Qwen2-VL-2B-Instruct", limit_mm_per_prompt={"image": 4})
 
-    # Create the request payload.
-    video_frames = ... # load your video making sure it only has the number of frames specified earlier.
+    # 创建请求负载。
+    video_frames = ... # 加载您的视频，确保其帧数不超过前面指定的数量。
     message = {
         "role": "user",
         "content": [
@@ -173,11 +173,11 @@ Multi-image input can be extended to perform video captioning. We show this with
         ],
     }
     for i in range(len(video_frames)):
-        base64_image = encode_image(video_frames[i]) # base64 encoding.
+        base64_image = encode_image(video_frames[i]) # base64 编码。
         new_image = {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
         message["content"].append(new_image)
 
-    # Perform inference and log output.
+    # 执行推理并输出日志。
     outputs = llm.chat([message])
 
     for o in outputs:
@@ -185,25 +185,25 @@ Multi-image input can be extended to perform video captioning. We show this with
         print(generated_text)
     ```
 
-#### Custom RGBA Background Color
+#### 自定义 RGBA 背景颜色
 
-When loading RGBA images (images with transparency), vLLM converts them to RGB format. By default, transparent pixels are replaced with white background. You can customize this background color using the `rgba_background_color` parameter in `media_io_kwargs`.
+当加载 RGBA 图像（带透明度的图像）时，vLLM 会将其转换为 RGB 格式。默认情况下，透明像素将以白色背景替换。您可以使用 `media_io_kwargs` 中的 `rgba_background_color` 参数自定义此背景颜色。
 
 ??? code
 
     ```python
     from vllm import LLM
 
-    # Default white background (no configuration needed)
+    # 默认白色背景（无需配置）
     llm = LLM(model="llava-hf/llava-1.5-7b-hf")
 
-    # Custom black background for dark theme
+    # 深色主题的自定义黑色背景
     llm = LLM(
         model="llava-hf/llava-1.5-7b-hf",
         media_io_kwargs={"image": {"rgba_background_color": [0, 0, 0]}},
     )
 
-    # Custom brand color background (e.g., blue)
+    # 自定义品牌颜色背景（例如蓝色）
     llm = LLM(
         model="llava-hf/llava-1.5-7b-hf",
         media_io_kwargs={"image": {"rgba_background_color": [0, 0, 255]}},
@@ -211,16 +211,16 @@ When loading RGBA images (images with transparency), vLLM converts them to RGB f
     ```
 
 !!! note
-    - The `rgba_background_color` accepts RGB values as a list `[R, G, B]` or tuple `(R, G, B)` where each value is 0-255
-    - This setting only affects RGBA images with transparency; RGB images are unchanged
-    - If not specified, the default white background `(255, 255, 255)` is used for backward compatibility
+    - `rgba_background_color` 接受 RGB 值作为列表 `[R, G, B]` 或元组 `(R, G, B)`，其中每个值的范围为 0-255
+    - 此设置仅影响带透明度的 RGBA 图像；RGB 图像不受影响
+    - 如果未指定，默认使用白色背景 `(255, 255, 255)` 以保持向后兼容性
 
-#### Moondream3 Prompt Recipes { #moondream3-prompt-recipes }
+#### Moondream3 提示词模板 { #moondream3-prompt-recipes }
 
-`Moondream3ForCausalLM` supports two task-specific prompt formats:
+`Moondream3ForCausalLM` 支持两种特定任务的提示词格式：
 
-- `query`: ask a question about the image.
-- `caption`: generate a caption for the image.
+- `query`：询问关于图像的问题。
+- `caption`：为图像生成字幕。
 
 ```python
 from vllm import LLM, SamplingParams
@@ -272,16 +272,15 @@ print("caption:", caption_out)
 ```
 
 !!! note
-    The native Moondream3 model also has `detect` and `point` skills. Those
-    require custom coordinate decoding and are not exposed by this vLLM
-    implementation.
+    原生 Moondream3 模型还具有 `detect` 和 `point` 技能。这些
+    需要自定义坐标解码，本 vLLM 实现未提供。
 
-### Video Inputs
+### 视频输入
 
-You can pass a list of NumPy arrays directly to the `'video'` field of the multi-modal dictionary
-instead of using multi-image input.
+您可以将 NumPy 数组列表直接传递给多模态字典的 `'video'` 字段，
+而不是使用多图像输入。
 
-Instead of NumPy arrays, you can also pass `'torch.Tensor'` instances, as shown in this example using Qwen2.5-VL:
+除了 NumPy 数组，您也可以传递 `'torch.Tensor'` 实例，如下面的 Qwen2.5-VL 示例所示：
 
 ??? code
 
@@ -346,42 +345,42 @@ Instead of NumPy arrays, you can also pass `'torch.Tensor'` instances, as shown 
     ```
 
     !!! note
-        'process_vision_info' is only applicable to Qwen2.5-VL and similar models.
+        'process_vision_info' 仅适用于 Qwen2.5-VL 及类似模型。
 
-Full example: [examples/generate/multimodal/vision_language_offline.py](../../examples/generate/multimodal/vision_language_offline.py)
+完整示例：[examples/generate/multimodal/vision_language_offline.py](../../examples/generate/multimodal/vision_language_offline.py)
 
-### Audio Inputs
+### 音频输入
 
-You can pass a tuple `(array, sampling_rate)` to the `'audio'` field of the multi-modal dictionary.
+您可以将元组 `(array, sampling_rate)` 传递给多模态字典的 `'audio'` 字段。
 
-Full example: [examples/generate/multimodal/audio_language_offline.py](../../examples/generate/multimodal/audio_language_offline.py)
+完整示例：[examples/generate/multimodal/audio_language_offline.py](../../examples/generate/multimodal/audio_language_offline.py)
 
-#### Chunking Long Audio for Transcription
+#### 长音频分块转录
 
-Speech-to-text models like Whisper have a maximum audio length they can process (typically 30 seconds). For longer audio files, vLLM provides a utility to intelligently split audio into chunks at quiet points to minimize cutting through speech.
+像 Whisper 这样的语音转文本模型有最大音频长度限制（通常为 30 秒）。对于更长的音频文件，vLLM 提供了一种实用工具，可以在静音处智能地将音频分割成块，以最大限度地减少对语音的切割。
 
 ```python
 from vllm import LLM, SamplingParams
 from vllm.multimodal.audio import split_audio
 from vllm.multimodal.media.audio import load_audio
 
-# Load long audio file
+# 加载长音频文件
 audio, sr = load_audio("long_audio.wav", sr=16000)
 
-# Split into chunks at low-energy (quiet) regions
+# 在低能量（静音）区域分割成块
 chunks = split_audio(
     audio_data=audio,
     sample_rate=sr,
-    max_clip_duration_s=30.0,      # Maximum chunk length in seconds
-    overlap_duration_s=1.0,         # Search window for finding quiet split points
-    min_energy_window_size=1600,    # Window size for energy calculation (~100ms at 16kHz)
+    max_clip_duration_s=30.0,      # 最大块长度（秒）
+    overlap_duration_s=1.0,         # 寻找安静分割点的搜索窗口
+    min_energy_window_size=1600,    # 能量计算的窗口大小（16kHz 下约 100ms）
 )
 
-# Initialize Whisper model
+# 初始化 Whisper 模型
 llm = LLM(model="openai/whisper-large-v3-turbo")
 sampling_params = SamplingParams(temperature=0, max_tokens=256)
 
-# Transcribe each chunk
+# 转录每个块
 transcriptions = []
 for chunk in chunks:
     outputs = llm.generate({
@@ -390,45 +389,45 @@ for chunk in chunks:
     }, sampling_params)
     transcriptions.append(outputs[0].outputs[0].text)
 
-# Combine results
+# 合并结果
 full_transcription = " ".join(transcriptions)
 ```
 
-The `split_audio` function:
+`split_audio` 函数：
 
-- Splits audio at quiet points to avoid cutting through speech
-- Uses RMS energy to find low-amplitude regions within the overlap window
-- Preserves all audio samples (no data loss)
-- Supports any sample rate
+- 在静音点分割音频，避免切割语音
+- 使用 RMS 能量在重叠窗口内查找低振幅区域
+- 保留所有音频样本（无数据丢失）
+- 支持任何采样率
 
-#### Automatic Audio Channel Normalization
+#### 自动音频通道归一化
 
-vLLM automatically normalizes audio channels for models that require specific audio formats. When loading audio with libraries like `torchaudio`, stereo files return shape `[channels, time]`, but many audio models (particularly Whisper-based models) expect mono audio with shape `[time]`.
+vLLM 会自动为需要特定音频格式的模型归一化音频通道。当使用 `torchaudio` 等库加载音频时，立体声文件返回形状 `[channels, time]`，但许多音频模型（特别是基于 Whisper 的模型）期望单声道音频，形状为 `[time]`。
 
-**Supported models with automatic mono conversion:**
+**支持自动单声道转换的模型：**
 
-- **Whisper** and all Whisper-based models
+- **Whisper** 及所有基于 Whisper 的模型
 - **Qwen2-Audio**
-- **Qwen2.5-Omni** / **Qwen3-Omni** (inherits from Qwen2.5-Omni)
+- **Qwen2.5-Omni** / **Qwen3-Omni**（继承自 Qwen2.5-Omni）
 - **Ultravox**
 
-For these models, vLLM automatically:
+对于这些模型，vLLM 会自动：
 
-1. Detects if the model requires mono audio via the feature extractor
-2. Converts multi-channel audio to mono using channel averaging
-3. Handles both `(channels, time)` format (torchaudio) and `(time, channels)` format (soundfile)
+1. 通过特征提取器检测模型是否需要单声道音频
+2. 使用声道平均将多声道音频转换为单声道
+3. 处理 `(channels, time)` 格式（torchaudio）和 `(time, channels)` 格式（soundfile）
 
-**Example with stereo audio:**
+**立体声音频示例：**
 
 ```python
 import torchaudio
 from vllm import LLM
 
-# Load stereo audio file - returns (channels, time) shape
+# 加载立体声音频文件 - 返回 (channels, time) 形状
 audio, sr = torchaudio.load("stereo_audio.wav")
-print(f"Original shape: {audio.shape}")  # e.g., torch.Size([2, 16000])
+print(f"原始形状: {audio.shape}")  # 例如 torch.Size([2, 16000])
 
-# vLLM automatically converts to mono for Whisper-based models
+# vLLM 自动为基于 Whisper 的模型转换为单声道
 llm = LLM(model="openai/whisper-large-v3")
 
 outputs = llm.generate({
@@ -437,34 +436,34 @@ outputs = llm.generate({
 })
 ```
 
-No manual conversion is needed - vLLM handles the channel normalization automatically based on the model's requirements.
+无需手动转换 - vLLM 根据模型需求自动处理通道归一化。
 
-### Embedding Inputs
+### 嵌入输入
 
-To input pre-computed embeddings belonging to a data type (i.e. image, video, or audio) directly to the language model,
-pass a tensor of shape `(..., hidden_size of LM)` to the corresponding field of the multi-modal dictionary.
-The exact shape depends on the model being used.
+要将属于某种数据类型（如图像、视频或音频）的预计算嵌入直接输入到语言模型，
+请将形状为 `(..., hidden_size of LM)` 的张量传递给多模态字典的相应字段。
+具体形状取决于所使用的模型。
 
-You must enable this feature via `enable_mm_embeds=True`.
+您必须通过 `enable_mm_embeds=True` 启用此功能。
 
 !!! warning
-    The vLLM engine may crash if incorrect shape of embeddings is passed.
-    Only enable this flag for trusted users!
+    如果传入的嵌入形状不正确，vLLM 引擎可能崩溃。
+    仅对受信任的用户启用此标志！
 
-#### Image Embeddings
+#### 图像嵌入
 
 ??? code
 
     ```python
     from vllm import LLM
 
-    # Inference with image embeddings as input
+    # 使用图像嵌入进行推理
     llm = LLM(model="llava-hf/llava-1.5-7b-hf", enable_mm_embeds=True)
 
-    # Refer to the HuggingFace repo for the correct format to use
+    # 参考 HuggingFace 仓库了解正确的格式
     prompt = "USER: <image>\nWhat is the content of this image?\nASSISTANT:"
 
-    # For most models, `image_embeds` has shape: (num_images, image_feature_size, hidden_size)
+    # 对于大多数模型，`image_embeds` 的形状为：(num_images, image_feature_size, hidden_size)
     image_embeds = torch.load(...)
 
     outputs = llm.generate({
@@ -476,7 +475,7 @@ You must enable this feature via `enable_mm_embeds=True`.
         generated_text = o.outputs[0].text
         print(generated_text)
 
-    # Additional examples for models that require extra fields
+    # 需要额外字段的模型的额外示例
     llm = LLM(
         "Qwen/Qwen2-VL-2B-Instruct",
         limit_mm_per_prompt={"image": 4},
@@ -484,11 +483,11 @@ You must enable this feature via `enable_mm_embeds=True`.
     )
     mm_data = {
         "image": {
-            # Shape: (total_feature_size, hidden_size)
+            # 形状：(total_feature_size, hidden_size)
             # total_feature_size = sum(image_feature_size for image in images)
             "image_embeds": torch.load(...),
-            # Shape: (num_images, 3)
-            # image_grid_thw is needed to calculate positional encoding.
+            # 形状：(num_images, 3)
+            # image_grid_thw 用于计算位置编码。
             "image_grid_thw": torch.load(...),
         }
     }
@@ -501,21 +500,21 @@ You must enable this feature via `enable_mm_embeds=True`.
     )
     mm_data = {
         "image": {
-            # Shape: (num_images, num_slices, hidden_size)
-            # num_slices can differ for each image
+            # 形状：(num_images, num_slices, hidden_size)
+            # num_slices 可能因每个图像而异
             "image_embeds": [torch.load(...) for image in images],  
-            # Shape: (num_images, 2)
-            # image_sizes is needed to calculate details of the sliced image.
+            # 形状：(num_images, 2)
+            # image_sizes 用于计算切片图像的细节。
             "image_sizes": [image.size for image in images],
         }
     }
     ```
 
-For Qwen3-VL, the `image_embeds` should contain both the base image embedding and deepstack features.
+对于 Qwen3-VL，`image_embeds` 应同时包含基础图像嵌入和 deepstack 特征。
 
-#### Audio Embedding Inputs
+#### 音频嵌入输入
 
-You can pass pre-computed audio embeddings similar to image embeddings:
+您可以像图像嵌入一样传递预计算的音频嵌入：
 
 ??? code
 
@@ -523,13 +522,13 @@ You can pass pre-computed audio embeddings similar to image embeddings:
     from vllm import LLM
     import torch
 
-    # Enable audio embeddings support
+    # 启用音频嵌入支持
     llm = LLM(model="fixie-ai/ultravox-v0_5-llama-3_2-1b", enable_mm_embeds=True)
 
-    # Refer to the HuggingFace repo for the correct format to use
+    # 参考 HuggingFace 仓库了解正确的格式
     prompt = "USER: <audio>\nWhat is in this audio?\nASSISTANT:"
 
-    # Load pre-computed audio embeddings, usually with shape:
+    # 加载预计算的音频嵌入，通常形状为：
     # (num_audios, audio_feature_size, hidden_size of LM)
     audio_embeds = torch.load(...)
 
@@ -543,9 +542,9 @@ You can pass pre-computed audio embeddings similar to image embeddings:
         print(generated_text)
     ```
 
-### Cached Inputs
+### 缓存输入
 
-When using multi-modal inputs, vLLM normally hashes each media item by content to enable caching across requests. You can optionally pass `multi_modal_uuids` to provide your own stable IDs for each item so caching can reuse work across requests without rehashing the raw content.
+使用多模态输入时，vLLM 通常通过内容对每个媒体项进行哈希以实现跨请求缓存。您可以选择传递 `multi_modal_uuids` 来为每个项提供自己的稳定 ID，以便缓存无需重新哈希原始内容即可跨请求重用工作。
 
 ??? code
 
@@ -553,7 +552,7 @@ When using multi-modal inputs, vLLM normally hashes each media item by content t
     from vllm import LLM
     from PIL import Image
 
-    # Qwen2.5-VL example with two images
+    # Qwen2.5-VL 双图像示例
     llm = LLM(model="Qwen/Qwen2.5-VL-3B-Instruct")
 
     prompt = "USER: <image><image>\nDescribe the differences.\nASSISTANT:"
@@ -563,11 +562,11 @@ When using multi-modal inputs, vLLM normally hashes each media item by content t
     outputs = llm.generate({
         "prompt": prompt,
         "multi_modal_data": {"image": [img_a, img_b]},
-        # Provide stable IDs for caching.
-        # Requirements (matched by this example):
-        #  - Include every modality present in multi_modal_data.
-        #  - For lists, provide the same number of entries.
-        #  - Use None to fall back to content hashing for that item.
+        # 为缓存提供稳定 ID。
+        # 要求（由此示例满足）：
+        #  - 包含 multi_modal_data 中的每种模态。
+        #  - 对于列表，提供相同数量的条目。
+        #  - 使用 None 为该条目回退到内容哈希。
         "multi_modal_uuids": {"image": ["sku-1234-a", None]},
     })
 
@@ -575,7 +574,7 @@ When using multi-modal inputs, vLLM normally hashes each media item by content t
         print(o.outputs[0].text)
     ```
 
-Using UUIDs, you can also skip sending media data entirely if you expect cache hits for respective items. Note that the request will fail if the skipped media doesn't have a corresponding UUID, or if the UUID fails to hit the cache.
+使用 UUID，如果预期相应项目能命中缓存，您还可以完全跳过发送媒体数据。请注意，如果跳过的媒体没有对应的 UUID，或者 UUID 未能命中缓存，请求将失败。
 
 ??? code
 
@@ -583,7 +582,7 @@ Using UUIDs, you can also skip sending media data entirely if you expect cache h
     from vllm import LLM
     from PIL import Image
 
-    # Qwen2.5-VL example with two images
+    # Qwen2.5-VL 双图像示例
     llm = LLM(model="Qwen/Qwen2.5-VL-3B-Instruct")
 
     prompt = "USER: <image><image>\nDescribe the differences.\nASSISTANT:"
@@ -592,8 +591,7 @@ Using UUIDs, you can also skip sending media data entirely if you expect cache h
     outputs = llm.generate({
         "prompt": prompt,
         "multi_modal_data": {"image": [None, img_b]},
-        # Since img_a is expected to be cached, we can skip sending the actual
-        # image entirely.
+        # 由于 img_a 预期被缓存，我们可以完全跳过发送实际图像。
         "multi_modal_uuids": {"image": ["sku-1234-a", None]},
     })
 
@@ -602,35 +600,35 @@ Using UUIDs, you can also skip sending media data entirely if you expect cache h
     ```
 
 !!! warning
-    If both multimodal processor caching and prefix caching are disabled, user-provided `multi_modal_uuids` are ignored.
+    如果多模态处理器缓存和前缀缓存都被禁用，用户提供的 `multi_modal_uuids` 将被忽略。
 
-## Online Serving
+## 在线服务
 
-Our OpenAI-compatible server accepts multi-modal data via the [Chat Completions API](https://platform.openai.com/docs/api-reference/chat). Media inputs also support optional UUIDs users can provide to uniquely identify each media, which is used to cache the media results across requests.
+我们的 OpenAI 兼容服务器通过 [Chat Completions API](https://platform.openai.com/docs/api-reference/chat) 接受多模态数据。媒体输入还支持用户可选的 UUID，用于唯一标识每个媒体，从而实现跨请求的媒体结果缓存。
 
 !!! important
-    A chat template is **required** to use Chat Completions API.
-    For HF format models, the default chat template is defined inside `chat_template.json` or `tokenizer_config.json`.
+    使用 Chat Completions API **必须**提供对话模板。
+    对于 HF 格式的模型，默认对话模板定义在 `chat_template.json` 或 `tokenizer_config.json` 中。
 
-    If no default chat template is available, we will first look for a built-in fallback in [vllm/transformers_utils/chat_templates/registry.py](../../vllm/transformers_utils/chat_templates/registry.py).
-    If no fallback is available, an error is raised and you have to provide the chat template manually via the `--chat-template` argument.
+    如果没有可用的默认对话模板，我们将首先在 [vllm/transformers_utils/chat_templates/registry.py](../../vllm/transformers_utils/chat_templates/registry.py) 中查找内置的回退模板。
+    如果没有可用的回退，则会引发错误，您必须通过 `--chat-template` 参数手动提供对话模板。
 
-    For certain models, we provide alternative chat templates inside [examples](../../examples).
-    For example, VLM2Vec uses [examples/pooling/embed/template/vlm2vec_phi3v.jinja](../../examples/pooling/embed/template/vlm2vec_phi3v.jinja) which is different from the default one for Phi-3-Vision.
+    对于某些模型，我们在 [examples](../../examples) 中提供了替代的对话模板。
+    例如，VLM2Vec 使用 [examples/pooling/embed/template/vlm2vec_phi3v.jinja](../../examples/pooling/embed/template/vlm2vec_phi3v.jinja)，这与 Phi-3-Vision 的默认模板不同。
 
-### Image Inputs
+### 图像输入
 
-Image input is supported according to [OpenAI Vision API](https://platform.openai.com/docs/guides/vision).
-Here is a simple example using Phi-3.5-Vision.
+图像输入根据 [OpenAI Vision API](https://platform.openai.com/docs/guides/vision) 提供支持。
+以下是一个使用 Phi-3.5-Vision 的简单示例。
 
-First, launch the OpenAI-compatible server:
+首先，启动 OpenAI 兼容服务器：
 
 ```bash
 vllm serve microsoft/Phi-3.5-vision-instruct --runner generate \
   --trust-remote-code --max-model-len 4096 --limit-mm-per-prompt.image 2
 ```
 
-Then, you can use the OpenAI client as follows:
+然后，您可以按如下方式使用 OpenAI 客户端：
 
 ??? code
 
@@ -646,28 +644,28 @@ Then, you can use the OpenAI client as follows:
         base_url=openai_api_base,
     )
 
-    # Single-image input inference
+    # 单图像输入推理
 
-    # Public image URL for testing remote image processing
+    # 用于测试远程图像处理的公共图像 URL
     image_url = "https://vllm-public-assets.s3.us-west-2.amazonaws.com/vision_model_images/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
 
-    # Create chat completion with remote image
+    # 使用远程图像创建聊天补全
     chat_response = client.chat.completions.create(
         model="microsoft/Phi-3.5-vision-instruct",
         messages=[
             {
                 "role": "user",
                 "content": [
-                    # NOTE: The prompt formatting with the image token `<image>` is not needed
-                    # since the prompt will be processed automatically by the API server.
+                    # 注意：不需要在提示中包含图像标记 `<image>` 的格式
+                    # 因为 API 服务器会自动处理提示。
                     {
                         "type": "text",
-                        "text": "What’s in this image?",
+                        "text": "What's in this image?",
                     },
                     {
                         "type": "image_url",
                         "image_url": {"url": image_url},
-                        "uuid": image_url,  # Optional
+                        "uuid": image_url,  # 可选
                     },
                 ],
             }
@@ -675,11 +673,11 @@ Then, you can use the OpenAI client as follows:
     )
     print("Chat completion output:", chat_response.choices[0].message.content)
 
-    # Local image file path (update this to point to your actual image file)
+    # 本地图像文件路径（请更新为指向实际的图像文件）
     image_file = "/path/to/image.jpg"
 
-    # Create chat completion with local image file
-    # Launch the API server/engine with the --allowed-local-media-path argument.
+    # 使用本地图像文件创建聊天补全
+    # 使用 --allowed-local-media-path 参数启动 API 服务器/引擎。
     if os.path.exists(image_file):
         chat_completion_from_local_image_url = client.chat.completions.create(
             model="microsoft/Phi-3.5-vision-instruct",
@@ -689,7 +687,7 @@ Then, you can use the OpenAI client as follows:
                     "content": [
                         {
                             "type": "text",
-                            "text": "What’s in this image?",
+                            "text": "What's in this image?",
                         },
                         {
                             "type": "image_url",
@@ -700,11 +698,11 @@ Then, you can use the OpenAI client as follows:
             ],
         )
         result = chat_completion_from_local_image_url.choices[0].message.content
-        print("Chat completion output from local image file:\n", result)
+        print("来自本地图像文件的聊天补全输出:\n", result)
     else:
-        print(f"Local image file not found at {image_file}, skipping local file test.")
+        print(f"本地图像文件 {image_file} 未找到，跳过本地文件测试。")
 
-    # Multi-image input inference
+    # 多图像输入推理
     image_url_duck = "https://vllm-public-assets.s3.us-west-2.amazonaws.com/multimodal_asset/duck.jpg"
     image_url_lion = "https://vllm-public-assets.s3.us-west-2.amazonaws.com/multimodal_asset/lion.jpg"
 
@@ -721,12 +719,12 @@ Then, you can use the OpenAI client as follows:
                     {
                         "type": "image_url",
                         "image_url": {"url": image_url_duck},
-                        "uuid": image_url_duck,  # Optional
+                        "uuid": image_url_duck,  # 可选
                     },
                     {
                         "type": "image_url",
                         "image_url": {"url": image_url_lion},
-                        "uuid": image_url_lion,  # Optional
+                        "uuid": image_url_lion,  # 可选
                     },
                 ],
             }
@@ -735,35 +733,35 @@ Then, you can use the OpenAI client as follows:
     print("Chat completion output:", chat_response.choices[0].message.content)
     ```
 
-Full example: [examples/generate/multimodal/openai_chat_completion_client_for_multimodal.py](../../examples/generate/multimodal/openai_chat_completion_client_for_multimodal.py)
+完整示例：[examples/generate/multimodal/openai_chat_completion_client_for_multimodal.py](../../examples/generate/multimodal/openai_chat_completion_client_for_multimodal.py)
 
 !!! tip
-    Loading from local file paths is also supported on vLLM: You can specify the allowed local media path via `--allowed-local-media-path` when launching the API server/engine,
-    and pass the file path as `url` in the API request.
+    vLLM 也支持从本地文件路径加载：您可以在启动 API 服务器/引擎时通过 `--allowed-local-media-path` 指定允许的本地媒体路径，
+    并在 API 请求中将文件路径作为 `url` 传递。
 
 !!! tip
-    There is no need to place image placeholders in the text content of the API request - they are already represented by the image content.
-    In fact, you can place image placeholders in the middle of the text by interleaving text and image content.
+    无需在 API 请求的文本内容中放置图像占位符——它们已由图像内容表示。
+    实际上，您可以通过交错排列文本和图像内容，在文本中间放置图像占位符。
 
 !!! note
-    By default, the timeout for fetching images through HTTP URL is `5` seconds.
-    You can override this by setting the environment variable:
+    默认情况下，通过 HTTP URL 获取图像的超时时间为 `5` 秒。
+    您可以通过设置环境变量来覆盖此值：
 
     ```bash
     export VLLM_IMAGE_FETCH_TIMEOUT=<timeout>
     ```
 
-### Video Inputs
+### 视频输入
 
-Instead of `image_url`, you can pass a video file via `video_url`. Here is a simple example using [LLaVA-OneVision](https://huggingface.co/llava-hf/llava-onevision-qwen2-0.5b-ov-hf).
+您可以通过 `video_url` 传递视频文件，而不是 `image_url`。以下是一个使用 [LLaVA-OneVision](https://huggingface.co/llava-hf/llava-onevision-qwen2-0.5b-ov-hf) 的简单示例。
 
-First, launch the OpenAI-compatible server:
+首先，启动 OpenAI 兼容服务器：
 
 ```bash
 vllm serve llava-hf/llava-onevision-qwen2-0.5b-ov-hf --runner generate --max-model-len 8192
 ```
 
-Then, you can use the OpenAI client as follows:
+然后，您可以按如下方式使用 OpenAI 客户端：
 
 ??? code
 
@@ -780,7 +778,7 @@ Then, you can use the OpenAI client as follows:
 
     video_url = "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4"
 
-    ## Use video url in the payload
+    ## 在负载中使用视频 URL
     chat_completion_from_url = client.chat.completions.create(
         messages=[
             {
@@ -793,7 +791,7 @@ Then, you can use the OpenAI client as follows:
                     {
                         "type": "video_url",
                         "video_url": {"url": video_url},
-                        "uuid": video_url,  # Optional
+                        "uuid": video_url,  # 可选
                     },
                 ],
             }
@@ -803,57 +801,57 @@ Then, you can use the OpenAI client as follows:
     )
 
     result = chat_completion_from_url.choices[0].message.content
-    print("Chat completion output from image url:", result)
+    print("来自图像 URL 的聊天补全输出:", result)
     ```
 
-Full example: [examples/generate/multimodal/openai_chat_completion_client_for_multimodal.py](../../examples/generate/multimodal/openai_chat_completion_client_for_multimodal.py)
+完整示例：[examples/generate/multimodal/openai_chat_completion_client_for_multimodal.py](../../examples/generate/multimodal/openai_chat_completion_client_for_multimodal.py)
 
 !!! note
-    By default, the timeout for fetching videos through HTTP URL is `30` seconds.
-    You can override this by setting the environment variable:
+    默认情况下，通过 HTTP URL 获取视频的超时时间为 `30` 秒。
+    您可以通过设置环境变量来覆盖此值：
 
     ```bash
     export VLLM_VIDEO_FETCH_TIMEOUT=<timeout>
     ```
 
-#### Video Frame Recovery
+#### 视频帧恢复
 
-For improved robustness when processing potentially corrupted or truncated video files, vLLM supports optional frame recovery using a dynamic window forward-scan approach. When enabled, if a target frame fails to load during sequential reading, the next successfully grabbed frame (before the next target frame) will be used in its place.
+为了提高处理可能损坏或截断的视频文件的鲁棒性，vLLM 支持使用动态窗口前向扫描方法进行可选的帧恢复。启用后，如果在顺序读取过程中目标帧加载失败，下一个成功获取的帧（在下一个目标帧之前）将用于替代。
 
-To enable video frame recovery, pass the `frame_recovery` parameter via `--media-io-kwargs`:
+要启用视频帧恢复，请通过 `--media-io-kwargs` 传递 `frame_recovery` 参数：
 
 ```bash
-# Example: Enable frame recovery
+# 示例：启用帧恢复
 vllm serve Qwen/Qwen3-VL-30B-A3B-Instruct \
   --media-io-kwargs '{"video": {"frame_recovery": true}}'
 ```
 
-**Parameters:**
+**参数：**
 
-- `frame_recovery`: Boolean flag to enable forward-scan recovery. When `true`, failed frames are recovered using the next available frame within the dynamic window (up to the next target frame). Default is `false`.
+- `frame_recovery`：布尔标志，用于启用前向扫描恢复。当为 `true` 时，失败的帧将使用动态窗口内下一个可用帧（直到下一个目标帧）进行恢复。默认值为 `false`。
 
-**How it works:**
+**工作原理：**
 
-1. The system reads frames sequentially
-2. If a target frame fails to grab, it's marked as "failed"
-3. The next successfully grabbed frame (before reaching the next target) is used to recover the failed frame
-4. This approach handles both mid-video corruption and end-of-video truncation
+1. 系统按顺序读取帧
+2. 如果目标帧获取失败，则标记为"失败"
+3. 下一个成功获取的帧（在到达下一个目标之前）用于恢复失败的帧
+4. 这种方法同时处理视频中间损坏和视频末尾截断
 
-Works with common video formats like MP4 when using OpenCV backends.
+使用 OpenCV 后端时，适用于 MP4 等常见视频格式。
 
-#### Pre-extracted Frame Sequences with `media_io_kwargs`
+#### 使用 `media_io_kwargs` 的预提取帧序列
 
-When you extract video frames on the client side and send them as `video/jpeg` (base64-concatenated JPEG frames), you can preserve the original video metadata by using `media_io_kwargs` in your request. This enables more accurate video understanding by preserving temporal information that would otherwise be lost during client-side frame extraction.
+当您在客户端提取视频帧并将其作为 `video/jpeg`（base64 连接的 JPEG 帧）发送时，您可以通过在请求中使用 `media_io_kwargs` 来保留原始视频元数据。这通过保留在客户端提取帧期间可能丢失的时间信息，实现更准确的视频理解。
 
-**Supported Parameters:**
+**支持的参数：**
 
-| Parameter | Type | Description |
+| 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
-| `fps` | float | Frame rate of the original video |
-| `frames_indices` | list[int] | Indices of the actually sampled frames |
-| `total_num_frames` | int | Total frame count of the original video |
-| `duration` | float | Duration of the original video in seconds |
-| `do_sample_frames` | bool | Whether to perform frame sampling |
+| `fps` | float | 原始视频的帧率 |
+| `frames_indices` | list[int] | 实际采样帧的索引 |
+| `total_num_frames` | int | 原始视频的总帧数 |
+| `duration` | float | 原始视频的持续时间（秒） |
+| `do_sample_frames` | bool | 是否执行帧采样 |
 
 ??? code
 
@@ -862,12 +860,12 @@ When you extract video frames on the client side and send them as `video/jpeg` (
 
     client = OpenAI(base_url="http://localhost:8000/v1", api_key="EMPTY")
 
-    # Client-side frame extraction
+    # 客户端帧提取
     frames = extract_frames(video_path, num_frames=32)
     frames_b64 = ",".join([encode_image(f) for f in frames])
     video_url = f"data:video/jpeg;base64,{frames_b64}"
 
-    # Pass video metadata via media_io_kwargs
+    # 通过 media_io_kwargs 传递视频元数据
     response = client.chat.completions.create(
         model="your-multimodal-model",
         messages=[{
@@ -895,42 +893,42 @@ When you extract video frames on the client side and send them as `video/jpeg` (
     print(response.choices[0].message.content)
     ```
 
-**Why use `media_io_kwargs`?**
+**为什么使用 `media_io_kwargs`？**
 
-When extracting frames client-side, the server loses important context about the original video:
+在客户端提取帧时，服务器会丢失关于原始视频的重要上下文：
 
-- **Temporal information**: Which frames were sampled and their positions in the original timeline
-- **Video duration**: How long the original video was
-- **Frame rate**: The original playback speed
+- **时间信息**：哪些帧被采样及其在原始时间线中的位置
+- **视频时长**：原始视频持续了多长时间
+- **帧率**：原始播放速度
 
-By passing this metadata, the model can better understand the temporal distribution of the sampled frames and whether important moments might have been skipped.
+通过传递这些元数据，模型可以更好地理解采样帧的时间分布，以及是否可能跳过了重要时刻。
 
-#### Custom RGBA Background Color
+#### 自定义 RGBA 背景颜色
 
-To use a custom background color for RGBA images, pass the `rgba_background_color` parameter via `--media-io-kwargs`:
+要为 RGBA 图像使用自定义背景颜色，请通过 `--media-io-kwargs` 传递 `rgba_background_color` 参数：
 
 ```bash
-# Example: Black background for dark theme
+# 示例：深色主题的黑色背景
 vllm serve llava-hf/llava-1.5-7b-hf \
   --media-io-kwargs '{"image": {"rgba_background_color": [0, 0, 0]}}'
 
-# Example: Custom gray background
+# 示例：自定义灰色背景
 vllm serve llava-hf/llava-1.5-7b-hf \
   --media-io-kwargs '{"image": {"rgba_background_color": [128, 128, 128]}}'
 ```
 
-### Audio Inputs
+### 音频输入
 
-Audio input is supported according to [OpenAI Audio API](https://platform.openai.com/docs/guides/audio?audio-generation-quickstart-example=audio-in).
-Here is a simple example using Ultravox-v0.5-1B.
+音频输入根据 [OpenAI Audio API](https://platform.openai.com/docs/guides/audio?audio-generation-quickstart-example=audio-in) 提供支持。
+以下是一个使用 Ultravox-v0.5-1B 的简单示例。
 
-First, launch the OpenAI-compatible server:
+首先，启动 OpenAI 兼容服务器：
 
 ```bash
 vllm serve fixie-ai/ultravox-v0_5-llama-3_2-1b
 ```
 
-Then, you can use the OpenAI client as follows:
+然后，您可以按如下方式使用 OpenAI 客户端：
 
 ??? code
 
@@ -941,7 +939,7 @@ Then, you can use the OpenAI client as follows:
     from vllm.assets.audio import AudioAsset
 
     def encode_base64_content_from_url(content_url: str) -> str:
-        """Encode a content retrieved from a remote url to base64 format."""
+        """将从远程 URL 获取的内容编码为 base64 格式。"""
 
         with requests.get(content_url) as response:
             response.raise_for_status()
@@ -957,7 +955,7 @@ Then, you can use the OpenAI client as follows:
         base_url=openai_api_base,
     )
 
-    # Any format supported by soundfile/PyAV is supported
+    # 支持 soundfile/PyAV 的任何格式
     audio_url = AudioAsset("winning_call").url
     audio_base64 = encode_base64_content_from_url(audio_url)
 
@@ -976,7 +974,7 @@ Then, you can use the OpenAI client as follows:
                             "data": audio_base64,
                             "format": "wav",
                         },
-                        "uuid": audio_url,  # Optional
+                        "uuid": audio_url,  # 可选
                     },
                 ],
             },
@@ -986,10 +984,10 @@ Then, you can use the OpenAI client as follows:
     )
 
     result = chat_completion_from_base64.choices[0].message.content
-    print("Chat completion output from input audio:", result)
+    print("来自输入音频的聊天补全输出:", result)
     ```
 
-Alternatively, you can pass `audio_url`, which is the audio counterpart of `image_url` for image input:
+或者，您可以传递 `audio_url`，它是图像输入中 `image_url` 的音频对应项：
 
 ??? code
 
@@ -1006,7 +1004,7 @@ Alternatively, you can pass `audio_url`, which is the audio counterpart of `imag
                     {
                         "type": "audio_url",
                         "audio_url": {"url": audio_url},
-                        "uuid": audio_url,  # Optional
+                        "uuid": audio_url,  # 可选
                     },
                 ],
             }
@@ -1016,38 +1014,38 @@ Alternatively, you can pass `audio_url`, which is the audio counterpart of `imag
     )
 
     result = chat_completion_from_url.choices[0].message.content
-    print("Chat completion output from audio url:", result)
+    print("来自音频 URL 的聊天补全输出:", result)
     ```
 
-Full example: [examples/generate/multimodal/openai_chat_completion_client_for_multimodal.py](../../examples/generate/multimodal/openai_chat_completion_client_for_multimodal.py)
+完整示例：[examples/generate/multimodal/openai_chat_completion_client_for_multimodal.py](../../examples/generate/multimodal/openai_chat_completion_client_for_multimodal.py)
 
 !!! note
-    By default, the timeout for fetching audios through HTTP URL is `10` seconds.
-    You can override this by setting the environment variable:
+    默认情况下，通过 HTTP URL 获取音频的超时时间为 `10` 秒。
+    您可以通过设置环境变量来覆盖此值：
 
     ```bash
     export VLLM_AUDIO_FETCH_TIMEOUT=<timeout>
     ```
 
-### Embedding Inputs
+### 嵌入输入
 
-To input pre-computed embeddings belonging to a data type (i.e. image, video, or audio) directly to the language model,
-pass a tensor of shape `(..., hidden_size of LM)` for each item to the corresponding field of the multi-modal dictionary.
+要将属于某种数据类型（如图像、视频或音频）的预计算嵌入直接输入到语言模型，
+请将形状为 `(..., hidden_size of LM)` 的张量传递給多模态字典的相应字段，每个项目一个。
 
 !!! important
-    Unlike offline inference, the embeddings for each item must be passed separately
-    in order for placeholder tokens to be applied correctly by the chat template.
+    与离线推理不同，每个项目的嵌入必须单独传递，
+    以便对话模板正确应用占位符标记。
 
-You must enable this feature via the `--enable-mm-embeds` flag in `vllm serve`.
+您必须通过 `vllm serve` 中的 `--enable-mm-embeds` 标志启用此功能。
 
 !!! warning
-    The vLLM engine may crash if incorrect shape of embeddings is passed.
-    Only enable this flag for trusted users!
+    如果传入的嵌入形状不正确，vLLM 引擎可能崩溃。
+    仅对受信任的用户启用此标志！
 
-#### Image Embedding Inputs
+#### 图像嵌入输入
 
-For image embeddings, you can pass the base64-encoded tensor to the `image_embeds` field.
-The following example demonstrates how to pass image embeddings to the OpenAI server:
+对于图像嵌入，您可以将 base64 编码的张量传递给 `image_embeds` 字段。
+以下示例演示如何将图像嵌入传递给 OpenAI 服务器：
 
 ??? code
 
@@ -1055,42 +1053,42 @@ The following example demonstrates how to pass image embeddings to the OpenAI se
     from vllm.utils.serial_utils import tensor2base64
 
     client = OpenAI(
-        # defaults to os.environ.get("OPENAI_API_KEY")
+        # 默认为 os.environ.get("OPENAI_API_KEY")
         api_key=openai_api_key,
         base_url=openai_api_base,
     )
 
-    # Basic usage - this is equivalent to the LLaVA example for offline inference
+    # 基本用法 - 这等同于离线推理的 LLaVA 示例
     model = "llava-hf/llava-1.5-7b-hf"
     embeds = {
         "type": "image_embeds",
-        "image_embeds": tensor2base64(torch.load(...)),  # Shape: (image_feature_size, hidden_size)
-        "uuid": image_url,  # Optional
+        "image_embeds": tensor2base64(torch.load(...)),  # 形状：(image_feature_size, hidden_size)
+        "uuid": image_url,  # 可选
     }
 
 
-    # Additional examples for models that require extra fields
+    # 需要额外字段的模型的额外示例
     model = "Qwen/Qwen2-VL-2B-Instruct"
     embeds = {
         "type": "image_embeds",
         "image_embeds": {
-            "image_embeds": tensor2base64(torch.load(...)),  # Shape: (image_feature_size, hidden_size)
-            "image_grid_thw": tensor2base64(torch.load(...)),  # Shape: (3,)
+            "image_embeds": tensor2base64(torch.load(...)),  # 形状：(image_feature_size, hidden_size)
+            "image_grid_thw": tensor2base64(torch.load(...)),  # 形状：(3,)
         },
-        "uuid": image_url,  # Optional
+        "uuid": image_url,  # 可选
     }
 
     model = "openbmb/MiniCPM-V-2_6"
     embeds = {
         "type": "image_embeds",
         "image_embeds": {
-            "image_embeds": tensor2base64(torch.load(...)),  # Shape: (num_slices, hidden_size)
-            "image_sizes": tensor2base64(torch.load(...)),  # Shape: (2,)
+            "image_embeds": tensor2base64(torch.load(...)),  # 形状：(num_slices, hidden_size)
+            "image_sizes": tensor2base64(torch.load(...)),  # 形状：(2,)
         },
-        "uuid": image_url,  # Optional
+        "uuid": image_url,  # 可选
     }
 
-    # Single image input
+    # 单图像输入
     chat_completion = client.chat.completions.create(
         messages=[
             {
@@ -1111,7 +1109,7 @@ The following example demonstrates how to pass image embeddings to the OpenAI se
         model=model,
     )
 
-    # Multi image input
+    # 多图像输入
     chat_completion = client.chat.completions.create(
         messages=[
             {
@@ -1133,7 +1131,7 @@ The following example demonstrates how to pass image embeddings to the OpenAI se
         model=model,
     )
 
-    # Multi image input (interleaved)
+    # 多图像输入（交错）
     chat_completion = client.chat.completions.create(
         messages=[
             {
@@ -1156,14 +1154,14 @@ The following example demonstrates how to pass image embeddings to the OpenAI se
     )
     ```
 
-### Cached Inputs
+### 缓存输入
 
-Just like with offline inference, you can skip sending media if you expect cache hits with provided UUIDs. You can do so by sending media like this:
+与离线推理一样，如果您预期使用所提供的 UUID 命中缓存，则可以跳过发送媒体。您可以通过如下方式发送媒体：
 
 ??? code
 
     ```python
-        # Image/video/audio URL:
+        # 图像/视频/音频 URL：
         {
             "type": "image_url",
             "image_url": None,

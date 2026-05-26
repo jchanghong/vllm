@@ -1,23 +1,23 @@
-# Summary
+# 概述
 
 !!! important
-    Many decoder language models can now be automatically loaded using the [Transformers modeling backend](../../models/supported_models.md#transformers) without having to implement them in vLLM. See if `vllm serve <model>` works first!
+    许多解码器语言模型现在可以使用 [Transformers 建模后端](../../models/supported_models.md#transformers) 自动加载，而无需在 vLLM 中实现。请先尝试 `vllm serve <model>` 是否有效！
 
-vLLM models are specialized [PyTorch](https://pytorch.org/) models that take advantage of various [features](../../features/README.md#compatibility-matrix) to optimize their performance.
+vLLM 模型是专门的 [PyTorch](https://pytorch.org/) 模型，利用各种 [特性](../../features/README.md#compatibility-matrix) 来优化其性能。
 
-The complexity of integrating a model into vLLM depends heavily on the model's architecture.
-The process is considerably straightforward if the model shares a similar architecture with an existing model in vLLM.
-However, this can be more complex for models that include new operators (e.g., a new attention mechanism).
+将模型集成到 vLLM 的复杂性在很大程度上取决于模型的架构。
+如果模型与 vLLM 中已有的模型架构相似，则过程会相当简单。
+然而，对于包含新算子（例如，新的注意力机制）的模型，这个过程可能会更加复杂。
 
-Read through these pages for a step-by-step guide:
+请阅读以下页面以获取逐步指南：
 
-- [Basic Model](basic.md)
-- [Registering a Model](registration.md)
-- [Unit Testing](tests.md)
-- [Multi-Modal Support](multimodal.md)
-- [Speech-to-Text Support](transcription.md)
+- [基础模型](basic.md)
+- [注册模型](registration.md)
+- [单元测试](tests.md)
+- [多模态支持](multimodal.md)
+- [语音转文本支持](transcription.md)
 
 !!! tip
-    If you are encountering issues while integrating your model into vLLM, feel free to open a [GitHub issue](https://github.com/vllm-project/vllm/issues)
-    or ask on our [developer slack](https://slack.vllm.ai).
-    We will be happy to help you out!
+    如果在将模型集成到 vLLM 时遇到问题，欢迎提交 [GitHub issue](https://github.com/vllm-project/vllm/issues)
+    或在我们的 [开发者 Slack](https://slack.vllm.ai) 上提问。
+    我们将很乐意为您提供帮助！

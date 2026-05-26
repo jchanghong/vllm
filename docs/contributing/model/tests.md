@@ -1,57 +1,57 @@
-# Unit Testing
+# 单元测试
 
-This page explains how to write unit tests to verify the implementation of your model.
+本页面解释了如何编写单元测试来验证模型的实现。
 
-## Required Tests
+## 必需的测试
 
-These tests are necessary to get your PR merged into vLLM library.
-Without them, the CI for your PR will fail.
+这些测试是让您的 PR 合并到 vLLM 库中所必需的。
+如果没有这些测试，您 PR 的 CI 将会失败。
 
-### Model loading
+### 模型加载
 
-Include an example HuggingFace repository for your model in [tests/models/registry.py](../../../tests/models/registry.py).
-This enables a unit test that loads dummy weights to ensure that the model can be initialized in vLLM.
+在 [tests/models/registry.py](../../../tests/models/registry.py) 中为您的模型包含一个 HuggingFace 仓库示例。
+这使得一个单元测试能够加载虚拟权重，以确保模型可以在 vLLM 中初始化。
 
 !!! important
-    The list of models in each section should be maintained in alphabetical order.
+    每个部分中的模型列表应按字母顺序维护。
 
 !!! tip
-    If your model requires a development version of HF Transformers, you can set
-    `min_transformers_version` to skip the test in CI until the model is released.
+    如果您的模型需要开发版本的 HF Transformers，您可以设置
+    `min_transformers_version` 在 CI 中跳过测试，直到模型发布。
 
-## Optional Tests
+## 可选测试
 
-These tests are optional to get your PR merged into vLLM library.
-Passing these tests provides more confidence that your implementation is correct, and helps avoid future regressions.
+这些测试对于将您的 PR 合并到 vLLM 库中是可选的。
+通过这些测试可以更有信心地确认您的实现是正确的，并有助于避免未来的回归问题。
 
-### Model correctness
+### 模型正确性
 
-These tests compare the model outputs of vLLM against [HF Transformers](https://github.com/huggingface/transformers). You can add new tests under the subdirectories of [tests/models](../../../tests/models).
+这些测试比较 vLLM 模型输出与 [HF Transformers](https://github.com/huggingface/transformers) 的输出。您可以在 [tests/models](../../../tests/models) 的子目录下添加新的测试。
 
-#### Generative models
+#### 生成式模型
 
-For [generative models](../../models/generative_models.md), there are two levels of correctness tests, as defined in [tests/models/utils.py](../../../tests/models/utils.py):
+对于[生成式模型](../../models/generative_models.md)，有两个级别的正确性测试，定义在 [tests/models/utils.py](../../../tests/models/utils.py) 中：
 
-- Exact correctness (`check_outputs_equal`): The text outputted by vLLM should exactly match the text outputted by HF.
-- Logprobs similarity (`check_logprobs_close`): The logprobs outputted by vLLM should be in the top-k logprobs outputted by HF, and vice versa.
+- 精确正确性（`check_outputs_equal`）：vLLM 输出的文本应与 HF 输出的文本完全匹配。
+- Logprobs 相似度（`check_logprobs_close`）：vLLM 输出的 logprobs 应出现在 HF 输出的 top-k logprobs 中，反之亦然。
 
-#### Pooling models
+#### 池化模型
 
-For [pooling models](../../models/pooling_models/README.md), we simply check the cosine similarity, as defined in [tests/models/utils.py](../../../tests/models/utils.py).
+对于[池化模型](../../models/pooling_models/README.md)，我们只需检查余弦相似度，定义在 [tests/models/utils.py](../../../tests/models/utils.py) 中。
 
-### Multi-modal processing
+### 多模态处理
 
-#### Common tests
+#### 通用测试
 
-Adding your model to [tests/models/multimodal/processing/test_common.py](../../../tests/models/multimodal/processing/test_common.py) verifies that the following input combinations result in the same outputs:
+将您的模型添加到 [tests/models/multimodal/processing/test_common.py](../../../tests/models/multimodal/processing/test_common.py) 可以验证以下输入组合产生相同的输出：
 
-- Text + multi-modal data
-- Tokens + multi-modal data
-- Text + cached multi-modal data
-- Tokens + cached multi-modal data
+- 文本 + 多模态数据
+- Token + 多模态数据
+- 文本 + 缓存的多模态数据
+- Token + 缓存的多模态数据
 
-#### Model-specific tests
+#### 模型特定测试
 
-You can add a new file under [tests/models/multimodal/processing](../../../tests/models/multimodal/processing) to run tests that only apply to your model.
+您可以在 [tests/models/multimodal/processing](../../../tests/models/multimodal/processing) 下添加一个新文件，以运行仅适用于您的模型的测试。
 
-For example, if the HF processor for your model accepts user-specified keyword arguments, you can verify that the keyword arguments are being applied correctly, such as in [tests/models/multimodal/processing/test_phi3v.py](../../../tests/models/multimodal/processing/test_phi3v.py).
+例如，如果您的模型的 HF 处理器接受用户指定的关键字参数，您可以验证关键字参数是否正确应用，如 [tests/models/multimodal/processing/test_phi3v.py](../../../tests/models/multimodal/processing/test_phi3v.py) 中所示。

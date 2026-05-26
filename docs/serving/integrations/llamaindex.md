@@ -1,14 +1,14 @@
 # LlamaIndex
 
-vLLM is also available via [LlamaIndex](https://github.com/run-llama/llama_index) .
+vLLM 也可以通过 [LlamaIndex](https://github.com/run-llama/llama_index) 使用。
 
-To install LlamaIndex, run
+要安装 LlamaIndex，请运行
 
 ```bash
 pip install llama-index-llms-vllm -q
 ```
 
-To run inference on a single or multiple GPUs, use `Vllm` class from `llamaindex`.
+要在单个或多个 GPU 上运行推理，请使用 `llamaindex` 中的 `Vllm` 类。
 
 ```python
 from llama_index.llms.vllm import Vllm
@@ -21,4 +21,4 @@ llm = Vllm(
 )
 ```
 
-Please refer to this [Tutorial](https://docs.llamaindex.ai/en/latest/examples/llm/vllm/) for more details.
+有关更多详细信息，请参考此[教程](https://docs.llamaindex.ai/en/latest/examples/llm/vllm/)。

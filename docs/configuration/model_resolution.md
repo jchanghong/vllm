@@ -1,15 +1,12 @@
-# Model Resolution
+# 模型解析
 
-vLLM loads HuggingFace-compatible models by inspecting the `architectures` field in `config.json` of the model repository
-and finding the corresponding implementation that is registered to vLLM.
-Nevertheless, our model resolution may fail for the following reasons:
+vLLM 通过检查模型仓库中 `config.json` 文件的 `architectures` 字段，并查找注册到 vLLM 的对应实现，来加载 HuggingFace 兼容模型。然而，我们的模型解析可能因以下原因失败：
 
-- The `config.json` of the model repository lacks the `architectures` field.
-- Unofficial repositories refer to a model using alternative names which are not recorded in vLLM.
-- The same architecture name is used for multiple models, creating ambiguity as to which model should be loaded.
+- 模型仓库的 `config.json` 缺少 `architectures` 字段。
+- 非官方仓库使用替代名称引用模型，而 vLLM 中未记录这些名称。
+- 多个模型使用相同的架构名称，导致加载哪个模型存在歧义。
 
-To fix this, explicitly specify the model architecture by passing `config.json` overrides to the `hf_overrides` option.
-For example:
+要解决此问题，可以通过 `hf_overrides` 选项显式指定模型架构，传递 `config.json` 覆盖参数。例如：
 
 ```python
 from vllm import LLM
@@ -20,4 +17,4 @@ llm = LLM(
 )
 ```
 
-Our [list of supported models](../models/supported_models.md) shows the model architectures that are recognized by vLLM.
+我们的[支持的模型列表](../models/supported_models.md)显示了 vLLM 识别的模型架构。

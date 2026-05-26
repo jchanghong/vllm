@@ -1,41 +1,41 @@
 # Codex
 
-[Codex](https://github.com/openai/codex) is OpenAI's official agentic coding tool that lives in your terminal. It can understand your codebase, edit files, run commands, and help you write code more efficiently.
+[Codex](https://github.com/openai/codex) 是 OpenAI 的官方自主编码工具，运行在终端中。它可以理解你的代码库、编辑文件、运行命令，并帮助你更高效地编写代码。
 
-By pointing Codex at a vLLM server, you can use your own models as the backend instead of the OpenAI API. This is useful for:
+通过将 Codex 指向 vLLM 服务器，你可以使用自己的模型作为后端，而不是 OpenAI API。这对于以下场景非常有用：
 
-- Running fully local/private coding assistance
-- Using open-weight models with tool calling capabilities
-- Testing and developing with custom models
+- 运行完全本地/私有的编码辅助
+- 使用具有工具调用能力的开放权重模型
+- 使用自定义模型进行测试和开发
 
-## How It Works
+## 工作原理
 
-vLLM implements the OpenAI-Responses API, which is the same API that Codex uses to communicate with OpenAI's servers. By configuring Codex to point at your vLLM server, Codex sends its requests to vLLM instead of OpenAI. vLLM then translates these requests to work with your local model and returns responses in the format Codex expects.
+vLLM 实现了 OpenAI-Responses API，这正是 Codex 用来与 OpenAI 服务器通信的同一 API。通过配置 Codex 指向你的 vLLM 服务器，Codex 将其请求发送到 vLLM 而不是 OpenAI。然后 vLLM 将这些请求转换以适配你的本地模型，并以 Codex 期望的格式返回响应。
 
-This means any model served by vLLM with proper tool calling support can act as a drop-in replacement for OpenAI models in Codex.
+这意味着任何由 vLLM 提供且具有适当工具调用支持的模型都可以在 Codex 中作为 OpenAI 模型的即插即用替代品。
 
-## Requirements
+## 要求
 
-Codex requires a model with strong tool calling capabilities. The model must support the OpenAI-Responses tool calling API. See [Tool Calling](../../features/tool_calling.md) for details on enabling tool calling for your model.
+Codex 需要一个具有强大工具调用能力的模型。模型必须支持 OpenAI-Responses 工具调用 API。有关为模型启用工具调用的详细信息，请参见[工具调用](../../features/tool_calling.md)。
 
-## Installation
+## 安装
 
-First, install Codex by following the [official installation guide](https://github.com/openai/codex).
+首先，按照[官方安装指南](https://github.com/openai/codex)安装 Codex。
 
-## Starting the vLLM Server
+## 启动 vLLM 服务器
 
-Start vLLM with a tool-calling capable model - here's an example using `Qwen/Qwen3-27B`:
+启动 vLLM 时使用支持工具调用的模型——以下是使用 `Qwen/Qwen3-27B` 的示例：
 
 ```bash
 vllm serve Qwen/Qwen3.6-27B --port 8000 --tensor-parallel-size 8 --max-model-len 262144 --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder
 
 ```
 
-For other models, you'll need to enable tool calling explicitly with `--enable-auto-tool-choice` and the right `--tool-call-parser`. Refer to the [Tool Calling documentation](../../features/tool_calling.md) for the correct flags for your model.
+对于其他模型，你需要使用 `--enable-auto-tool-choice` 和正确的 `--tool-call-parser` 显式启用工具调用。有关你模型正确的标志，请参考[工具调用文档](../../features/tool_calling.md)。
 
-## Configuring Codex
+## 配置 Codex
 
-Codex is configured via a TOML file located at `~/.codex/config.toml`. Create or edit this file to point Codex at your vLLM server:
+Codex 通过位于 `~/.codex/config.toml` 的 TOML 文件进行配置。创建或编辑此文件，将 Codex 指向你的 vLLM 服务器：
 
 ```toml
 model = "my-model"
@@ -48,41 +48,41 @@ base_url = "http://localhost:8000/v1"
 wire_api = "responses"
 ```
 
-The configuration fields:
+配置字段：
 
-| Field | Description |
+| 字段 | 描述 |
 | ----- | ----------- |
-| `model` | The model name to use. Must match the `--served-model-name` you passed to vLLM. |
-| `model_provider` | Set to `"vllm"` to use your local vLLM server. |
-| `[model_providers.vllm]` | Configuration section for the vLLM provider. |
-| `name` | A display name for your vLLM provider. |
-| `env_key` | The name of an environment variable that Codex will read for the API key. vLLM does not require authentication by default, so this can be any value. |
-| `base_url` | The URL of your vLLM server's OpenAI-compatible API endpoint (default is `http://localhost:8000/v1`). |
-| `wire_api` | The API style to use. Set to `"responses"` for the OpenAI Responses API |
+| `model` | 要使用的模型名称。必须与你传递给 vLLM 的 `--served-model-name` 匹配。 |
+| `model_provider` | 设置为 `"vllm"` 以使用本地 vLLM 服务器。 |
+| `[model_providers.vllm]` | vLLM 提供者的配置部分。 |
+| `name` | vLLM 提供者的显示名称。 |
+| `env_key` | Codex 将读取以获取 API 密钥的环境变量名称。vLLM 默认不要求身份验证，因此可以是任何值。 |
+| `base_url` | vLLM 服务器的 OpenAI 兼容 API 端点 URL（默认为 `http://localhost:8000/v1`）。 |
+| `wire_api` | 要使用的 API 风格。设置为 `"responses"` 以使用 OpenAI Responses API |
 
 !!! tip
-    You can set the `env_key` to any dummy environment variable since vLLM doesn't require authentication by default:
+    由于 vLLM 默认不要求身份验证，你可以将 `env_key` 设置为任何虚拟环境变量：
     ```bash
     export VLLM_API_KEY=dummy
     ```
 
 !!! warning
-    When using the `responses` API, ensure your vLLM version supports the OpenAI Responses API.
+    使用 `responses` API 时，请确保你的 vLLM 版本支持 OpenAI Responses API。
 
-## Testing the Setup
+## 测试设置
 
-Once Codex is configured, launch it in your project directory:
+一旦 Codex 配置完成，在你的项目目录中启动它：
 
 ```bash
 codex
 ```
 
-Try a simple prompt to verify the connection, such as asking it to explain a file in your project. If the model responds correctly, your setup is working. You can now use Codex with your vLLM-served model for coding tasks.
+尝试一个简单的提示来验证连接，例如要求它解释项目中的某个文件。如果模型正确响应，你的设置就完成了。你现在可以将 Codex 与你通过 vLLM 服务的模型一起用于编码任务。
 
-## Troubleshooting
+## 故障排除
 
-**Connection refused**: Ensure vLLM is running and accessible at the specified URL. Check that the port matches and that `base_url` includes the `/v1` path suffix.
+**连接被拒绝**：确保 vLLM 正在运行并且可以通过指定的 URL 访问。检查端口是否匹配，并且 `base_url` 包含 `/v1` 路径后缀。
 
-**Tool calls not working**: Verify that your model supports tool calling and that you've enabled it with the correct `--tool-call-parser` flag. See [Tool Calling](../../features/tool_calling.md).
+**工具调用不起作用**：验证你的模型是否支持工具调用，并且是否已使用正确的 `--tool-call-parser` 标志启用。请参见[工具调用](../../features/tool_calling.md)。
 
-**Model not found**: Ensure the `model` field in `~/.codex/config.toml` matches the `--served-model-name` you passed to vLLM.
+**模型未找到**：确保 `~/.codex/config.toml` 中的 `model` 字段与你传递给 vLLM 的 `--served-model-name` 匹配。

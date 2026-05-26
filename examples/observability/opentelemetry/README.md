@@ -1,11 +1,11 @@
-# Setup OpenTelemetry POC
+# 设置 OpenTelemetry 概念验证
 
-> **Note:** The core OpenTelemetry packages (`opentelemetry-sdk`, `opentelemetry-api`, `opentelemetry-exporter-otlp`, `opentelemetry-semantic-conventions-ai`) are bundled with vLLM. Manual installation is not required.
+> **注意：** 核心 OpenTelemetry 包（`opentelemetry-sdk`、`opentelemetry-api`、`opentelemetry-exporter-otlp`、`opentelemetry-semantic-conventions-ai`）已随 vLLM 一起打包。无需手动安装。
 
-1. Start Jaeger in a docker container:
+1. 在 Docker 容器中启动 Jaeger：
 
     ```bash
-    # From: https://www.jaegertracing.io/docs/1.57/getting-started/
+    # 来自：https://www.jaegertracing.io/docs/1.57/getting-started/
     docker run --rm --name jaeger \
         -e COLLECTOR_ZIPKIN_HOST_PORT=:9411 \
         -p 6831:6831/udp \
@@ -21,14 +21,14 @@
         jaegertracing/all-in-one:1.57
     ```
 
-1. In a new shell, export Jaeger IP:
+1. 在新的 shell 中，导出 Jaeger IP：
 
     ```bash
     export JAEGER_IP=$(docker inspect   --format '{{ .NetworkSettings.IPAddress }}' jaeger)
     export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=grpc://$JAEGER_IP:4317
     ```
 
-    Then set vLLM's service name for OpenTelemetry, enable insecure connections to Jaeger and run vLLM:
+    然后为 OpenTelemetry 设置 vLLM 的服务名称，启用与 Jaeger 的不安全连接，并运行 vLLM：
 
     ```bash
     export OTEL_SERVICE_NAME="vllm-server"
@@ -36,7 +36,7 @@
     vllm serve facebook/opt-125m --otlp-traces-endpoint="$OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"
     ```
 
-1. In a new shell, send requests with trace context from a dummy client
+1. 在新的 shell 中，从模拟客户端发送带有追踪上下文的请求
 
     ```bash
     export JAEGER_IP=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' jaeger)
@@ -46,18 +46,18 @@
     python dummy_client.py
     ```
 
-1. Open Jaeger webui: <http://localhost:16686/>
+1. 打开 Jaeger WebUI：<http://localhost:16686/>
 
-    In the search pane, select `vllm-server` service and hit `Find Traces`. You should get a list of traces, one for each request.
+    在搜索面板中，选择 `vllm-server` 服务并点击 `Find Traces`。您应该会看到一个追踪列表，每个请求对应一个追踪。
     ![Traces](https://i.imgur.com/GYHhFjo.png)
 
-1. Clicking on a trace will show its spans and their tags. In this demo, each trace has 2 spans. One from the dummy client containing the prompt text and one from vLLM containing metadata about the request.
+1. 点击一个追踪将显示其 spans 及其标签。在此演示中，每个追踪有 2 个 spans。一个来自包含提示文本的模拟客户端，另一个来自包含请求元数据的 vLLM。
 ![Spans details](https://i.imgur.com/OPf6CBL.png)
 
-## Exporter Protocol
+## 导出器协议
 
-OpenTelemetry supports either `grpc` or `http/protobuf` as the transport protocol for trace data in the exporter.
-By default, `grpc` is used. To set `http/protobuf` as the protocol, configure the `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL` environment variable as follows:
+OpenTelemetry 支持 `grpc` 或 `http/protobuf` 作为导出器中追踪数据的传输协议。
+默认情况下，使用 `grpc`。要将 `http/protobuf` 设置为协议，请按如下方式配置 `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL` 环境变量：
 
 ```bash
 export OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/protobuf
@@ -65,22 +65,22 @@ export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://$JAEGER_IP:4318/v1/traces
 vllm serve facebook/opt-125m --otlp-traces-endpoint="$OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"
 ```
 
-## Instrumentation of FastAPI
+## FastAPI 的插桩
 
-OpenTelemetry allows automatic instrumentation of FastAPI.
+OpenTelemetry 允许对 FastAPI 进行自动插桩。
 
-1. Install the instrumentation library
+1. 安装插桩库
 
     ```bash
     pip install opentelemetry-instrumentation-fastapi
     ```
 
-1. Run vLLM with `opentelemetry-instrument`
+1. 使用 `opentelemetry-instrument` 运行 vLLM
 
     ```bash
     opentelemetry-instrument vllm serve facebook/opt-125m
     ```
 
-1. Send a request to vLLM and find its trace in Jaeger. It should contain spans from FastAPI.
+1. 向 vLLM 发送请求并在 Jaeger 中查找其追踪。它应包含来自 FastAPI 的 spans。
 
 ![FastAPI Spans](https://i.imgur.com/hywvoOJ.png)

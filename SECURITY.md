@@ -1,50 +1,50 @@
-# Security Policy
+# 安全策略
 
-## Reporting security issues
+## 报告安全问题
 
-Please report security issues privately using [the vulnerability submission form](https://github.com/vllm-project/vllm/security/advisories/new).
+请使用[漏洞提交表单](https://github.com/vllm-project/vllm/security/advisories/new)私下报告安全问题。
 
-## Issue triage
+## 问题分类
 
-Reports will then be triaged by the [vulnerability management team](https://docs.vllm.ai/en/latest/contributing/vulnerability_management.html).
+报告将由[漏洞管理团队](https://docs.vllm.ai/en/latest/contributing/vulnerability_management.html)进行分类。
 
-## Threat model
+## 威胁模型
 
-Please see the [Security Guide in the vLLM documentation](https://docs.vllm.ai/en/latest/usage/security.html) for more information on vLLM's security assumptions and recommendations.
+有关 vLLM 的安全假设和建议的更多信息，请参阅 [vLLM 文档中的安全指南](https://docs.vllm.ai/en/latest/usage/security.html)。
 
-Please see [PyTorch's Security Policy](https://github.com/pytorch/pytorch/blob/main/SECURITY.md) for more information and recommendations on how to securely interact with models.
+有关如何安全地使用模型进行交互的更多信息和建议，请参阅 [PyTorch 的安全策略](https://github.com/pytorch/pytorch/blob/main/SECURITY.md)。
 
-## Issue severity
+## 问题严重性
 
-We will determine the risk of each issue, taking into account our experience dealing with past issues, versions affected, common defaults, and use cases. We use the following severity categories:
+我们将根据过去处理问题的经验、受影响的版本、常见默认配置和用例，确定每个问题的风险。我们使用以下严重性类别：
 
-### CRITICAL Severity
+### 严重 (CRITICAL)
 
-Vulnerabilities that allow remote attackers to execute arbitrary code, take full control of the system, or significantly compromise confidentiality, integrity, or availability without any interaction or privileges needed, examples include remote code execution via network, deserialization issues that allow exploit chains. Generally those issues which are rated as CVSS  ≥ 9.0.
+允许远程攻击者执行任意代码、完全控制系统或在无需任何交互或特权的情况下严重损害机密性、完整性或可用性的漏洞，例如通过网络进行远程代码执行、允许利用链的反序列化问题。通常这些问题的 CVSS 评分 ≥ 9.0。
 
-### HIGH Severity
+### 高 (HIGH)
 
-Serious security flaws that allow elevated impact—like RCE in specific, limited contexts or significant data loss—but require advanced conditions or some trust, examples include RCE in advanced deployment modes (e.g. multi-node), or high impact issues where some sort of privileged network access is required. These issues typically have CVSS scores between 7.0 and 8.9
+允许在特定有限上下文下产生更高影响的严重安全缺陷，如远程代码执行（RCE）或重大数据丢失，但需要高级条件或一定程度的信任，例如在高级部署模式（如多节点）中的远程代码执行，或需要某种特权网络访问的高影响问题。这些问题的 CVSS 评分通常在 7.0 到 8.9 之间。
 
-### MODERATE Severity
+### 中 (MODERATE)
 
-Vulnerabilities that cause denial of service or partial disruption, but do not allow arbitrary code execution or data breach and have limited impact. These issues have a CVSS rating between 4.0 and 6.9
+导致拒绝服务或部分中断但不允许任意代码执行或数据泄露的漏洞，且影响有限。这些问题的 CVSS 评分在 4.0 到 6.9 之间。
 
-### LOW Severity
+### 低 (LOW)
 
-Minor issues such as informational disclosures, logging errors, non-exploitable flaws, or weaknesses that require local or high-privilege access and offer negligible impact. Examples include side channel attacks or hash collisions. These issues often have CVSS scores less than 4.0
+次要问题，如信息披露、日志错误、不可利用的缺陷，或需要本地或高特权访问且影响可忽略的弱点。示例包括侧信道攻击或哈希碰撞。这些问题的 CVSS 评分通常低于 4.0。
 
-## Prenotification policy
+## 预通知政策
 
-For certain security issues of CRITICAL, HIGH, or MODERATE severity level, we may prenotify certain organizations or vendors that ship vLLM. The purpose of this prenotification is to allow for a coordinated release of fixes for severe issues.
+对于某些严重、高或中等级的特定安全问题，我们可能会预先通知分发 vLLM 的组织或供应商。此预通知的目的是允许各方协调发布严重问题的修复。
 
-* This prenotification will be in the form of a private email notification. It may also include adding security contacts to the GitHub security advisory, typically a few days before release.
+* 预通知将以私人电子邮件通知的形式进行。也可能包括在 GitHub 安全公告中添加安全联系人，通常在发布前几天的内。
 
-* If you wish to be added to the prenotification group, please send an email copying all the members of the [vulnerability management team](https://docs.vllm.ai/en/latest/contributing/vulnerability_management.html). Each vendor contact will be analyzed on a case-by-case basis.
+* 如果您希望加入预通知组，请发送电子邮件并抄送[漏洞管理团队](https://docs.vllm.ai/en/latest/contributing/vulnerability_management.html)的所有成员。每个供应商联系人将根据具体情况进行评估。
 
-* Organizations and vendors who either ship or use vLLM, are eligible to join the prenotification group if they meet at least one of the following qualifications
-    * Substantial internal deployment leveraging the upstream vLLM project.
-    * Established internal security teams and comprehensive compliance measures.
-    * Active and consistent contributions to the upstream vLLM project.
+* 分发或使用 vLLM 的组织和供应商，若满足以下至少一项条件，则有资格加入预通知组：
+    * 大量内部部署并依赖于上游 vLLM 项目。
+    * 拥有成熟的内置安全团队和全面的合规措施。
+    * 积极且持续地为上游 vLLM 项目做出贡献。
 
-* We may withdraw organizations from receiving future prenotifications if they release fixes or any other information about issues before they are public. Group membership may also change based on policy refinements for who may be included.
+* 如果组织在问题公开之前发布了修复或任何相关信息，我们可能会取消其接收未来预通知的资格。根据成员资格政策的调整，群组成员资格也可能发生变化。

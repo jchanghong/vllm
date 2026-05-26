@@ -1,29 +1,29 @@
-# CUTLASS Epilogues
+# CUTLASS 后处理逻辑 (Epilogues)
 
-## Introduction
+## 介绍
 
-This document describes the various CUTLASS epilogues implemented for fusing de-quantization operations onto GEMMs.
+本文档描述了各种 CUTLASS 后处理逻辑，用于将去量化操作融合到 GEMM 中。
 
-Currently, we only support symmetric quantization for weights,
-and symmetric and asymmetric quantization for activations.
-Both can be quantized per-tensor or per-channel (weights) / per-token (activations).
+目前，我们仅支持权重的对称量化，
+以及激活值的对称和非对称量化。
+两者都可以按张量或按通道（权重）/按 token（激活值）进行量化。
 
-There are 4 epilogues:
+共有 4 种后处理逻辑：
 
-1. `ScaledEpilogue`: symmetric quantization for activations, no bias.
-1. `ScaledEpilogueBias`: symmetric quantization for activations, supports bias.
-1. `ScaledEpilogueAzp`: asymmetric per-tensor quantization for activations, supports bias.
-1. `ScaledEpilogueAzpPerToken`: asymmetric per-token quantization for activations, supports bias.
+1. `ScaledEpilogue`：激活值对称量化，无偏置。
+1. `ScaledEpilogueBias`：激活值对称量化，支持偏置。
+1. `ScaledEpilogueAzp`：激活值非对称按张量量化，支持偏置。
+1. `ScaledEpilogueAzpPerToken`：激活值非对称按 token 量化，支持偏置。
 
-We do not have epilogues for asymmetric quantization of activations without bias in order to reduce final binary size.
-Instead, if no bias is passed, the epilogue will use 0 as the bias.
-That induces a redundant addition operation (and runtime check), but the performance impact is minor.
+我们没有为不带偏置的激活值非对称量化实现后处理逻辑，以减少最终的二进制文件大小。
+相反，如果未传递偏置，后处理逻辑将使用 0 作为偏置。
+这会引入一个冗余的加法操作（和运行时检查），但对性能影响很小。
 
-## Underlying Linear Algebra
+## 底层线性代数
 
-More details available in the [Activation Quantization RFC](https://github.com/vllm-project/vllm/issues/3975).
+更多详情请参见[激活量化 RFC](https://github.com/vllm-project/vllm/issues/3975)。
 
-If $` \widehat X `$ is the quantized $` X `$, our matrices become the following
+如果 $` \widehat X `$ 是量化后的 $` X `$，我们的矩阵将变为以下形式
 
 ```math
 A = s_a (\widehat A - J_a z_a)
@@ -41,14 +41,14 @@ D = A B + C
 D = s_a s_b \widehat D + C
 ```
 
-Here, D is the output of the GEMM, and C is the bias.
-A is the activations and supports asymmetric quantization,
-and B is the weights and only supports symmetric quantization.
-$ s_a $ and $s_b$ are the scales for activations and weights, respectively.
-$ z_a $ is the zero-point for activations, and $ J_a $ is the matrix of all ones with dimensions of A.
-Additional epilogues would be required to support asymmetric quantization for weights.
+这里，D 是 GEMM 的输出，C 是偏置。
+A 是激活值，支持非对称量化，
+B 是权重，仅支持对称量化。
+$ s_a $ 和 $s_b$ 分别是激活值和权重的缩放因子。
+$ z_a $ 是激活值的零点，$ J_a $ 是与 A 维度相同的全 1 矩阵。
+需要额外的后处理逻辑来支持权重的非对称量化。
 
-Expanding further, we can calculate $` \widehat D `$ as follows:
+进一步展开，我们可以计算 $` \widehat D `$ 如下：
 
 ```math
 A B = s_a ( \widehat A - J_a z_a ) s_b \widehat B
@@ -62,16 +62,16 @@ A B = s_a s_b \left( \widehat A \widehat B - J_a z_a \widehat B \right)
 \widehat D = \widehat A \widehat B - z_a J_a \widehat B
 ```
 
-Note that $` \widehat A \widehat B `$ is the raw output of the GEMM,
-and $` J_a \widehat B `$ is known ahead of time.
-Each row of it is equal to $` \mathbf 1 \widehat B `$, which is a row-vector of column sums of $` \widehat B `$.
+注意 $` \widehat A \widehat B `$ 是 GEMM 的原始输出，
+而 $` J_a \widehat B `$ 可以预先计算。
+它的每一行等于 $` \mathbf 1 \widehat B `$，即 $` \widehat B `$ 列和的行向量。
 
-## Epilogues
+## 后处理逻辑
 
 ### `ScaledEpilogue`
 
-This epilogue computes the symmetric quantization for activations without bias, meaning $` C = 0 `$ and $` z_a = 0 `$.
-The output of the GEMM is:
+此后处理逻辑计算无偏置的激活值对称量化，即 $` C = 0 `$ 且 $` z_a = 0 `$。
+GEMM 的输出为：
 
 ```math
 \widehat D = \widehat A \widehat B
@@ -85,15 +85,15 @@ D = s_a s_b \widehat D
 D = s_a s_b \widehat A \widehat B
 ```
 
-Epilogue parameters:
+后处理逻辑参数：
 
-- `scale_a` is the scale for activations, can be per-tensor (scalar) or per-token (column-vector).
-- `scale_b` is the scale for weights, can be per-tensor (scalar) or per-channel (row-vector).
+- `scale_a` 是激活值的缩放因子，可以是按张量（标量）或按 token（列向量）。
+- `scale_b` 是权重的缩放因子，可以是按张量（标量）或按通道（行向量）。
 
 ### `ScaledEpilogueBias`
 
-This epilogue computes the symmetric quantization for activations with bias, meaning $` z_a = 0 `$.
-The output of the GEMM is:
+此后处理逻辑计算带偏置的激活值对称量化，即 $` z_a = 0 `$。
+GEMM 的输出为：
 
 ```math
 \widehat D = \widehat A \widehat B
@@ -107,16 +107,16 @@ D = s_a s_b \widehat D + C
 D = s_a s_b \widehat A \widehat B + C
 ```
 
-Epilogue parameters:
+后处理逻辑参数：
 
-- `scale_a` is the scale for activations, can be per-tensor (scalar) or per-token (column-vector).
-- `scale_b` is the scale for weights, can be per-tensor (scalar) or per-channel (row-vector).
-- `bias` is the bias, is always per-channel (row-vector).
+- `scale_a` 是激活值的缩放因子，可以是按张量（标量）或按 token（列向量）。
+- `scale_b` 是权重的缩放因子，可以是按张量（标量）或按通道（行向量）。
+- `bias` 是偏置，始终按通道（行向量）。
 
 ### `ScaledEpilogueAzp`
 
-This epilogue computes the asymmetric per-tensor quantization for activations with bias.
-The output of the GEMM is:
+此后处理逻辑计算带偏置的激活值非对称按张量量化。
+GEMM 的输出为：
 
 ```math
 \widehat D = \widehat A \widehat B - z_a J_a \widehat B
@@ -130,38 +130,38 @@ D = s_a s_b \widehat D + C
 D = s_a s_b \left( \widehat A \widehat B - z_a J_a \widehat B \right) + C
 ```
 
-Because $` z_a `$ is a scalar, the zero-point term $` z_a J_a \widehat B `$ has every row equal to $` z_a \mathbf 1 B `$.
-That is precomputed and stored in `azp_with_adj` as a row-vector.
+因为 $` z_a `$ 是一个标量，零点项 $` z_a J_a \widehat B `$ 的每一行都等于 $` z_a \mathbf 1 B `$。
+该项被预先计算并作为行向量存储在 `azp_with_adj` 中。
 
-Epilogue parameters:
+后处理逻辑参数：
 
-- `scale_a` is the scale for activations, can be per-tensor (scalar) or per-token (column-vector).
-    - Generally this will be per-tensor as the zero-points are per-tensor.
-- `scale_b` is the scale for weights, can be per-tensor (scalar) or per-channel (row-vector).
-- `azp_with_adj` is the precomputed zero-point term ($` z_a J_a \widehat B `$), is per-channel (row-vector).
-- `bias` is the bias, is always per-channel (row-vector).
+- `scale_a` 是激活值的缩放因子，可以是按张量（标量）或按 token（列向量）。
+    - 通常由于零点是按张量的，因此这也会是按张量的。
+- `scale_b` 是权重的缩放因子，可以是按张量（标量）或按通道（行向量）。
+- `azp_with_adj` 是预先计算的零点项（$` z_a J_a \widehat B `$），是按通道的（行向量）。
+- `bias` 是偏置，始终按通道（行向量）。
 
-To use these kernels efficiently, users must precompute the `azp_with_adj` term offline and pass it to the kernel.
+为了高效使用这些内核，用户必须离线预计算 `azp_with_adj` 项并将其传递给内核。
 
 ### `ScaledEpilogueAzpPerToken`
 
-This epilogue computes the asymmetric per-token quantization for activations with bias.
+此后处理逻辑计算带偏置的激活值非对称按 token 量化。
 
-The output of the GEMM is the same as above, but the $` z_a `$ is a column-vector.
-That means the zero-point term $` z_a J_a \widehat B `$ becomes an outer product of $` z_a `$ and $` \mathbf 1 \widehat B `$.
+GEMM 的输出与上述相同，但 $` z_a `$ 是一个列向量。
+这意味着零点项 $` z_a J_a \widehat B `$ 变为 $` z_a `$ 和 $` \mathbf 1 \widehat B `$ 的外积。
 
-Epilogue parameters:
+后处理逻辑参数：
 
-- `scale_a` is the scale for activations, can be per-tensor (scalar) or per-token (column-vector).
-    - Generally this will be per-token as the zero-points are per-token.
-- `scale_b` is the scale for weights, can be per-tensor (scalar) or per-channel (row-vector).
-- `azp_adj` is the precomputed zero-point adjustment term ($` \mathbf 1 \widehat B `$), is per-channel (row-vector).
-- `azp` is the zero-point (`z_a`), is per-token (column-vector).
-- `bias` is the bias, is always per-channel (row-vector).
+- `scale_a` 是激活值的缩放因子，可以是按张量（标量）或按 token（列向量）。
+    - 通常由于零点是按 token 的，因此这也会是按 token 的。
+- `scale_b` 是权重的缩放因子，可以是按张量（标量）或按通道（行向量）。
+- `azp_adj` 是预先计算的零点调整项（$` \mathbf 1 \widehat B `$），是按通道的（行向量）。
+- `azp` 是零点（`z_a`），是按 token 的（列向量）。
+- `bias` 是偏置，始终按通道（行向量）。
 
-To use these kernels efficiently, users must precompute the `azp_adj` term offline and pass it to the kernel.
+为了高效使用这些内核，用户必须离线预计算 `azp_adj` 项并将其传递给内核。
 
-The epilogue performs the following computation (where `Dq` is the raw quantized output of the GEMM):
+后处理逻辑执行以下计算（其中 `Dq` 是 GEMM 的原始量化输出）：
 
 ```math
 out = scale_a * scale_b * (Dq - azp_adj * azp) + bias

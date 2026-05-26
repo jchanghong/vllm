@@ -1,54 +1,50 @@
 # gputrc2graph.py
 
-This script processes NVIDIA Nsight Systems (`nsys`) GPU trace files
-(`.nsys-rep`) with -t cuda tracing enabled, and generates kernel-level
-summaries and visualizations of GPU and non-GPU time. It is useful for
-profiling and analyzing nsys profile output.
+此脚本处理启用了 -t cuda 追踪的 NVIDIA Nsight Systems（`nsys`）GPU 追踪文件
+（`.nsys-rep`），并生成 GPU 和非 GPU 时间的内核级摘要和可视化。它对于
+分析和剖析 nsys profile 输出非常有用。
 
-## Usage
+## 使用方法
 
-### Command-line Arguments
+### 命令行参数
 
 - `--in_file`  
-  **(required)**  
-  List of input files and their metadata. Each entry should be in the format:  
+  **（必需）**  
+  输入文件及其元数据的列表。每个条目的格式应为：  
   `<nsys-rep>,<engine>,<model>,<elapsed_nonprofiled_sec>`  
-    - `nsys-rep`: Path to the `.nsys-rep` file.
-    - `engine`: Engine name (e.g., `vllm`).
-    - `model`: Model name (e.g., `llama`, `gpt-oss`, `ds`).
-    - `elapsed_nonprofiled_sec`: Wall-clock runtime (in seconds) without
-    profiling. Specify `0` to use the elapsed time from the nsys-rep file
-    (this may inflate non-GPU time if actual runtime without profiling is
-    less). Multiple entries can be provided, separated by spaces.
+    - `nsys-rep`：`.nsys-rep` 文件的路径。
+    - `engine`：引擎名称（例如 `vllm`）。
+    - `model`：模型名称（例如 `llama`、`gpt-oss`、`ds`）。
+    - `elapsed_nonprofiled_sec`：未经分析的运行时间（秒）。指定 `0` 则使用 nsys-rep 文件中的运行时间
+    （如果未分析的实际运行时间更短，这可能会夸大非 GPU 时间）。多个条目可用空格分隔。
 
 - `--out_dir`  
-  Output directory for the generated CSV and HTML files.  
-  If not specified, results are saved in the current directory.
+  生成的 CSV 和 HTML 文件的输出目录。  
+  如果未指定，结果将保存在当前目录中。
 
 - `--title`  
-  Title for the HTML chart/visualization.
+  HTML 图表/可视化的标题。
 
 - `--nsys_cmd`  
-  Path to the `nsys` command.  
-  Default: `nsys` (assumes it is in your PATH).  
-  Use this if `nsys` is not in your system PATH.
+  `nsys` 命令的路径。  
+  默认值：`nsys`（假设它已在您的 PATH 中）。  
+  如果 `nsys` 不在您的系统 PATH 中，请使用此选项。
 
-## Notes
+## 注意事项
 
-- Make sure you have pandas installed.
-- Make sure [nsys](https://developer.nvidia.com/nsight-systems/get-started) is installed, and specify the path to the `nsys` command with `--nsys_cmd` if it is not in your PATH.
-- For more details on available engines and models, see the help string in
-  the script or run:
+- 确保已安装 pandas。
+- 确保已安装 [nsys](https://developer.nvidia.com/nsight-systems/get-started)，如果 `nsys` 命令不在您的 PATH 中，请使用 `--nsys_cmd` 指定路径。
+- 有关可用引擎和模型的更多详细信息，请参见脚本中的帮助字符串或运行：
 
 ```bash
 python3 gputrc2graph.py --help
 ```
 
-## Example 1: analyze a single profile
+## 示例 1：分析单个 profile
 
-To analyze the GPU cycles for say, gpt-oss model with vLLM engine:
+要分析例如使用 vLLM 引擎的 gpt-oss 模型的 GPU 周期：
 
-1. Run the following command to collect nsys profile, for vllm serve config.
+1. 运行以下命令以收集 nsys profile，用于 vllm serve 配置。
 
    ```bash
    nsys profile -t cuda -o run1 -f true --trace-fork-before-exec=true \
@@ -56,20 +52,15 @@ To analyze the GPU cycles for say, gpt-oss model with vLLM engine:
    vllm serve openai/gpt-oss-120b ...
    ```
 
-   where:
+   其中：
 
-   - DELAY: how many seconds to delay nsys from collecting profiles, needed so
-     that profiles aren't captured till vllm server has come up and load
-     generation starts.
-   - DURATION: how many seconds for nsys profile to run before generating the
-     profile. This should be > the duration of the run.
+   - DELAY：延迟 nsys 收集 profile 的秒数，确保 vllm 服务器启动并开始加载生成后才捕获 profile。
+   - DURATION：nsys profile 运行和生成 profile 文件的时间。这应大于运行持续时间。
 
-2. Run again, this time without collecting the profile, and get the total run
-   time in seconds. This value will be used by the script to calculate the
-   CPU(non-GPU) seconds for the analysis.
+2. 再次运行，这次不收集 profile，并获取总运行时间（秒）。该值将被脚本用于计算分析的
+   CPU（非 GPU）时间。
 
-3. Say the run elapsed time is 306 seconds, from step #2. Run script to
-   analyze:
+3. 假设第 2 步的运行耗时为 306 秒。运行脚本进行分析：
 
    ```bash
    python3 gputrc2graph.py \
@@ -77,70 +68,49 @@ To analyze the GPU cycles for say, gpt-oss model with vLLM engine:
    --title "vLLM-gpt-oss profile"
    ```
 
-The command will produce 2 files for analysis:
+该命令将生成 2 个分析文件：
 
-- result.html: this categorizes kernel names into different categories in a
-  stacked bar chart.
-- result.csv: shows how the kernel names are mapped to the different
-  categories.
+- result.html：将内核名称分类到不同类别中，以堆叠条形图形式呈现。
+- result.csv：显示内核名称如何映射到不同类别。
 
-### HTML visualization with result.html
+### HTML 可视化 result.html
 
-The html file shows the number of elapsed seconds due to different GPU
-Substages or categories, which consist of moe_gemm (Mixture of Experts GEMM)
-kernels the biggest category, at 148 seconds, followed by "attn" or attention
-kernels. This lets the user prioritize the kernels to focus on for performance
-optimizations.
+HTML 文件显示了由不同 GPU 子阶段或类别导致的运行时间秒数，其中 moe_gemm（混合专家 GEMM）内核是最大的类别，为 148 秒，其次是 "attn" 或注意力内核。这使用户能够优先关注需要优化的内核以进行性能优化。
 
-![Example GPU Trace Visualization](images/html.png)
+![GPU 追踪可视化示例](images/html.png)
 
-There's also an appended data table underneath the bar chart for copying out to other post-processing tools.
+条形图下方还有一个附加数据表，可用于复制到其他后处理工具中。
 
-![Example GPU Trace Table](images/html_tbl.png)
+![GPU 追踪表示例](images/html_tbl.png)
 
-### Kernel to category mapping with result.csv
+### 内核到类别映射 result.csv
 
-Suppose the user would like to focus on improving triton kernels. It's not the
-biggest consumer of cycles at 9.74 sec but perhaps it hasn't been optimized.
-The next step is to use the result.csv to dive into what the kernels are which
-compose the triton kernel GPU cycles. The following image shows that
-triton_poi_fused__to_copy_add_addmm_cat_.. kernel to be the biggest
-contributor to GPU cycles.
+假设用户希望专注于改进 triton 内核。它并不是最大的周期消耗者（9.74 秒），但可能尚未优化。
+下一步是使用 result.csv 深入了解构成 triton 内核 GPU 周期的内核。下图显示
+triton_poi_fused__to_copy_add_addmm_cat_.. 内核是 GPU 周期的最大贡献者。
 
-![Example GPU Trace csv](images/csv1.png)
+![GPU 追踪 CSV 示例](images/csv1.png)
 
-## Example 2: analyze multiple profiles
+## 示例 2：分析多个 profile
 
-Suppose the user has multiple nsys trace files, captured for different models,
-say llama and gpt-oss in this case, and wish to compare their GPU/non-GPU
-time, something like the following command can be used.
+假设用户有多个 nsys 追踪文件，分别针对不同的模型（例如本例中的 llama 和 gpt-oss），并希望比较它们的 GPU/非 GPU 时间，可以使用如下命令。
 
 ```bash
 python3 gputrc2graph.py \
 --in_file run1.nsys-rep,vllm,llama,100 run2.nsys-rep,vllm,gpt-oss,102 \
 --out_dir results \
---title "Comparison of vLLM Models"
+--title "vLLM Models Comparison"
 ```
 
-The analysis process is similar to example 1 but now there will be multiple
-stack bar charts that can be compared.  The categories for the different
-kernels will remain the same, so that it's easy to compare the GPU cycles for
-the same categories.
+分析过程与示例 1 类似，但现在将显示多个可以比较的堆叠条形图。不同内核的类别将保持不变，以便于比较同一类别的 GPU 周期。
 
-Once a category is shown to have more cycles for one configuration than
-another, the next step would be to use the csv file to see what kernels are
-mapped into that category, and which kernels are taking the largest amount of
-time which would cause a difference for the overall category.
+一旦发现某个配置在某个类别上比其他配置有更多周期，下一步就是使用 CSV 文件查看哪些内核被映射到该类别，以及哪些内核占据了最多的时间，从而导致整个类别的差异。
 
-## Example 3: add new classification for a new model
+## 示例 3：为新模型添加新的分类
 
-To create a new engine DEF with model ABC, just add another json file in the same directory as
-gputrc2graph.py with the same format as the other json files. The script will automatically pick up all the json files in the same directory as engine/model specifications.
+要创建引擎 DEF 和模型 ABC，只需在与 gputrc2graph.py 相同的目录中添加一个与其他 JSON 文件格式相同的 JSON 文件。脚本将自动加载同一目录中所有作为引擎/模型规范的 JSON 文件。
 
-Then, for this new model, suppose there are 4 kernels to be classified into "gemm" and "attn", where the gemm kernels
-have names with "*H*" or "*I*" in them, and attn kernels have names with "*J*"
-or "*K*" in them, just add another .json file in the same directory as
-gputrc2graph.py with the same format as the other json files, like the following:
+然后，对于这个新模型，假设有 4 个内核需要分类为 "gemm" 和 "attn"，其中 gemm 内核的名称中包含 "*H*" 或 "*I*"，attn 内核的名称中包含 "*J*" 或 "*K*"，只需在与 gputrc2graph.py 相同的目录中添加另一个 .json 文件，格式与其他 JSON 文件相同，如下所示：
 
 ```json
 {
@@ -155,20 +125,17 @@ gputrc2graph.py with the same format as the other json files, like the following
 }
 ```
 
-Each entry in the dictionary consists of:
+字典中的每个条目包含：
 
-- key: a regex used to classify the kernels
-- value: the category to classify the kernels into.
+- key：用于分类内核的正则表达式
+- value：内核被分类到的类别。
 
-The last 2 entries are common for all engine/models, consisting of CUDA memory
-operations and a 'misc' for anything that's leftover and can't be classified.
+最后 2 个条目对所有引擎/模型都是通用的，包括 CUDA 内存操作和用于无法分类的剩余内容的 'misc'。
 
-When invoking gputrc2graph.py, specify a trace file with this new model/engine
-like the following:
+当调用 gputrc2graph.py 时，使用以下方式指定包含此新模型/引擎的追踪文件：
 
 ```bash
 --infile new.nsys-rep,DEF,ABC,<runtime>
 ```
 
-If the engine_DEF.json file already exists, just add the model as a new node in
-the existing engine file, after the other models.
+如果 engine_DEF.json 文件已存在，只需将模型作为新节点添加到现有引擎文件中，放在其他模型之后。

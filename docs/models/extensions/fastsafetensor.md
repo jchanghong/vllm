@@ -1,4 +1,4 @@
-Loading model weights with fastsafetensors
+使用 fastsafetensors 加载模型权重
 ===================================================================
 
 Using fastsafetensors library enables loading model weights to GPU memory by leveraging GPU direct storage. See [their GitHub repository](https://github.com/foundation-model-stack/fastsafetensors) for more details.

@@ -1,47 +1,47 @@
-# Context Parallel Deployment
+# 上下文并行部署
 
-Context parallel mainly solves the problem of serving long context requests. As prefill and decode present quite different characteristics and have quite different SLO (service level objectives), we need to implement context parallel separately for them. The major considerations are:
+上下文并行主要解决长上下文请求的服务问题。由于预填充和解码具有截然不同的特性且具有截然不同的 SLO（服务等级目标），我们需要分别为它们实现上下文并行。主要考虑因素包括：
 
-- For long context prefill, we need to control the TTFT (time to first token) by amortizing the computation time of the prefill across query tokens.
-- For long context decode, we need more space for KV cache to increase the batchsize (and hence the throughput).
+- 对于长上下文预填充，我们需要通过将预填充的计算时间分摊到查询令牌上来控制 TTFT（首令牌时间）。
+- 对于长上下文解码，我们需要更多空间来存储 KV 缓存，以增加批处理大小（从而提高吞吐量）。
 
-## Prefill Context Parallel
+## 预填充上下文并行
 
-During prefill, for a long request with `T` new tokens, we need to compute query/key/value tensors for these new tokens. Say we have `N` GPUs, we can split the request into `N` chunks, and each GPU computes one chunk of the query/key/value tensors.
+在预填充阶段，对于一个包含 `T` 个新令牌的长请求，我们需要计算这些新令牌的查询/键/值张量。假设我们有 `N` 个 GPU，我们可以将请求分成 `N` 个块，每个 GPU 计算一个块的查询/键/值张量。
 
-Depending on the use case, there are two possible strategies:
+根据使用场景，有两种可能的策略：
 
-1. Partial query, full key/value: If the request token length is moderately long (we can afford holding the full key/value tensors), and the goal is to accelerate the prefill (and amortize the computation time of the prefill across query tokens), then we can gather the key/value tensors from all GPUs and let each GPU compute the attention output corresponding to the query tokens of its chunk.
-2. Partial query, partial key/value: If the request token length is too long, we cannot afford holding the full key/value tensors anymore, then we can only compute one chunk of query/key/value tensors for each GPU, and use techniques like [ring-attention](http://arxiv.org/abs/2310.01889) to send/recv key/value tensors chunk by chunk.
+1. **部分查询，完整键/值**：如果请求令牌长度适中（我们可以负担保存完整的键/值张量），并且目标是加速预填充（并将预填充的计算时间分摊到查询令牌上），那么我们可以从所有 GPU 收集键/值张量，并让每个 GPU 计算其对应块中查询令牌的注意力输出。
+2. **部分查询，部分键/值**：如果请求令牌长度过长，我们无法再负担保存完整的键/值张量，那么每个 GPU 只能计算一个块的查询/键/值张量，并使用诸如 [ring-attention](http://arxiv.org/abs/2310.01889) 之类的技术逐块发送/接收键/值张量。
 
-Both approaches are under active development.
+两种方法都正在积极开发中。
 
-## Decode Context Parallel
+## 解码上下文并行
 
-Due to the auto-regressive nature of decoding, every decoding step needs to compute a small amount of query tokens w.r.t. a large number of key/value tokens stored in the paged KV cache. The core of decode context parallel is how to shard the KV cache across GPUs.
+由于解码的自回归特性，每个解码步骤需要针对存储在分页 KV 缓存中的大量键/值令牌计算少量的查询令牌。解码上下文并行的核心是如何在 GPU 之间分片 KV 缓存。
 
-For a model with `H` kv-heads, a request with `T` tokens in the context needs to store `H * T` key/value tensors in the KV cache.
+对于一个具有 `H` 个 KV 头的模型，一个包含 `T` 个上下文令牌的请求需要在 KV 缓存中存储 `H * T` 个键/值张量。
 
-1. If one GPU can hold them all, and the performance is good enough, then no parallelization is needed.
-2. If one GPU cannot hold them all, or we want to hold more requests in the KV cache, we can first shard the KV cache along the `H` dimension, that's the plain tensor parallel sharding. It's as simple as adding `-tp <num_gpus>` to the command line.
-3. Since `H` is limited (determined by the model architecture), when we continue to increase the tensor parallel size, the KV cache for each GPU will be duplicated for `tp_size / H` times. Of course, duplication is not good for efficiency. Then we need to add decode context parallel to further shard the KV cache along the `T` dimension. This is as simple as adding `-dcp <size>` to the command line. Note that `size` does not increase the number of GPUs we need to launch, but just reduces the KV cache duplication. The dcp size should lie in the range of `[1, tp_size/H]`. With larger dcp size, the KV cache duplication is reduced, but the communication overhead increases.
+1. 如果一个 GPU 可以容纳所有这些数据，且性能足够好，则不需要并行化。
+2. 如果一个 GPU 无法容纳全部数据，或者我们希望在 KV 缓存中容纳更多请求，我们可以首先沿着 `H` 维度对 KV 缓存进行分片，这就是普通的张量并行分片。只需在命令行中添加 `-tp <num_gpus>` 即可。
+3. 由于 `H` 是有限的（由模型架构决定），当我们继续增加张量并行大小时，每个 GPU 的 KV 缓存将重复 `tp_size / H` 次。当然，重复对效率不利。然后我们需要添加解码上下文并行来进一步沿着 `T` 维度对 KV 缓存进行分片。只需在命令行中添加 `-dcp <size>` 即可。注意，`size` 不会增加我们需要启动的 GPU 数量，只是减少 KV 缓存的重复。DCP 大小应位于 `[1, tp_size/H]` 范围内。DCP 大小越大，KV 缓存重复减少得越多，但通信开销也越大。
 
-Theoretically, it is possible to extend the dcp size beyond `tp_size / H` to further shard the KV cache and accelerate the decoding phase. However, since the number of query tokens is limited in decoding, it's unclear what should we do for the remaining `dcp_size - tp_size / H` GPUs for non-attention layers. For the sake of simplicity, dcp size is upper bounded by `tp_size / H`. If you want to further accelerate the decoding phase, you can consider increasing the `tp_size` first, and then increasing the dcp size.
+理论上，可以将 DCP 大小扩展到 `tp_size / H` 以上，以进一步分片 KV 缓存并加速解码阶段。然而，由于解码过程中查询令牌数量有限，对于非注意力层，剩余的 `dcp_size - tp_size / H` 个 GPU 应该做什么并不明确。为简单起见，DCP 大小的上限为 `tp_size / H`。如果你想进一步加速解码阶段，可以考虑先增加 `tp_size`，然后再增加 DCP 大小。
 
-Note that kv cache can grow during decoding, and the sharding strategy needs to be carefully implemented. We use an interleaving strategy to shard the KV cache along the `T` dimension, so that kv cache for future tokens can be naturally sharded along the `T` dimension. This is proposed by [Chao Hong from Moonshot](https://github.com/youzhedian), and also explained in details in [this paper](http://arxiv.org/abs/2507.07120).
+请注意，KV 缓存在解码过程中会增长，分片策略需要仔细实现。我们使用交织策略沿着 `T` 维度对 KV 缓存进行分片，以便未来令牌的 KV 缓存可以自然地沿着 `T` 维度分片。这是由 [Chao Hong from Moonshot](https://github.com/youzhedian) 提出的，并在[这篇论文](http://arxiv.org/abs/2507.07120)中有详细解释。
 
-Case study:
+案例研究：
 
-For DeepSeek-R1, we have 1 kv-head when MLA is enabled. The typical single-node deployment with `-tp 8` causes 8x KV cache duplication. We can consider adding `-dcp 8` to reduce the KV cache duplication.
+对于 DeepSeek-R1，当启用 MLA 时，我们有 1 个 KV 头。典型的单节点部署使用 `-tp 8` 会导致 8 倍 KV 缓存重复。我们可以考虑添加 `-dcp 8` 来减少 KV 缓存重复。
 
-For Kimi-K2, the architecture is similar to DeepSeek-R1, but with more parameters. When we deploy it with `-tp 16`, the KV cache duplication is 16x. We can add `-dcp 16` to completely remove the KV cache duplication, at the cost of more communication overhead. We can also add `-dcp 8` to reduce the KV cache duplication to 2x. Although it still duplicates the KV cache twice, the communication overhead is smaller since the DCP communication only happens inside one node.
+对于 Kimi-K2，其架构与 DeepSeek-R1 类似，但参数更多。当我们使用 `-tp 16` 部署时，KV 缓存重复为 16 倍。我们可以添加 `-dcp 16` 来完全消除 KV 缓存重复，代价是增加通信开销。我们也可以添加 `-dcp 8` 将 KV 缓存重复减少到 2 倍。虽然它仍然重复了两次 KV 缓存，但由于 DCP 通信仅发生在一个节点内，通信开销更小。
 
-For Qwen3-235B-A22B, we have 4 kv-heads. When we deploy it with `-tp 8`, the KV cache duplication is 2x. Then we can add `-dcp 2` to remove the KV cache duplication.
+对于 Qwen3-235B-A22B，我们有 4 个 KV 头。当我们使用 `-tp 8` 部署时，KV 缓存重复为 2 倍。然后我们可以添加 `-dcp 2` 来消除 KV 缓存重复。
 
-In short, for decode context parallel, try to increase `-tp` size until you get satisfactory performance, and then add `-dcp` to reduce the KV cache duplication.
+简而言之，对于解码上下文并行，尝试增加 `-tp` 大小直到获得满意的性能，然后添加 `-dcp` 来减少 KV 缓存重复。
 
-Decode context parallel is supported in vLLM, for both MLA and GQA models. Some attention backends also support the combination of decode context parallel and MTP (multi-token prediction) to further accelerate the decoding phase.
+vLLM 支持解码上下文并行，适用于 MLA 和 GQA 模型。一些注意力后端还支持将解码上下文并行与 MTP（多令牌预测）结合使用，以进一步加速解码阶段。
 
-## Technical Discussions
+## 技术讨论
 
-The main discussions happen in the `#sig-context-parallel` channel of [vLLM Slack](https://slack.vllm.ai/).
+主要讨论发生在 vLLM [Slack](https://slack.vllm.ai/) 的 `#sig-context-parallel` 频道中。

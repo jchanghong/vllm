@@ -1,11 +1,11 @@
-# Hidden State Extraction
+# 隐藏状态提取 (Hidden State Extraction)
 
-The Hidden State Extraction feature allows vLLM to save intermediate layer activations from a target model during inference. This is useful for training [EAGLE](eagle.md)-style draft models, knowledge distillation, or offline analysis of model internals.
+隐藏状态提取功能允许 vLLM 在推理过程中保存目标模型的中间层激活值。这对于训练 [EAGLE](eagle.md) 风格的草稿模型、知识蒸馏或离线分析模型内部状态非常有用。
 
 !!! note
-    It is possible to save the last-layer's output hidden states by passing `num_hidden_layers` as a layer id. Note that these are _not_ normalized using the output norm.
+    可以通过传递 `num_hidden_layers` 作为层 ID 来保存最后一层的输出隐藏状态。请注意，这些状态_未_经过输出归一化处理。
 
-## Offline Example
+## 离线示例
 
 ```python
 import tempfile
@@ -50,11 +50,11 @@ with tempfile.TemporaryDirectory() as tmpdir:
         print(f"hidden_states: {obj['hidden_states'].shape}")
 ```
 
-A complete example is available at [`examples/features/speculative_decoding/extract_hidden_states_offline.py`](../../../examples/features/speculative_decoding/extract_hidden_states_offline.py).
+完整示例请参见 [`examples/features/speculative_decoding/extract_hidden_states_offline.py`](../../../examples/features/speculative_decoding/extract_hidden_states_offline.py)。
 
-## Online Example
+## 在线示例
 
-For improved performance, it is recommended to use a RAM-mounted file system such as `/dev/shm/` for online usage in which the client cleans up the files soon after they are generated.
+为获得更好的性能，在客户端会在生成后立即清理文件的在线使用场景中，建议使用 RAM 挂载的文件系统，例如 `/dev/shm/`。
 
 ```bash
 vllm serve Qwen/Qwen3-8B \
@@ -63,24 +63,24 @@ vllm serve Qwen/Qwen3-8B \
     --no-enable-chunked-prefill
 ```
 
-## Configuration
+## 配置
 
-The `kv_connector_extra_config` dict accepts these options:
+`kv_connector_extra_config` 字典接受以下选项：
 
-| Parameter | Default | Description |
+| 参数 | 默认值 | 描述 |
 | --- | --- | --- |
-| `shared_storage_path` | `/tmp` | Directory where hidden state files are saved |
-| `num_writer_threads` | `8` | Thread pool size for async disk writes |
-| `use_synchronization_lock` | `True` | Use file locks so concurrent readers block until writes complete. Can be disabled for batch generation where synchronization is not needed. |
+| `shared_storage_path` | `/tmp` | 隐藏状态文件的保存目录 |
+| `num_writer_threads` | `8` | 异步磁盘写入的线程池大小 |
+| `use_synchronization_lock` | `True` | 使用文件锁，使并发读取器在写入完成前阻塞。在不需要同步的批量生成场景中可以禁用。 |
 
-## Output Format
+## 输出格式
 
-Each request produces a `.safetensors` file containing:
+每个请求生成一个 `.safetensors` 文件，包含：
 
-- **`hidden_states`** — shape `[num_tokens, num_extracted_layers, hidden_size]`
-- **`token_ids`** — shape `[num_tokens]`
+- **`hidden_states`** — 形状 `[num_tokens, num_extracted_layers, hidden_size]`
+- **`token_ids`** — 形状 `[num_tokens]`
 
-The file path is returned in `output.kv_transfer_params["hidden_states_path"]`. Use `load_hidden_states()` from the connector module to read the file with proper synchronization.
+文件路径在 `output.kv_transfer_params["hidden_states_path"]` 中返回。使用连接器模块中的 `load_hidden_states()` 函数来读取文件并进行适当的同步。
 
 !!! note
-    Chunked prefill is not compatible with this feature and must be disabled.
+    分块预填充与此功能不兼容，必须禁用。

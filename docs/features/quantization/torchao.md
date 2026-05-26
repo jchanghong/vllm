@@ -1,20 +1,20 @@
 # TorchAO
 
-TorchAO is an architecture optimization library for PyTorch, it provides high performance dtypes, optimization techniques and kernels for inference and training, featuring composability with native PyTorch features like torch.compile, FSDP etc.. Some benchmark numbers can be found [here](https://github.com/pytorch/ao/tree/main/torchao/quantization#benchmarks).
+TorchAO 是一个用于 PyTorch 的架构优化库，它为推理和训练提供高性能数据类型、优化技术和内核，具有与 torch.compile、FSDP 等原生 PyTorch 功能的可组合性。一些基准数据可以在[这里](https://github.com/pytorch/ao/tree/main/torchao/quantization#benchmarks)找到。
 
-We recommend installing the latest torchao nightly with
+我们建议安装最新的 torchao  nightly 版本：
 
 ```bash
-# Install the latest TorchAO nightly build
-# Choose the CUDA version that matches your system (cu126, cu128, etc.)
+# 安装最新的 TorchAO nightly 构建版本
+# 选择与你系统匹配的 CUDA 版本（cu126、cu128 等）
 pip install \
     --pre torchao>=10.0.0 \
     --index-url https://download.pytorch.org/whl/nightly/cu126
 ```
 
-## Quantizing HuggingFace Models
+## 量化 HuggingFace 模型
 
-You can quantize your own huggingface model with torchao, e.g. [transformers](https://huggingface.co/docs/transformers/main/en/quantization/torchao) and [diffusers](https://huggingface.co/docs/diffusers/en/quantization/torchao), and save the checkpoint to huggingface hub like [this](https://huggingface.co/jerryzh168/llama3-8b-int8wo) with the following example code:
+你可以使用 torchao 量化自己的 huggingface 模型，例如 [transformers](https://huggingface.co/docs/transformers/main/en/quantization/torchao) 和 [diffusers](https://huggingface.co/docs/diffusers/en/quantization/torchao)，并使用以下示例代码将检查点保存到 huggingface hub，如[这个示例](https://huggingface.co/jerryzh168/llama3-8b-int8wo)所示：
 
 ??? code
 
@@ -35,9 +35,9 @@ You can quantize your own huggingface model with torchao, e.g. [transformers](ht
     input_text = "What are we having for dinner?"
     input_ids = tokenizer(input_text, return_tensors="pt").to("cuda")
 
-    hub_repo = # YOUR HUB REPO ID
+    hub_repo = # 你的 HUB REPO ID
     tokenizer.push_to_hub(hub_repo)
     quantized_model.push_to_hub(hub_repo, safe_serialization=False)
     ```
 
-Alternatively, you can use the [TorchAO Quantization space](https://huggingface.co/spaces/medmekk/TorchAO_Quantization) for quantizing models with a simple UI.
+另外，你也可以使用 [TorchAO 量化空间](https://huggingface.co/spaces/medmekk/TorchAO_Quantization) 通过简单的 UI 对模型进行量化。

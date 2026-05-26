@@ -1,30 +1,30 @@
-# Sleep Mode
+# 休眠模式
 
-vLLM's Sleep Mode allows you to temporarily release most GPU memory used by a model, including model weights and KV cache, without stopping the server or unloading the Docker container. This is especially useful for RLHF, training, or cost-saving scenarios where GPU resources need to be freed between inference workloads.
+vLLM 的休眠模式允许您在不停止服务器或卸载 Docker 容器的情况下，临时释放模型使用的大部分 GPU 内存，包括模型权重和 KV 缓存。这对于 RLHF、训练或需要在推理工作负载之间释放 GPU 资源的成本节约场景特别有用。
 
-Key benefits:
+主要优势：
 
-- **Frees GPU memory**: Offloads model weights to CPU RAM and discards KV cache, releasing up to 90%+ of GPU memory for other tasks.
-- **Fast resume**: Quickly wake up the engine and resume inference without full model reload.
-- **API endpoints**: Control sleep/wake_up state via HTTP endpoints or Python API.
-- **Supports distributed workloads**: Works with tensor parallelism, pipeline parallelism, etc.
-- **Fine-grained control**: Optionally wake up only model weights or KV cache to avoid OOM during weight updates.
-
-!!! note
-    This feature is now supported on CUDA and ROCm platform.
+- **释放 GPU 内存**：将模型权重卸载到 CPU RAM 并丢弃 KV 缓存，释放高达 90%+ 的 GPU 内存供其他任务使用。
+- **快速恢复**：快速唤醒引擎并恢复推理，无需完全重新加载模型。
+- **API 端点**：通过 HTTP 端点或 Python API 控制休眠/唤醒状态。
+- **支持分布式工作负载**：适用于张量并行、流水线并行等。
+- **细粒度控制**：可选择仅唤醒模型权重或 KV 缓存，以避免在权重更新期间出现 OOM。
 
 !!! note
-    For more information, see this [Blog Post](https://blog.vllm.ai/2025/10/26/sleep-mode.html).
+    此功能现在支持 CUDA 和 ROCm 平台。
 
-## Sleep levels
+!!! note
+    更多信息，请参阅此[博文](https://blog.vllm.ai/2025/10/26/sleep-mode.html)。
 
-Level 1 sleep will offload the model weights and discard the KV cache. The content of KV cache is forgotten. Level 1 sleep is good for sleeping and waking up the engine to run the same model again. The model weights are backed up in CPU memory. Please make sure there's enough CPU memory to store the model weights. Level 2 sleep will discard both the model weights and the KV cache (while the model's buffers are kept in CPU, like rope scaling tensors). The content of both the model weights and KV cache is forgotten. Level 2 sleep is good for sleeping and waking up the engine to run a different model or update the model, where previous model weights are not needed, e.g. RLHF weight update.
+## 休眠级别
 
-## Usage
+级别 1 休眠将卸载模型权重并丢弃 KV 缓存。KV 缓存的内容将被遗忘。级别 1 休眠适用于休眠和唤醒引擎以再次运行同一模型。模型权重备份在 CPU 内存中。请确保有足够的 CPU 内存来存储模型权重。级别 2 休眠将丢弃模型权重和 KV 缓存（而模型的缓冲区保留在 CPU 中，如 rope 缩放张量）。模型权重和 KV 缓存的内容都将被遗忘。级别 2 休眠适用于休眠和唤醒引擎以运行不同的模型或更新模型，其中先前的模型权重不再需要，例如 RLHF 权重更新。
 
-### Offline inference
+## 用法
 
-Enable sleep mode by passing `enable_sleep_mode=True` to the `LLM` class.
+### 离线推理
+
+通过向 `LLM` 类传递 `enable_sleep_mode=True` 来启用休眠模式。
 
 ```python
 from vllm import LLM
@@ -34,53 +34,53 @@ llm = LLM("Qwen/Qwen3-0.6B", enable_sleep_mode=True)
 #### Python API
 
 ```python
-# Sleep level 1
-# Put the engine to sleep (level=1: offload weights to CPU RAM, discard KV cache)
+# 休眠级别 1
+# 将引擎置于休眠状态（level=1：将权重卸载到 CPU RAM，丢弃 KV 缓存）
 llm.sleep(level=1)
 
-# Wake up the engine (restore weights)
+# 唤醒引擎（恢复权重）
 llm.wake_up()
 ```
 
 ```python
-# Sleep level 2
-# Put the engine to sleep (level=2: discard both weights and KV cache)
+# 休眠级别 2
+# 将引擎置于休眠状态（level=2：丢弃权重和 KV 缓存）
 llm.sleep(level=2)
 
-# Reallocate weights memory only
+# 仅重新分配权重内存
 llm.wake_up(tags=["weights"])
 
-# Load weights in-place
+# 原地加载权重
 llm.collective_rpc("reload_weights")
 
-# Reallocate KV cache
+# 重新分配 KV 缓存
 llm.wake_up(tags=["kv_cache"])
 ```
 
-#### RLHF weight updates
+#### RLHF 权重更新
 
-During RLHF training, vLLM allows you to selectively wake up only the model weights or the KV cache using the tags argument in wake_up(). This fine-grained control is especially useful when updating model weights: by waking up just the weights (e.g., llm.wake_up(tags=["weights"])), you avoid allocating memory for the KV cache until after the weight update is complete. This approach helps prevent GPU out-of-memory (OOM) errors, particularly with large models, by minimizing peak memory usage during weight synchronization and update operations.
+在 RLHF 训练期间，vLLM 允许您使用 wake_up() 中的 tags 参数选择性地仅唤醒模型权重或 KV 缓存。这种细粒度控制在使用标签参数时特别有用：通过仅唤醒权重（例如，llm.wake_up(tags=["weights"])），您可以避免在权重更新完成之前为 KV 缓存分配内存。这种方法通过最小化权重同步和更新操作期间的峰值内存使用，帮助防止 GPU 内存不足（OOM）错误，尤其是在大型模型中。
 
-Use `tags=["weights"]` or `tags=["kv_cache"]` to control which resources are restored, useful for RLHF and weight updates. **Note** that `is_sleeping` will report `true` until all components are awake.
+使用 `tags=["weights"]` 或 `tags=["kv_cache"]` 控制恢复哪些资源，对 RLHF 和权重更新很有用。**请注意**，在所有组件都唤醒之前，`is_sleeping` 将报告 `true`。
 
 ```python
-# Put engine to deep sleep (level=2)
+# 将引擎置于深度休眠（level=2）
 llm.sleep(level=2)
-# ... Get the new weights
-# Wake up only weights to avoid OOM
+# ... 获取新权重
+# 仅唤醒权重以避免 OOM
 llm.wake_up(tags=["weights"])
-# ... Update the weights
-# wake up KV cache after weights are updated
+# ... 更新权重
+# 权重更新后唤醒 KV 缓存
 llm.wake_up(tags=["kv_cache"])
 ```
 
-### Online Serving
+### 在线服务
 
-To enable sleep mode in a vLLM server you need to initialize it with the flag `VLLM_SERVER_DEV_MODE=1` and pass `--enable-sleep-mode` to the vLLM server.
+要在 vLLM 服务器中启用休眠模式，您需要使用 `VLLM_SERVER_DEV_MODE=1` 标志初始化，并将 `--enable-sleep-mode` 传递给 vLLM 服务器。
 
-#### Server in development mode
+#### 开发模式下的服务器
 
-When using the flag `VLLM_SERVER_DEV_MODE=1` you enable development endpoints, and these endpoints should not be exposed to users.
+使用 `VLLM_SERVER_DEV_MODE=1` 标志时，您启用了开发端点，这些端点不应暴露给用户。
 
 ```bash
 VLLM_SERVER_DEV_MODE=1 vllm serve Qwen/Qwen3-0.6B \
@@ -88,35 +88,35 @@ VLLM_SERVER_DEV_MODE=1 vllm serve Qwen/Qwen3-0.6B \
   --port 8000
 ```
 
-Below is an example of how to sleep and wake up a model in level 1.
+以下是在级别 1 中休眠和唤醒模型的示例。
 
 ```bash
 curl -X POST 'http://localhost:8000/sleep?level=1'
 curl -X POST 'http://localhost:8000/wake_up'
 ```
 
-And this is an example of how to sleep and wake up a model in level 2.
+以下是在级别 2 中休眠和唤醒模型的示例。
 
 ```bash
 curl -X POST 'http://localhost:8000/sleep?level=2'
-# Reallocate weights memory only
+# 仅重新分配权重内存
 curl -X POST 'http://localhost:8000/wake_up?tags=weights'
-# Load weights in-place
+# 原地加载权重
 curl -X POST 'http://localhost:8000/collective_rpc' -H 'Content-Type: application/json' -d '{"method":"reload_weights"}'
-# Reallocate KV cache
+# 重新分配 KV 缓存
 curl -X POST 'http://localhost:8000/wake_up?tags=kv_cache'
 ```
 
-#### HTTP endpoints
+#### HTTP 端点
 
-- `POST /sleep?level=1` — Put the model to sleep (`level=1`).
-- `POST /wake_up` — Wake up the model. Supports optional `tags` query parameters for partial wake-up (e.g., `?tags=weights`).
-- `POST /collective_rpc` — Perform a collective remote procedure call (RPC).
-- `GET /is_sleeping` — Check if the model is sleeping.
+- `POST /sleep?level=1` — 将模型置于休眠状态（`level=1`）。
+- `POST /wake_up` — 唤醒模型。支持可选的 `tags` 查询参数进行部分唤醒（例如，`?tags=weights`）。
+- `POST /collective_rpc` — 执行集体远程过程调用（RPC）。
+- `GET /is_sleeping` — 检查模型是否处于休眠状态。
 
 !!! note
-    These endpoints are only available when passing `VLLM_SERVER_DEV_MODE=1`.
+    这些端点仅在传递 `VLLM_SERVER_DEV_MODE=1` 时可用。
 
-## Limitation
+## 限制
 
-On ROCm, the virtual memory allocation on ROCm is done through chunked memory allocation. You can control the chunk size through `VLLM_ROCM_SLEEP_MEM_CHUNK_SIZE` (in MB). The default value is set at 256MB. The larger the chunk size the faster the performance. However, setting it too large will cause OOM. So if you encounter OOM when using sleep mode. Try reducing the chunk size. It is recommended to define the chunk size as a power of 2.
+在 ROCm 上，ROCm 的虚拟内存分配是通过分块内存分配完成的。您可以通过 `VLLM_ROCM_SLEEP_MEM_CHUNK_SIZE`（以 MB 为单位）控制块大小。默认值设置为 256MB。块越大，性能越快。但是，设置过大将导致 OOM。因此，如果在使用休眠模式时遇到 OOM，请尝试减小块大小。建议将块大小定义为 2 的幂。

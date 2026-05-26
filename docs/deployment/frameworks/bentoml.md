@@ -1,5 +1,5 @@
 # BentoML
 
-[BentoML](https://github.com/bentoml/BentoML) allows you to deploy a large language model (LLM) server with vLLM as the backend, which exposes OpenAI-compatible endpoints. You can serve the model locally or containerize it as an OCI-compliant image and deploy it on Kubernetes.
+[BentoML](https://github.com/bentoml/BentoML) 允许您使用 vLLM 作为后端部署大语言模型（LLM）服务器，该服务器暴露与 OpenAI 兼容的端点。您可以在本地服务模型，或将其容器化为符合 OCI 标准的镜像并部署到 Kubernetes 上。
 
-For details, see the tutorial [vLLM inference in the BentoML documentation](https://docs.bentoml.com/en/latest/use-cases/large-language-models/vllm.html).
+有关详细信息，请参阅教程 [BentoML 文档中的 vLLM 推理](https://docs.bentoml.com/en/latest/use-cases/large-language-models/vllm.html)。

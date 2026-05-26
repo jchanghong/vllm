@@ -1,69 +1,64 @@
-# Architecture Overview
+# 架构概览
 
-This document provides an overview of the vLLM architecture.
+本文档概述了 vLLM 的架构。
 
 [TOC]
 
-## Entrypoints
+## 入口点
 
-vLLM provides a number of entrypoints for interacting with the system. The
-following diagram shows the relationship between them.
+vLLM 提供了多种与系统交互的入口点。下图展示了它们之间的关系。
 
-![Entrypoints Diagram](../assets/design/arch_overview/entrypoints.excalidraw.png)
+![入口点图](../assets/design/arch_overview/entrypoints.excalidraw.png)
 
-### LLM Class
+### LLM 类
 
-The LLM class provides the primary Python interface for doing offline inference,
-which is interacting with a model without using a separate model inference
-server.
+`LLM` 类提供了执行离线推理的主要 Python 接口，即在不使用独立模型推理服务器的情况下与模型交互。
 
-Here is a sample of `LLM` class usage:
+以下是 `LLM` 类的使用示例：
 
 ??? code
 
     ```python
     from vllm import LLM, SamplingParams
 
-    # Define a list of input prompts
+    # 定义输入提示列表
     prompts = [
         "Hello, my name is",
         "The capital of France is",
         "The largest ocean is",
     ]
 
-    # Define sampling parameters
+    # 定义采样参数
     sampling_params = SamplingParams(temperature=0.8, top_p=0.95)
 
-    # Initialize the LLM engine with the OPT-125M model
+    # 使用 OPT-125M 模型初始化 LLM 引擎
     llm = LLM(model="facebook/opt-125m")
 
-    # Generate outputs for the input prompts
+    # 为输入提示生成输出
     outputs = llm.generate(prompts, sampling_params)
 
-    # Print the generated outputs
+    # 打印生成的输出
     for output in outputs:
         prompt = output.prompt
         generated_text = output.outputs[0].text
         print(f"Prompt: {prompt!r}, Generated text: {generated_text!r}")
     ```
 
-More API details can be found in the [Offline Inference](../api/README.md#offline-inference) section of the API docs.
+更多 API 详情请参阅 API 文档中的[离线推理](../api/README.md#offline-inference)部分。
 
-The code for the `LLM` class can be found in [vllm/entrypoints/llm.py](../../vllm/entrypoints/llm.py).
+`LLM` 类的代码位于 [vllm/entrypoints/llm.py](../../vllm/entrypoints/llm.py)。
 
-### Online Serving
+### 在线服务
 
-The second primary interface to vLLM is via its online server.
-This server can be started using the `vllm serve` command.
+vLLM 的第二个主要接口是通过其在线服务器提供的。可以使用 `vllm serve` 命令启动该服务器。
 
 ```bash
 vllm serve <model>
 ```
 
-The code for the `vllm` CLI can be found in [vllm/entrypoints/cli/main.py](../../vllm/entrypoints/cli/main.py).
+`vllm` CLI 的代码位于 [vllm/entrypoints/cli/main.py](../../vllm/entrypoints/cli/main.py)。
 
-Sometimes you may see the API server entrypoint used directly instead of via the
-`vllm` CLI command. For example:
+有时您可能会看到直接使用 API 服务器入口点，而不是通过 `vllm` CLI 命令。例如：
 
 ```bash
 python -m vllm.entrypoints.openai.api_server --model <model>
@@ -71,181 +66,138 @@ python -m vllm.entrypoints.openai.api_server --model <model>
 
 !!! warning
 
-    `python -m vllm.entrypoints.openai.api_server` is deprecated
-    and may become unsupported in a future release.
+    `python -m vllm.entrypoints.openai.api_server` 已被弃用，
+    可能在未来的版本中不再受支持。
 
-That code can be found in [vllm/entrypoints/openai/api_server.py](../../vllm/entrypoints/openai/api_server.py).
+该代码位于 [vllm/entrypoints/openai/api_server.py](../../vllm/entrypoints/openai/api_server.py)。
 
-More details on the API server can be found in the [Online Serving](../serving/online_serving/README.md) document.
+有关 API 服务器的更多详情，请参阅[在线服务](../serving/online_serving/README.md)文档。
 
-## V1 Process Architecture
+## V1 进程架构
 
-vLLM V1 uses a multi-process architecture to separate concerns and maximize throughput. Understanding this architecture is important for properly sizing CPU resources in your deployment. The key processes are:
+vLLM V1 采用多进程架构来分离关注点并最大化吞吐量。理解此架构对于正确调整部署中的 CPU 资源至关重要。关键进程包括：
 
-### API Server Process
+### API 服务器进程
 
-The API server process handles HTTP requests (e.g., the OpenAI-compatible API), performs input processing (tokenization, multi-modal data loading), and streams results back to clients. It communicates with the engine core process(es) via ZMQ sockets.
+API 服务器进程处理 HTTP 请求（例如 OpenAI 兼容 API）、执行输入处理（分词、多模态数据加载）并将结果流式返回给客户端。它通过 ZMQ 套接字与引擎核心进程通信。
 
-By default, there is **1 API server process**, but when data parallelism is used, the API server count automatically scales to match the data parallel size. This can also be manually configured with the `--api-server-count` flag. Each API server connects to **all** engine cores via ZMQ in a many-to-many topology, enabling any API server to route requests to any engine core. Each API server process uses multiple CPU threads for media loading (controlled by `VLLM_MEDIA_LOADING_THREAD_COUNT`, default 8).
+默认情况下有 **1 个 API 服务器进程**，但当使用数据并行时，API 服务器数量会自动扩展以匹配数据并行大小。也可以通过 `--api-server-count` 标志手动配置。每个 API 服务器通过 ZMQ 以多对多拓扑连接到**所有**引擎核心，使任何 API 服务器都可以将请求路由到任何引擎核心。每个 API 服务器进程使用多个 CPU 线程进行媒体加载（由 `VLLM_MEDIA_LOADING_THREAD_COUNT` 控制，默认为 8）。
 
-The code can be found in [vllm/entrypoints/openai/api_server.py](../../vllm/entrypoints/openai/api_server.py) and [vllm/v1/utils.py](../../vllm/v1/utils.py).
+代码位于 [vllm/entrypoints/openai/api_server.py](../../vllm/entrypoints/openai/api_server.py) 和 [vllm/v1/utils.py](../../vllm/v1/utils.py)。
 
-### Engine Core Process
+### 引擎核心进程
 
-The engine core process runs the scheduler, manages KV cache, and coordinates model execution across GPU workers. It runs a busy loop that continuously schedules requests and dispatches work to the GPU workers.
+引擎核心进程运行调度器、管理 KV 缓存并协调跨 GPU 工作器的模型执行。它运行一个繁忙循环，持续调度请求并将工作分派给 GPU 工作器。
 
-There is **1 engine core process per data parallel rank**. For example, with `--data-parallel-size 4`, there are 4 engine core processes.
+每个数据并行等级有 **1 个引擎核心进程**。例如，使用 `--data-parallel-size 4` 时，有 4 个引擎核心进程。
 
-The code can be found in [vllm/v1/engine/core.py](../../vllm/v1/engine/core.py) and [vllm/v1/engine/utils.py](../../vllm/v1/engine/utils.py).
+代码位于 [vllm/v1/engine/core.py](../../vllm/v1/engine/core.py) 和 [vllm/v1/engine/utils.py](../../vllm/v1/engine/utils.py)。
 
-### GPU Worker Processes
+### GPU 工作器进程
 
-Each GPU is managed by a dedicated worker process. The worker process loads model weights, executes forward passes, and manages GPU memory. Workers communicate with the engine core process that owns them.
+每个 GPU 由一个专用工作器进程管理。工作器进程加载模型权重、执行前向传播并管理 GPU 内存。工作器与拥有它们的引擎核心进程通信。
 
-There is **1 worker process per GPU**. The total number of GPU worker processes equals `tensor_parallel_size x pipeline_parallel_size` per engine core.
+每个 GPU 有 **1 个工作器进程**。每个引擎核心的 GPU 工作器进程总数等于 `tensor_parallel_size x pipeline_parallel_size`。
 
-The code can be found in [vllm/v1/executor/multiproc_executor.py](../../vllm/v1/executor/multiproc_executor.py) and [vllm/v1/worker/gpu_worker.py](../../vllm/v1/worker/gpu_worker.py).
+代码位于 [vllm/v1/executor/multiproc_executor.py](../../vllm/v1/executor/multiproc_executor.py) 和 [vllm/v1/worker/gpu_worker.py](../../vllm/v1/worker/gpu_worker.py)。
 
-### DP Coordinator Process (conditional)
+### DP 协调器进程（条件性）
 
-When using data parallelism (`--data-parallel-size > 1`), an additional coordinator process manages load balancing across DP ranks and coordinates synchronized forward passes for MoE models.
+当使用数据并行（`--data-parallel-size > 1`）时，一个额外的协调器进程负责管理跨 DP 等级的负载均衡，并协调 MoE 模型的同步前向传播。
 
-There is **1 DP coordinator process** (only when data parallelism is enabled).
+有 **1 个 DP 协调器进程**（仅在启用数据并行时存在）。
 
-The code can be found in [vllm/v1/engine/coordinator.py](../../vllm/v1/engine/coordinator.py).
+代码位于 [vllm/v1/engine/coordinator.py](../../vllm/v1/engine/coordinator.py)。
 
-### Process Count Summary
+### 进程数量汇总
 
-For a deployment with `N` GPUs, `TP` tensor parallel size, `DP` data parallel size, and `A` API server count:
+对于一个具有 `N` 个 GPU、`TP` 张量并行大小、`DP` 数据并行大小和 `A` 个 API 服务器数量的部署：
 
-| Process Type | Count | Notes |
+| 进程类型 | 数量 | 说明 |
 | - | - | - |
-| API Server | `A` (default `DP`) | Handles HTTP requests and input processing |
-| Engine Core | `DP` (default 1) | Scheduler and KV cache management |
-| GPU Worker | `N` (= `DP x PP x TP`) | One per GPU, executes model forward passes |
-| DP Coordinator | 1 if `DP > 1`, else 0 | Load balancing across DP ranks |
-| **Total** | **`A + DP + N` (+ 1 if DP > 1)** | |
+| API 服务器 | `A`（默认为 `DP`） | 处理 HTTP 请求和输入处理 |
+| 引擎核心 | `DP`（默认为 1） | 调度器和 KV 缓存管理 |
+| GPU 工作器 | `N`（= `DP x PP x TP`） | 每个 GPU 一个，执行模型前向传播 |
+| DP 协调器 | 如果 `DP > 1` 则为 1，否则为 0 | 跨 DP 等级的负载均衡 |
+| **总计** | **`A + DP + N`（如果 DP > 1 则 +1）** | |
 
-For example, a typical single-node deployment with 4 GPUs (`vllm serve -tp=4`) has:
+例如，一个典型的单节点部署，4 个 GPU（`vllm serve -tp=4`）包含：
 
-- 1 API server + 1 engine core + 4 GPU workers = **6 processes**
-
-<figure markdown="1">
-![V1 Process Architecture - TP=4](../assets/design/arch_overview/v1_process_architecture_tp4.png)
-</figure>
-
-A data parallel deployment with 8 GPUs (`vllm serve -tp=2 -dp=4`) has:
-
-- 4 API servers + 4 engine cores + 8 GPU workers + 1 DP coordinator = **17 processes**
+- 1 个 API 服务器 + 1 个引擎核心 + 4 个 GPU 工作器 = **6 个进程**
 
 <figure markdown="1">
-![V1 Process Architecture - TP=2, DP=4](../assets/design/arch_overview/v1_process_architecture_tp2_dp4.png)
+![V1 进程架构 - TP=4](../assets/design/arch_overview/v1_process_architecture_tp4.png)
 </figure>
 
-For CPU resource sizing recommendations, see
-[CPU Resources for GPU Deployments](../configuration/optimization.md#cpu-resources-for-gpu-deployments).
+一个数据并行部署，8 个 GPU（`vllm serve -tp=2 -dp=4`）包含：
 
-## LLM Engine
+- 4 个 API 服务器 + 4 个引擎核心 + 8 个 GPU 工作器 + 1 个 DP 协调器 = **17 个进程**
 
-The `LLMEngine` and `AsyncLLMEngine` classes are central to the functioning of
-the vLLM system, handling model inference and asynchronous request processing.
+<figure markdown="1">
+![V1 进程架构 - TP=2, DP=4](../assets/design/arch_overview/v1_process_architecture_tp2_dp4.png)
+</figure>
 
-![LLMEngine Diagram](../assets/design/arch_overview/llm_engine.excalidraw.png)
+有关 CPU 资源大小调整建议，请参阅
+[GPU 部署的 CPU 资源](../configuration/optimization.md#cpu-resources-for-gpu-deployments)。
+
+## LLM 引擎
+
+`LLMEngine` 和 `AsyncLLMEngine` 类是 vLLM 系统运行的核心，
+负责模型推理和异步请求处理。
+
+![LLMEngine 图](../assets/design/arch_overview/llm_engine.excalidraw.png)
 
 ### LLMEngine
 
-The `LLMEngine` class is the core component of the vLLM engine. It is
-responsible for receiving requests from clients and generating outputs from the
-model. The `LLMEngine` includes input processing, model execution (possibly
-distributed across multiple hosts and/or GPUs), scheduling, and output
-processing.
+`LLMEngine` 类是 vLLM 引擎的核心组件。它负责接收客户端请求并从模型生成输出。`LLMEngine` 包括输入处理、模型执行（可能分布在多个主机和/或 GPU 上）、调度和输出处理。
 
-- **Input Processing**: Handles tokenization of input text using the specified
-  tokenizer.
-- **Scheduling**: Chooses which requests are processed in each step.
-- **Model Execution**: Manages the execution of the language model, including
-  distributed execution across multiple GPUs.
-- **Output Processing**: Processes the outputs generated by the model, decoding the
-  token IDs from a language model into human-readable text.
+- **输入处理**：使用指定的分词器处理输入文本的分词。
+- **调度**：选择每个步骤处理哪些请求。
+- **模型执行**：管理语言模型的执行，包括跨多个 GPU 的分布式执行。
+- **输出处理**：处理模型生成的输出，将语言模型的 token ID 解码为人类可读的文本。
 
-The code for `LLMEngine` can be found in [vllm/engine/llm_engine.py](../../vllm/engine/llm_engine.py).
+`LLMEngine` 的代码位于 [vllm/engine/llm_engine.py](../../vllm/engine/llm_engine.py)。
 
 ### AsyncLLMEngine
 
-The `AsyncLLMEngine` class is an asynchronous wrapper for the `LLMEngine` class.
-It uses `asyncio` to create a background loop that continuously processes
-incoming requests. The `AsyncLLMEngine` is designed for online serving, where it
-can handle multiple concurrent requests and stream outputs to clients.
+`AsyncLLMEngine` 类是 `LLMEngine` 类的异步包装器。它使用 `asyncio` 创建一个后台循环，持续处理传入的请求。`AsyncLLMEngine` 专为在线服务设计，可以处理多个并发请求并将输出流式返回给客户端。
 
-The OpenAI-compatible API server uses the `AsyncLLMEngine`. There is also a demo
-API server that serves as a simpler example in [vllm/entrypoints/api_server.py](../../vllm/entrypoints/api_server.py).
+OpenAI 兼容的 API 服务器使用 `AsyncLLMEngine`。还有一个演示 API 服务器，作为更简单的示例位于 [vllm/entrypoints/api_server.py](../../vllm/entrypoints/api_server.py)。
 
-The code for `AsyncLLMEngine` can be found in [vllm/engine/async_llm_engine.py](../../vllm/engine/async_llm_engine.py).
+`AsyncLLMEngine` 的代码位于 [vllm/engine/async_llm_engine.py](../../vllm/engine/async_llm_engine.py)。
 
-## Worker
+## 工作器
 
-A worker is a process that runs the model inference. vLLM follows the common
-practice of using one process to control one accelerator device, such as GPUs.
-For example, if we use tensor parallelism of size 2 and pipeline parallelism of
-size 2, we will have 4 workers in total. Workers are identified by their
-`rank` and `local_rank`. `rank` is used for global orchestration, while
-`local_rank` is mainly used for assigning the accelerator device and accessing
-local resources such as the file system and shared memory.
+工作器是运行模型推理的进程。vLLM 遵循常见的做法，即使用一个进程控制一个加速器设备，例如 GPU。例如，如果我们使用大小为 2 的张量并行和大小为 2 的流水线并行，我们将有 4 个工作器。工作器通过其 `rank` 和 `local_rank` 进行标识。`rank` 用于全局协调，而 `local_rank` 主要用于分配加速器设备和访问本地资源，如文件系统和共享内存。
 
-## Model Runner
+## 模型运行器
 
-Every worker has one model runner object, responsible for loading and running
-the model. Much of the model execution logic resides here, such as preparing
-input tensors and capturing cudagraphs.
+每个工作器有一个模型运行器对象，负责加载和运行模型。模型执行逻辑的大部分位于此处，例如准备输入张量和捕获 CUDA 图。
 
-## Model
+## 模型
 
-Every model runner object has one model object, which is the actual
-`torch.nn.Module` instance. See [huggingface_integration](huggingface_integration.md) for how various
-configurations affect the class we ultimately get.
+每个模型运行器对象有一个模型对象，即实际的 `torch.nn.Module` 实例。有关各种配置如何影响最终获得的类，请参见 [huggingface_integration](huggingface_integration.md)。
 
-## Class Hierarchy
+## 类层次结构
 
-The following figure shows the class hierarchy of vLLM:
+下图显示了 vLLM 的类层次结构：
 
-![Class Hierarchy](../assets/design/hierarchy.png)
+![类层次结构](../assets/design/hierarchy.png)
 
-There are several important design choices behind this class hierarchy:
+此类层次结构背后有几个重要的设计选择：
 
-1\. **Extensibility**: All classes in the hierarchy accept a configuration object
-containing all the necessary information. The [VllmConfig](https://github.com/vllm-project/vllm/blob/d1c6799b8870e513bf4f2305cbf6cda9fc3d773b/vllm/config.py#L2036)
-class is the main configuration object that is passed around. The class
-hierarchy is quite deep, and every class needs to read the configuration it is
-interested in. By encapsulating all configurations in one object, we can easily
-pass the configuration object around and access the configuration we need.
-Suppose we want to add a new feature (this is often the case given how fast the
-field of LLM inference is evolving) that only touches the model runner. We will
-have to add a new configuration option in the `VllmConfig` class. Since we pass
-the whole config object around, we only need to add the configuration option to
-the `VllmConfig` class, and the model runner can access it directly. We don't
-need to change the constructor of the engine, worker, or model class to pass the
-new configuration option.
+1. **可扩展性**：层次结构中的所有类都接受一个包含所有必要信息的配置对象。[VllmConfig](https://github.com/vllm-project/vllm/blob/d1c6799b8870e513bf4f2305cbf6cda9fc3d773b/vllm/config.py#L2036) 类是传递的主要配置对象。类层次结构相当深，每个类都需要读取其感兴趣的配置。通过将所有配置封装在一个对象中，我们可以轻松地传递配置对象并访问所需的配置。假设我们想添加一个新功能（鉴于 LLM 推理领域发展迅速，这很常见），该功能仅涉及模型运行器。我们将不得不在 `VllmConfig` 类中添加一个新的配置选项。由于我们传递整个配置对象，我们只需将配置选项添加到 `VllmConfig` 类中，模型运行器就可以直接访问它。我们不需要更改引擎、工作器或模型类的构造函数来传递新的配置选项。
 
-2\. **Uniformity**: The model runner needs a unified interface to create and
-initialize the model. vLLM supports more than 50 types of popular open-source
-models. Each model has its own initialization logic. If the constructor
-signature varies with models, the model runner does not know how to call the
-constructor accordingly, without complicated and error-prone inspection logic.
-By making the constructor of the model class uniform, the model runner can
-easily create and initialize the model without knowing the specific model type.
-This is also useful for composing models. Vision-language models often consist
-of a vision model and a language model. By making the constructor uniform, we
-can easily create a vision model and a language model and compose them into a
-vision-language model.
+2. **统一性**：模型运行器需要一个统一的接口来创建和初始化模型。vLLM 支持 50 多种流行的开源模型。每个模型都有自己的初始化逻辑。如果构造函数签名因模型而异，模型运行器将不知道如何相应地调用构造函数，除非使用复杂且容易出错的检查逻辑。通过使模型类的构造函数统一，模型运行器可以轻松创建和初始化模型，而无需知道具体的模型类型。这对于组合模型也很有用。视觉语言模型通常由视觉模型和语言模型组成。通过使构造函数统一，我们可以轻松创建视觉模型和语言模型，并将它们组合成视觉语言模型。
 
 !!! note
-    To support this change, all vLLM models' signatures have been updated to:
+    为支持此更改，所有 vLLM 模型的签名已更新为：
 
     ```python
     def __init__(self, *, vllm_config: VllmConfig, prefix: str = ""):
     ```
 
-    To avoid accidentally passing incorrect arguments, the constructor is now keyword-only. This ensures that the constructor will raise an error if old configurations are passed. vLLM developers have already made this change for all models within vLLM. For out-of-tree registered models, developers need to update their models, for example by adding shim code to adapt the old constructor signature to the new one:
+    为避免意外传递不正确的参数，构造函数现在是仅关键字参数。这确保如果传递了旧配置，构造函数将引发错误。vLLM 开发者已经为 vLLM 中的所有模型进行了此更改。对于树外注册的模型，开发者需要更新其模型，例如添加适配代码以将旧构造函数签名适配到新签名：
 
     ??? code
 
@@ -277,38 +229,10 @@ vision-language model.
             MyModel = MyOldModel
         ```
 
-    This way, the model can work with both old and new versions of vLLM.
+    这样，模型可以同时兼容旧版和新版 vLLM。
 
-3\. **Sharding and Quantization at Initialization**: Certain features require
-changing the model weights. For example, tensor parallelism needs to shard the
-model weights, and quantization needs to quantize the model weights. There are
-two possible ways to implement this feature. One way is to change the model
-weights after the model is initialized. The other way is to change the model
-weights during the model initialization. vLLM chooses the latter. The first
-approach is not scalable to large models. Suppose we want to run a 405B model
-(with roughly 810GB weights) with 16 H100 80GB GPUs. Ideally, every GPU should
-only load 50GB weights. If we change the model weights after the model is
-initialized, we need to load the full 810GB weights to every GPU and then shard
-the weights, leading to a huge memory overhead. Instead, if we shard the weights
-during the model initialization, every layer will only create a shard of the
-weights it needs, leading to a much smaller memory overhead. The same idea
-applies to quantization. Note that we also add an additional argument `prefix`
-to the model's constructor so that the model can initialize itself differently
-based on the prefix. This is useful for non-uniform quantization, where
-different parts of the model are quantized differently. The `prefix` is
-usually an empty string for the top-level model and a string like `"vision"`
-or `"language"` for the sub-models. In general, it matches the name of the
-module's state dict in the checkpoint file.
+3. **初始化时进行分片和量化**：某些功能需要更改模型权重。例如，张量并行需要对模型权重进行分片，量化需要对模型权重进行量化。实现此功能有两种可能的方式。一种方式是在模型初始化后更改模型权重。另一种方式是在模型初始化期间更改模型权重。vLLM 选择后者。第一种方式对于大型模型不具备可扩展性。假设我们想用 16 个 H100 80GB GPU 运行一个 405B 模型（大约 810GB 权重）。理想情况下，每个 GPU 只应加载 50GB 权重。如果在模型初始化后更改模型权重，我们需要将完整的 810GB 权重加载到每个 GPU 上，然后进行分片，导致巨大的内存开销。相反，如果在模型初始化期间分片权重，每一层只会创建它需要的权重分片，导致更小的内存开销。同样的思路也适用于量化。注意，我们在模型的构造函数中添加了一个额外的参数 `prefix`，以便模型可以根据前缀以不同方式初始化自身。这对于非均匀量化很有用，其中模型的不同部分以不同方式量化。`prefix` 通常是顶级模型的空字符串，对于子模型则是像 `"vision"` 或 `"language"` 这样的字符串。通常，它与检查点文件中模块的 state dict 的名称匹配。
 
-One disadvantage of this design is that it is hard to write unit tests for
-individual components in vLLM because every component needs to be initialized by
-a complete config object. We solve this problem by providing a default
-initialization function that creates a default config object with all fields set
-to `None`. If the component we want to test only cares about a few fields in
-the config object, we can create a default config object and set the fields we
-care about. This way, we can test the component in isolation. Note that many
-tests in vLLM are end-to-end tests that test the whole system, so this is not a
-big problem.
+这种设计的一个缺点是，编写 vLLM 中单个组件的单元测试比较困难，因为每个组件都需要通过一个完整的配置对象来初始化。我们通过提供一个默认初始化函数来解决这个问题，该函数创建一个所有字段设置为 `None` 的默认配置对象。如果我们想要测试的组件只关心配置对象中的几个字段，我们可以创建一个默认配置对象并设置我们关心的字段。这样，我们就可以隔离测试该组件。请注意，vLLM 中的许多测试是测试整个系统的端到端测试，所以这不算大问题。
 
-In summary, the complete config object `VllmConfig` can be treated as an
-engine-level global state that is shared among all vLLM classes.
+总之，完整的配置对象 `VllmConfig` 可以被视为一个引擎级别的全局状态，在所有 vLLM 类之间共享。

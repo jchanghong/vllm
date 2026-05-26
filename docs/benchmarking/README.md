@@ -1,7 +1,7 @@
-# Benchmark Suites
+# 基准测试套件
 
-vLLM provides comprehensive benchmarking tools for performance testing and evaluation:
+vLLM 提供了全面的基准测试工具，用于性能测试和评估：
 
-- **[Benchmark CLI](./cli.md)**: `vllm bench` CLI tools and specialized benchmark scripts for interactive performance testing.
-- **[Parameter Sweeps](./sweeps.md)**: Automate `vllm bench` runs for multiple configurations, useful for [optimization and tuning](../configuration/optimization.md).
-- **[Performance Dashboard](./dashboard.md)**: Automated CI that publishes benchmarks on each commit.
+- **[基准测试 CLI](./cli.md)**：`vllm bench` CLI 工具和专门的基准测试脚本，用于交互式性能测试。
+- **[参数扫描](./sweeps.md)**：自动化 `vllm bench` 在多种配置下运行，可用于[优化和调优](../configuration/optimization.md)。
+- **[性能仪表盘](./dashboard.md)**：自动化 CI，每次提交时发布基准测试结果。

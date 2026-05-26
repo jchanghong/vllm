@@ -1,5 +1,5 @@
-# Sponsors
+# 赞助商
 
-vLLM is a community project. Our compute resources for development and testing are supported by the following organizations. Thank you for your support!
+vLLM 是一个社区项目。我们的开发和测试计算资源由以下组织提供支持。感谢您的支持！
 
-Please visit [vllm.ai/#sponsors](https://vllm.ai/#sponsors) to learn more.
+请访问 [vllm.ai/#sponsors](https://vllm.ai/#sponsors) 了解更多。

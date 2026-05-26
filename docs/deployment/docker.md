@@ -2,17 +2,15 @@
 toc_depth: 2
 ---
 
-# Using Docker
+# 使用 Docker
 
-## Pre-built images
+## 预构建镜像
 
 --8<-- "docs/getting_started/installation/gpu.md:pre-built-images"
 
-## Run as a non-root user
+## 以非 root 用户运行
 
-The CUDA `vllm/vllm-openai` image runs as root by default for backward
-compatibility. It is also prepared to run as the built-in `vllm` user
-(UID 2000, GID 0):
+为了向后兼容，CUDA `vllm/vllm-openai` 镜像默认以 root 用户运行。它也准备好以内置的 `vllm` 用户（UID 2000，GID 0）运行：
 
 ```bash
 docker run --rm --gpus all \
@@ -22,10 +20,7 @@ docker run --rm --gpus all \
     meta-llama/Llama-3.1-8B-Instruct
 ```
 
-When mounting model or cache volumes for a non-root container, mount writable
-paths under `/home/vllm` instead of `/root`. For example, mount the Hugging
-Face cache at `/home/vllm/.cache/huggingface` and make the mounted directory
-writable by group 0.
+当为非 root 容器挂载模型或缓存卷时，请将可写路径挂载到 `/home/vllm` 下，而不是 `/root`。例如，将 Hugging Face 缓存挂载到 `/home/vllm/.cache/huggingface`，并确保挂载的目录对组 0 可写。
 
 ```bash
 docker run --rm --gpus all \
@@ -36,8 +31,7 @@ docker run --rm --gpus all \
     meta-llama/Llama-3.1-8B-Instruct
 ```
 
-To build an image that defaults to the non-root `vllm` user, use the opt-in
-`vllm-openai-nonroot` target:
+要构建默认以非 root `vllm` 用户运行的镜像，请使用 opt-in 的 `vllm-openai-nonroot` 目标：
 
 ```bash
 docker build --target vllm-openai-nonroot \
@@ -50,10 +44,7 @@ docker run --rm --gpus all \
     meta-llama/Llama-3.1-8B-Instruct
 ```
 
-The `vllm-openai-nonroot` target also supports OpenShift-style arbitrary UIDs
-when the runtime UID is a member of group 0. In Kubernetes manifests, set the
-container security context accordingly and keep mounted cache/model paths
-writable by group 0:
+`vllm-openai-nonroot` 目标还支持 OpenShift 风格的任意 UID，只要运行时 UID 是组 0 的成员即可。在 Kubernetes 清单中，相应地设置容器安全上下文，并保持挂载的缓存/模型路径对组 0 可写：
 
 ```yaml
 securityContext:
@@ -63,9 +54,8 @@ securityContext:
   fsGroup: 0
 ```
 
-Runtime UIDs outside group 0 are not part of the documented support matrix
-because they may be unable to write to `/home/vllm` or `/opt/uv/cache`.
+不在组 0 内的运行时 UID 不在文档化的支持矩阵之内，因为它们可能无法写入 `/home/vllm` 或 `/opt/uv/cache`。
 
-## Build image from source
+## 从源码构建镜像
 
 --8<-- "docs/getting_started/installation/gpu.md:build-image-from-source"

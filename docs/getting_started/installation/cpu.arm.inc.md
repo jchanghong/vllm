@@ -1,14 +1,14 @@
 <!-- markdownlint-disable MD041 -->
 --8<-- [start:installation]
 
-vLLM offers basic model inferencing and serving on Arm CPU platform, with support for NEON, data types FP32, FP16 and BF16.
+vLLM 在 ARM CPU 平台上提供基本的模型推理和服务，支持 NEON 以及 FP32、FP16 和 BF16 数据类型。
 
 --8<-- [end:installation]
 --8<-- [start:requirements]
 
-- OS: Linux
-- Compiler: `gcc/g++ >= 12.3.0` (optional, recommended)
-- Instruction Set Architecture (ISA): NEON support is required
+- 操作系统：Linux
+- 编译器：`gcc/g++ >= 12.3.0`（可选，推荐）
+- 指令集架构 (ISA)：需要 NEON 支持
 
 --8<-- [end:requirements]
 --8<-- [start:set-up-using-python]
@@ -16,7 +16,7 @@ vLLM offers basic model inferencing and serving on Arm CPU platform, with suppor
 --8<-- [end:set-up-using-python]
 --8<-- [start:pre-built-wheels]
 
-Pre-built vLLM wheels for Arm are available since version 0.11.2. These wheels contain pre-compiled C++ binaries.
+自 0.11.2 版本起，提供 Arm 的预构建 vLLM wheel 包。这些 wheel 包包含预编译的 C++ 二进制文件。
 
 ```bash
 export VLLM_VERSION=$(curl -s https://api.github.com/repos/vllm-project/vllm/releases/latest | jq -r .tag_name | sed 's/^v//')
@@ -28,57 +28,57 @@ uv pip install https://github.com/vllm-project/vllm/releases/download/v${VLLM_VE
     pip install https://github.com/vllm-project/vllm/releases/download/v${VLLM_VERSION}/vllm-${VLLM_VERSION}+cpu-cp38-abi3-manylinux_2_35_aarch64.whl --extra-index-url https://download.pytorch.org/whl/cpu
     ```
 
-!!! warning "set `LD_PRELOAD`"
-    Before use vLLM CPU installed via wheels, make sure TCMalloc is installed and added to `LD_PRELOAD`:
+!!! warning "设置 `LD_PRELOAD`"
+    使用通过 wheel 包安装的 vLLM CPU 之前，请确保已安装 TCMalloc 并将其添加到 `LD_PRELOAD`：
     ```bash
-    # install TCMalloc
+    # 安装 TCMalloc
     sudo apt-get install -y --no-install-recommends libtcmalloc-minimal4
 
-    # manually find the path
+    # 手动查找路径
     sudo find / -iname *libtcmalloc_minimal.so.4
     TC_PATH=...
 
-    # add them to LD_PRELOAD
+    # 将其添加到 LD_PRELOAD
     export LD_PRELOAD="$TC_PATH:$LD_PRELOAD"
     ```
 
-The `uv` approach works for vLLM `v0.6.6` and later. A unique feature of `uv` is that packages in `--extra-index-url` have [higher priority than the default index](https://docs.astral.sh/uv/pip/compatibility/#packages-that-exist-on-multiple-indexes). If the latest public release is `v0.6.6.post1`, `uv`'s behavior allows installing a commit before `v0.6.6.post1` by specifying the `--extra-index-url`. In contrast, `pip` combines packages from `--extra-index-url` and the default index, choosing only the latest version, which makes it difficult to install a development version prior to the released version.
+`uv` 方法适用于 vLLM `v0.6.6` 及更高版本。`uv` 的一个独特功能是，`--extra-index-url` 中的包具有[比默认索引更高的优先级](https://docs.astral.sh/uv/pip/compatibility/#packages-that-exist-on-multiple-indexes)。如果最新的公开发布版是 `v0.6.6.post1`，`uv` 的行为允许通过指定 `--extra-index-url` 来安装 `v0.6.6.post1` 之前的提交。相比之下，`pip` 会合并 `--extra-index-url` 和默认索引中的包，仅选择最新版本，这使得安装已发布版本之前的开发版本变得困难。
 
-#### Install the latest code
+#### 安装最新代码
 
-LLM inference is a fast-evolving field, and the latest code may contain bug fixes, performance improvements, and new features that are not released yet. To allow users to try the latest code without waiting for the next release, vLLM provides working pre-built Arm CPU wheels for every commit since `v0.11.2` on <https://wheels.vllm.ai/nightly>. For native CPU wheels, this index should be used:
+LLM 推理是一个快速发展的领域，最新代码可能包含尚未发布的错误修复、性能改进和新功能。为了让用户无需等待下一个版本即可尝试最新代码，vLLM 自 `v0.11.2` 起在 <https://wheels.vllm.ai/nightly> 上为每次提交提供预构建的 Arm CPU wheel 包。对于原生 CPU wheel 包，应使用以下索引：
 
 - `https://wheels.vllm.ai/nightly/cpu/vllm`
 
-To install from nightly index, run:
+要从 nightly 索引安装，请运行：
 
 ```bash
 uv pip install vllm --extra-index-url https://wheels.vllm.ai/nightly/cpu --index-strategy first-index --torch-backend cpu
 ```
 
-??? console "pip (there's a caveat)"
+??? console "pip（有注意事项）"
 
-    Using `pip` to install from nightly indices is _not supported_, because `pip` combines packages from `--extra-index-url` and the default index, choosing only the latest version, which makes it difficult to install a development version prior to the released version. In contrast, `uv` gives the extra index [higher priority than the default index](https://docs.astral.sh/uv/pip/compatibility/#packages-that-exist-on-multiple-indexes).
+    使用 `pip` 从 nightly 索引安装是_不支持的_，因为 `pip` 会合并 `--extra-index-url` 和默认索引中的包，仅选择最新版本，这使得安装已发布版本之前的开发版本变得困难。相比之下，`uv` 给予额外索引[比默认索引更高的优先级](https://docs.astral.sh/uv/pip/compatibility/#packages-that-exist-on-multiple-indexes)。
 
-    If you insist on using `pip`, you have to specify the full URL (link address) of the wheel file (which can be obtained from https://wheels.vllm.ai/nightly/cpu/vllm).
+    如果您坚持使用 `pip`，则必须指定 wheel 文件的完整 URL（可从 https://wheels.vllm.ai/nightly/cpu/vllm 获取）。
 
     ```bash
-    pip install https://wheels.vllm.ai/4fa7ce46f31cbd97b4651694caf9991cc395a259/vllm-0.13.0rc2.dev104%2Bg4fa7ce46f.cpu-cp38-abi3-manylinux_2_35_aarch64.whl --extra-index-url https://download.pytorch.org/whl/cpu # current nightly build (the filename will change!)
+    pip install https://wheels.vllm.ai/4fa7ce46f31cbd97b4651694caf9991cc395a259/vllm-0.13.0rc2.dev104%2Bg4fa7ce46f.cpu-cp38-abi3-manylinux_2_35_aarch64.whl --extra-index-url https://download.pytorch.org/whl/cpu # 当前的 nightly 构建（文件名会变化！）
     ```
 
-#### Install specific revisions
+#### 安装特定修订版本
 
-If you want to access the wheels for previous commits (e.g. to bisect the behavior change, performance regression), you can specify the commit hash in the URL:
+如果您需要访问之前提交的 wheel 包（例如，用于二分查找行为变更、性能回归），可以在 URL 中指定提交哈希：
 
 ```bash
-export VLLM_COMMIT=730bd35378bf2a5b56b6d3a45be28b3092d26519 # use full commit hash from the main branch
+export VLLM_COMMIT=730bd35378bf2a5b56b6d3a45be28b3092d26519 # 使用主分支的完整提交哈希
 uv pip install vllm --extra-index-url https://wheels.vllm.ai/${VLLM_COMMIT}/cpu --index-strategy first-index --torch-backend cpu
 ```
 
 --8<-- [end:pre-built-wheels]
 --8<-- [start:build-wheel-from-source]
 
-First, install the recommended compiler. We recommend using `gcc/g++ >= 12.3.0` as the default compiler to avoid potential problems. For example, on Ubuntu 22.4, you can run:
+首先，安装推荐的编译器。建议使用 `gcc/g++ >= 12.3.0` 作为默认编译器以避免潜在问题。例如，在 Ubuntu 22.4 上，您可以运行：
 
 ```bash
 sudo apt-get update  -y
@@ -86,14 +86,14 @@ sudo apt-get install -y --no-install-recommends ccache git curl wget ca-certific
 sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 10 --slave /usr/bin/g++ g++ /usr/bin/g++-12
 ```
 
-Second, clone the vLLM project:
+其次，克隆 vLLM 项目：
 
 ```bash
 git clone https://github.com/vllm-project/vllm.git vllm_source
 cd vllm_source
 ```
 
-Third, install required dependencies:
+第三，安装所需的依赖项：
 
 ```bash
 uv pip install -r requirements/build/cpu.txt --torch-backend cpu
@@ -107,53 +107,53 @@ uv pip install -r requirements/cpu.txt --torch-backend cpu
     pip install -v -r requirements/cpu.txt --extra-index-url https://download.pytorch.org/whl/cpu
     ```
 
-Finally, build and install vLLM:
+最后，构建并安装 vLLM：
 
 ```bash
 VLLM_TARGET_DEVICE=cpu uv pip install . --no-build-isolation
 ```
 
-If you want to develop vLLM, install it in editable mode instead.
+如果您想开发 vLLM，请改用可编辑模式安装。
 
 ```bash
 VLLM_TARGET_DEVICE=cpu uv pip install -e . --no-build-isolation
 ```
 
-Testing has been conducted on AWS Graviton3 instances for compatibility.
+兼容性测试已在 AWS Graviton3 实例上进行。
 
-!!! warning "set `LD_PRELOAD`"
-    Before use vLLM CPU installed via wheels, make sure TCMalloc is installed and added to `LD_PRELOAD`:
+!!! warning "设置 `LD_PRELOAD`"
+    使用通过 wheel 包安装的 vLLM CPU 之前，请确保已安装 TCMalloc 并将其添加到 `LD_PRELOAD`：
     ```bash
-    # install TCMalloc
+    # 安装 TCMalloc
     sudo apt-get install -y --no-install-recommends libtcmalloc-minimal4
 
-    # manually find the path
+    # 手动查找路径
     sudo find / -iname *libtcmalloc_minimal.so.4
     TC_PATH=...
 
-    # add them to LD_PRELOAD
+    # 将其添加到 LD_PRELOAD
     export LD_PRELOAD="$TC_PATH:$LD_PRELOAD"
     ```
 
 --8<-- [end:build-wheel-from-source]
 --8<-- [start:pre-built-images]
 
-To pull the latest image from Docker Hub:
+从 Docker Hub 拉取最新镜像：
 
 ```bash
 docker pull vllm/vllm-openai-cpu:latest-arm64
 ```
 
-To pull an image with a specific vLLM version:
+要拉取特定 vLLM 版本的镜像：
 
 ```bash
 export VLLM_VERSION=$(curl -s https://api.github.com/repos/vllm-project/vllm/releases/latest | jq -r .tag_name | sed 's/^v//')
 docker pull vllm/vllm-openai-cpu:v${VLLM_VERSION}-arm64
 ```
 
-All available image tags are here: [https://hub.docker.com/r/vllm/vllm-openai-cpu/tags](https://hub.docker.com/r/vllm/vllm-openai-cpu/tags).
+所有可用的镜像标签在这里：[https://hub.docker.com/r/vllm/vllm-openai-cpu/tags](https://hub.docker.com/r/vllm/vllm-openai-cpu/tags)。
 
-You can run these images via:
+您可以通过以下方式运行这些镜像：
 
 ```bash
 docker run \
@@ -163,19 +163,19 @@ docker run \
     vllm/vllm-openai-cpu:latest-arm64 <args...>
 ```
 
-You can also access the latest code with Docker images. These are not intended for production use and are meant for CI and testing only. They will expire after several days.
+您还可以通过 Docker 镜像访问最新代码。这些镜像不适用于生产环境，仅用于 CI 和测试。它们将在几天后过期。
 
-The latest code can contain bugs and may not be stable. Please use it with caution.
+最新代码可能包含错误且可能不稳定，请谨慎使用。
 
 ```bash
-export VLLM_COMMIT=6299628d326f429eba78736acb44e76749b281f5 # use full commit hash from the main branch
+export VLLM_COMMIT=6299628d326f429eba78736acb44e76749b281f5 # 使用主分支的完整提交哈希
 docker pull public.ecr.aws/q9t5s3a7/vllm-ci-postmerge-repo:${VLLM_COMMIT}-arm64-cpu
 ```
 
 --8<-- [end:pre-built-images]
 --8<-- [start:build-image-from-source]
 
-#### Building for your target ARM CPU
+#### 为您的目标 ARM CPU 构建
 
 ```bash
 docker build -f docker/Dockerfile.cpu \
@@ -185,37 +185,37 @@ docker build -f docker/Dockerfile.cpu \
         --target vllm-openai .
 ```
 
-!!! note "Auto-detection by default"
-    By default, ARM CPU instruction sets (BF16, NEON, etc.) are automatically detected from the build system's CPU flags. The `VLLM_CPU_ARM_BF16` build argument is used for cross-compilation:
+!!! note "默认自动检测"
+    默认情况下，ARM CPU 指令集（BF16、NEON 等）会从构建系统的 CPU 标志自动检测。`VLLM_CPU_ARM_BF16` 构建参数用于交叉编译：
 
-    - `VLLM_CPU_ARM_BF16=true` - Force-enable ARM BF16 support (build with BF16 regardless of build system capabilities)
-    - `VLLM_CPU_ARM_BF16=false` - Rely on auto-detection (default)
+    - `VLLM_CPU_ARM_BF16=true` - 强制启用 ARM BF16 支持（无论构建系统能力如何，都使用 BF16 构建）
+    - `VLLM_CPU_ARM_BF16=false` - 依赖自动检测（默认）
 
-##### Examples
+##### 示例
 
-###### Auto-detection build (native ARM)
+###### 自动检测构建（原生 ARM）
 
 ```bash
-# Building on ARM64 system - platform auto-detected
+# 在 ARM64 系统上构建 - 平台自动检测
 docker build -f docker/Dockerfile.cpu \
         --tag vllm-cpu-arm64 \
         --target vllm-openai .
 ```
 
-###### Cross-compile for ARM with BF16 support
+###### 为支持 BF16 的 ARM 交叉编译
 
 ```bash
-# Building on ARM64 for newer ARM CPUs with BF16
+# 在 ARM64 上为更新支持 BF16 的 ARM CPU 构建
 docker build -f docker/Dockerfile.cpu \
         --build-arg VLLM_CPU_ARM_BF16=true \
         --tag vllm-cpu-arm64-bf16 \
         --target vllm-openai .
 ```
 
-###### Cross-compile from x86_64 to ARM64 with BF16
+###### 从 x86_64 向 ARM64 交叉编译（带 BF16）
 
 ```bash
-# Requires Docker buildx with ARM emulation (QEMU)
+# 需要 Docker buildx 及 ARM 仿真（QEMU）
 docker buildx build -f docker/Dockerfile.cpu \
         --platform=linux/arm64 \
         --build-arg VLLM_CPU_ARM_BF16=true \
@@ -225,10 +225,10 @@ docker buildx build -f docker/Dockerfile.cpu \
         --load .
 ```
 
-!!! note "ARM BF16 requirements"
-    ARM BF16 support requires ARMv8.6-A or later (FEAT_BF16). Supported on AWS Graviton3/4, AmpereOne, and other recent ARM processors.
+!!! note "ARM BF16 要求"
+    ARM BF16 支持需要 ARMv8.6-A 或更高版本（FEAT_BF16）。在 AWS Graviton3/4、AmpereOne 及其他较新的 ARM 处理器上支持。
 
-#### Launching the OpenAI server
+#### 启动 OpenAI 服务器
 
 ```bash
 docker run --rm \
@@ -244,8 +244,8 @@ docker run --rm \
             other vLLM OpenAI server arguments
 ```
 
-!!! tip "Alternative to --privileged"
-    Instead of `--privileged=true`, use `--cap-add SYS_NICE --security-opt seccomp=unconfined` for better security.
+!!! tip "`--privileged` 的替代方案"
+    使用 `--cap-add SYS_NICE --security-opt seccomp=unconfined` 替代 `--privileged=true` 以获得更好的安全性。
 
 --8<-- [end:build-image-from-source]
 --8<-- [start:extra-information]

@@ -1,18 +1,16 @@
-# Production Metrics
+# 生产指标
 
-vLLM exposes a number of metrics that can be used to monitor the health of the
-system. These metrics are exposed via the `/metrics` endpoint on the vLLM
-OpenAI compatible API server.
+vLLM 公开了许多可用于监控系统健康状态的指标。这些指标通过 vLLM 兼容 OpenAI 的 API 服务器上的 `/metrics` 端点暴露。
 
-You can start the server using Python, or using [Docker](../deployment/docker.md):
+您可以使用 Python 或 [Docker](../deployment/docker.md) 启动服务器：
 
 ```bash
 vllm serve unsloth/Llama-3.2-1B-Instruct
 ```
 
-Then query the endpoint to get the latest metrics from the server:
+然后查询端点以获取服务器的最新指标：
 
-??? console "Output"
+??? console "输出"
 
     ```console
     $ curl http://0.0.0.0:8000/metrics
@@ -31,28 +29,26 @@ Then query the endpoint to get the latest metrics from the server:
     ...
     ```
 
-The following metrics are exposed:
+公开了以下指标：
 
-## General Metrics
+## 通用指标
 
 --8<-- "docs/generated/metrics/general.inc.md"
 
-## Speculative Decoding Metrics
+## 推测解码指标
 
 --8<-- "docs/generated/metrics/spec_decode.inc.md"
 
-## NIXL KV Connector Metrics
+## NIXL KV 连接器指标
 
 --8<-- "docs/generated/metrics/nixl_connector.inc.md"
 
-## Model Flops Utilization (MFU) Performance Metrics
+## 模型算力利用率（MFU）性能指标
 
-These metrics are available via `--enable-mfu-metrics`:
+这些指标可通过 `--enable-mfu-metrics` 获得：
 
 --8<-- "docs/generated/metrics/perf.inc.md"
 
-## Deprecation Policy
+## 弃用策略
 
-Note: when metrics are deprecated in version `X.Y`, they are hidden in version `X.Y+1`
-but can be re-enabled using the `--show-hidden-metrics-for-version=X.Y` escape hatch,
-and are then removed in version `X.Y+2`.
+注意：当指标在版本 `X.Y` 中被弃用时，它们在版本 `X.Y+1` 中被隐藏，但可以使用 `--show-hidden-metrics-for-version=X.Y` 这个逃生口重新启用，然后在版本 `X.Y+2` 中被移除。

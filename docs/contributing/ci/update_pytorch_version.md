@@ -1,71 +1,52 @@
-# Update PyTorch version on vLLM OSS CI/CD
+# 在 vLLM OSS CI/CD 上更新 PyTorch 版本
 
-vLLM's current policy is to always use the latest PyTorch stable
-release in CI/CD. It is standard practice to submit a PR to update the
-PyTorch version as early as possible when a new [PyTorch stable
-release](https://github.com/pytorch/pytorch/blob/main/RELEASE.md#release-cadence) becomes available.
-This process is non-trivial due to the gap between PyTorch
-releases. Using <https://github.com/vllm-project/vllm/pull/16859> as an example, this document outlines common steps to achieve this
-update along with a list of potential issues and how to address them.
+vLLM 的当前策略是在 CI/CD 中始终使用最新的 PyTorch 稳定版发布。标准做法是，当新的 [PyTorch 稳定版发布](https://github.com/pytorch/pytorch/blob/main/RELEASE.md#release-cadence)可用时，尽早提交 PR 以更新 PyTorch 版本。由于 PyTorch 各版本之间存在差距，此过程并非微不足道。本文档以 <https://github.com/vllm-project/vllm/pull/16859> 为例，概述了实现此更新的常见步骤以及潜在问题列表及解决方法。
 
-## Test PyTorch release candidates (RCs)
+## 测试 PyTorch 发布候选版本（RC）
 
-Updating PyTorch in vLLM after the official release is not
-ideal because any issues discovered at that point can only be resolved
-by waiting for the next release or by implementing hacky workarounds in vLLM.
-The better solution is to test vLLM with PyTorch release candidates (RC) to ensure
-compatibility before each release.
+在官方发布后在 vLLM 中更新 PyTorch 并不理想，因为此时发现的任何问题只能通过等待下一个版本或在 vLLM 中实施 hacky 的变通方法来解决。更好的解决方案是测试 vLLM 与 PyTorch 发布候选版本（RC）的兼容性，以确保在每个版本发布前的兼容性。
 
-PyTorch release candidates can be downloaded from [PyTorch test index](https://download.pytorch.org/whl/test).
-For example, `torch2.7.0+cu12.8` RC can be installed using the following command:
+PyTorch 发布候选版本可以从 [PyTorch 测试索引](https://download.pytorch.org/whl/test)下载。例如，`torch2.7.0+cu12.8` RC 可以使用以下命令安装：
 
 ```bash
 uv pip install torch torchvision torchaudio \
     --index-url https://download.pytorch.org/whl/test/cu128
 ```
 
-When the final RC is ready for testing, it will be announced to the community
-on the [PyTorch dev-discuss forum](https://dev-discuss.pytorch.org/c/release-announcements).
-After this announcement, we can begin testing vLLM integration by drafting a pull request
-following this 3-step process:
+当最终 RC 准备好进行测试时，它将在 [PyTorch dev-discuss 论坛](https://dev-discuss.pytorch.org/c/release-announcements)上向社区公告。在此公告之后，我们可以按照以下 3 步流程起草拉取请求开始测试 vLLM 集成：
 
-1. Update [requirements files](https://github.com/vllm-project/vllm/tree/main/requirements)
-to point to the new releases for `torch`, `torchvision`, and `torchaudio`.
+1. 更新[requirements 文件](https://github.com/vllm-project/vllm/tree/main/requirements)
+以指向 `torch`、`torchvision` 和 `torchaudio` 的新版本。
 
-2. Use the following option to get the final release candidates' wheels. Some common platforms are `cpu`, `cu128`, and `rocm6.2.4`.
+2. 使用以下选项获取最终发布候选版本的 wheel。一些常见平台是 `cpu`、`cu128` 和 `rocm6.2.4`。
 
     ```bash
     --extra-index-url https://download.pytorch.org/whl/test/<PLATFORM>
     ```
 
-3. Since vLLM uses `uv`, ensure the following index strategy is applied:
+3. 由于 vLLM 使用 `uv`，请确保应用以下索引策略：
 
-    - Via environment variable:
+    - 通过环境变量：
 
     ```bash
     export UV_INDEX_STRATEGY=unsafe-best-match
     ```
 
-    - Or via CLI flag:
+    - 或通过 CLI 标志：
 
     ```bash
     --index-strategy unsafe-best-match
     ```
 
-If failures are found in the pull request, raise them as issues on vLLM and
-cc the PyTorch release team to initiate discussion on how to address them.
+如果在拉取请求中发现失败，请在 vLLM 上将其提出为问题，并抄送 PyTorch 发布团队，以启动讨论解决这些问题。
 
-## Update CUDA version
+## 更新 CUDA 版本
 
-The PyTorch release matrix includes both stable and experimental [CUDA versions](https://github.com/pytorch/pytorch/blob/main/RELEASE.md#release-compatibility-matrix). Due to limitations, only the latest stable CUDA version (for example, torch `2.7.1+cu126`) is uploaded to PyPI. However, vLLM may require a different CUDA version,
-such as 12.8 for Blackwell support.
-This complicates the process as we cannot use the out-of-the-box
-`pip install torch torchvision torchaudio` command. The solution is to use
-`--extra-index-url` in vLLM's Dockerfiles.
+PyTorch 发布矩阵包含稳定版和实验版 [CUDA 版本](https://github.com/pytorch/pytorch/blob/main/RELEASE.md#release-compatibility-matrix)。由于限制，只有最新的稳定 CUDA 版本（例如 torch `2.7.1+cu126`）会上传到 PyPI。但是，vLLM 可能需要不同的 CUDA 版本，例如用于 Blackwell 支持的 12.8。这使过程变得复杂，因为我们无法直接使用 `pip install torch torchvision torchaudio` 命令。解决方案是在 vLLM 的 Dockerfile 中使用 `--extra-index-url`。
 
-- Important indexes at the moment include:
+- 目前重要的索引包括：
 
-| Platform | `--extra-index-url` |
+| 平台 | `--extra-index-url` |
 | -------- | ------------------- |
 | CUDA 12.8 | [https://download.pytorch.org/whl/cu128](https://download.pytorch.org/whl/cu128) |
 | CPU | [https://download.pytorch.org/whl/cpu](https://download.pytorch.org/whl/cpu) |
@@ -73,32 +54,23 @@ This complicates the process as we cannot use the out-of-the-box
 | ROCm 6.3 | [https://download.pytorch.org/whl/rocm6.3](https://download.pytorch.org/whl/rocm6.3) |
 | XPU | [https://download.pytorch.org/whl/xpu](https://download.pytorch.org/whl/xpu) |
 
-- Update the below files to match the CUDA version from step 1. This makes sure that the release vLLM wheel is tested on CI.
+- 更新以下文件以匹配步骤 1 中的 CUDA 版本。这确保发布的 vLLM wheel 在 CI 中经过测试。
     - `.buildkite/release-pipeline.yaml`
     - `.buildkite/scripts/upload-wheels.sh`
 
-## Manually running vLLM builds on BuildKiteCI
+## 在 BuildKite CI 上手动运行 vLLM 构建
 
-When building vLLM with a new PyTorch/CUDA version, the vLLM sccache S3 bucket
-will not have any cached artifacts, which can cause CI build jobs to exceed 5 hours.
-Furthermore, vLLM's fastcheck pipeline operates in read-only mode and does not
-populate the cache, making it ineffective for cache warm-up purposes.
+当使用新的 PyTorch/CUDA 版本构建 vLLM 时，vLLM sccache S3 存储桶中不会有任何缓存产物，这可能导致 CI 构建作业超过 5 小时。此外，vLLM 的 fastcheck 流水线以只读模式运行，不会填充缓存，因此无法用于缓存预热。
 
-To address this, manually trigger a build on Buildkite to accomplish two objectives:
+为解决此问题，在 Buildkite 上手动触发一个构建以实现两个目标：
 
-1. Run the complete test suite against the PyTorch RC build by setting the environment variables: `RUN_ALL=1` and `NIGHTLY=1`
-2. Populate the vLLM sccache S3 bucket with compiled artifacts, enabling faster subsequent builds
+1. 通过设置环境变量 `RUN_ALL=1` 和 `NIGHTLY=1`，针对 PyTorch RC 构建运行完整的测试套件
+2. 用编译的产物填充 vLLM sccache S3 存储桶，使后续构建更快
 
 <p align="center" width="100%">
-<img width="60%" alt="Buildkite new build popup" src="https://github.com/user-attachments/assets/3b07f71b-bb18-4ca3-aeaf-da0fe79d315f" />
+<img width="60%" alt="Buildkite 新建构建弹窗" src="https://github.com/user-attachments/assets/3b07f71b-bb18-4ca3-aeaf-da0fe79d315f" />
 </p>
 
-## Update all the different vLLM platforms
+## 更新所有不同的 vLLM 平台
 
-Rather than attempting to update all vLLM platforms in a single pull request, it's more manageable
-to handle some platforms separately. The separation of requirements and Dockerfiles
-for different platforms in vLLM CI/CD allows us to selectively choose
-which platforms to update. For instance, updating XPU requires the corresponding
-release from [Intel Extension for PyTorch](https://github.com/intel/intel-extension-for-pytorch) by Intel.
-While <https://github.com/vllm-project/vllm/pull/16859> updated vLLM to PyTorch 2.7.0 on CPU, CUDA, and ROCm,
-<https://github.com/vllm-project/vllm/pull/17444> completed the update for XPU.
+与其在单个拉取请求中尝试更新所有 vLLM 平台，更合理的做法是分别处理某些平台。vLLM CI/CD 中不同平台的 requirements 和 Dockerfile 是分开的，这使我们能够选择性地选择要更新的平台。例如，更新 XPU 需要 Intel 的 [Intel Extension for PyTorch](https://github.com/intel/intel-extension-for-pytorch) 提供相应版本。虽然 <https://github.com/vllm-project/vllm/pull/16859> 在 CPU、CUDA 和 ROCm 上将 vLLM 更新到了 PyTorch 2.7.0，而 <https://github.com/vllm-project/vllm/pull/17444> 完成了 XPU 的更新。

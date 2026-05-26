@@ -1,16 +1,16 @@
-# Offline Inference
+# 离线推理
 
-The `LLM` class provides the primary Python interface for doing offline inference, which is interacting with a model without using a separate model inference server.
+`LLM` 类提供了进行离线推理的主要 Python 接口，即在不使用独立模型推理服务器的情况下与模型进行交互。
 
-## Usage
+## 使用方法
 
-The first script in this example shows the most basic usage of vLLM. If you are new to Python and vLLM, you should start here.
+此示例中的第一个脚本展示了 vLLM 最基本的用法。如果你是 Python 和 vLLM 的新手，应该从这里开始。
 
 ```bash
 python examples/basic/offline_inference/basic.py
 ```
 
-The rest of the scripts include an [argument parser](https://docs.python.org/3/library/argparse.html), which you can use to pass any arguments that are compatible with [`LLM`](https://docs.vllm.ai/en/latest/api/offline_inference/llm.html). Try running the script with `--help` for a list of all available arguments.
+其余脚本包含一个[参数解析器](https://docs.python.org/3/library/argparse.html)，你可以使用它传递任何与 [`LLM`](https://docs.vllm.ai/en/latest/api/offline_inference/llm.html) 兼容的参数。尝试使用 `--help` 运行脚本以查看所有可用参数列表。
 
 ```bash
 python examples/basic/offline_inference/classify.py
@@ -24,7 +24,7 @@ python examples/basic/offline_inference/embed.py
 python examples/basic/offline_inference/score.py
 ```
 
-The chat and generate scripts also accept the [sampling parameters](https://docs.vllm.ai/en/latest/api/inference_params.html#sampling-parameters): `max_tokens`, `temperature`, `top_p` and `top_k`.
+对话和生成脚本也接受[采样参数](https://docs.vllm.ai/en/latest/api/inference_params.html#sampling-parameters)：`max_tokens`、`temperature`、`top_p` 和 `top_k`。
 
 ```bash
 python examples/basic/offline_inference/chat.py
@@ -34,39 +34,39 @@ python examples/basic/offline_inference/chat.py
 python examples/basic/offline_inference/generate.py
 ```
 
-## Features
+## 功能特性
 
-In the scripts that support passing arguments, you can experiment with the following features.
+在支持传递参数的脚本中，你可以尝试以下功能。
 
-### Default generation config
+### 默认生成配置
 
-The `--generation-config` argument specifies where the generation config will be loaded from when calling `LLM.get_default_sampling_params()`. If set to ‘auto’, the generation config will be loaded from model path. If set to a folder path, the generation config will be loaded from the specified folder path. If it is not provided, vLLM defaults will be used.
+`--generation-config` 参数指定在调用 `LLM.get_default_sampling_params()` 时从何处加载生成配置。如果设置为 'auto'，则从模型路径加载生成配置。如果设置为文件夹路径，则从指定的文件夹路径加载生成配置。如果未提供，则使用 vLLM 默认值。
 
-> If max_new_tokens is specified in generation config, then it sets a server-wide limit on the number of output tokens for all requests.
+> 如果在生成配置中指定了 max_new_tokens，则它会对所有请求设置服务器级别的输出令牌数量限制。
 
-Try it yourself with the following argument:
+尝试使用以下参数：
 
 ```bash
 --generation-config auto
 ```
 
-### Quantization
+### 量化
 
 #### GGUF
 
-vLLM supports models that are quantized using GGUF.
+vLLM 支持使用 GGUF 进行量化的模型。
 
-Try one yourself using the `repo_id:quant_type` format to load directly from HuggingFace:
+使用 `repo_id:quant_type` 格式直接从 HuggingFace 加载模型进行尝试：
 
 ```bash
 --model unsloth/Qwen3-0.6B-GGUF:Q4_K_M --tokenizer Qwen/Qwen3-0.6B
 ```
 
-### CPU offload
+### CPU 卸载
 
-The `--cpu-offload-gb` argument can be seen as a virtual way to increase the GPU memory size. For example, if you have one 24 GB GPU and set this to 10, virtually you can think of it as a 34 GB GPU. Then you can load a 13B model with BF16 weight, which requires at least 26GB GPU memory. Note that this requires fast CPU-GPU interconnect, as part of the model is loaded from CPU memory to GPU memory on the fly in each model forward pass.
+`--cpu-offload-gb` 参数可以看作是一种虚拟增加 GPU 内存大小的方法。例如，如果你有一个 24 GB 的 GPU 并将此值设为 10，实际上你可以将其视为 34 GB 的 GPU。然后你可以加载一个使用 BF16 权重的 13B 模型，该模型至少需要 26 GB 的 GPU 内存。请注意，这需要快速的 CPU-GPU 互联，因为模型的每个前向传播过程中会动态地从 CPU 内存加载部分模型到 GPU 内存。
 
-Try it yourself with the following arguments:
+尝试使用以下参数：
 
 ```bash
 --model meta-llama/Llama-2-13b-chat-hf --cpu-offload-gb 10

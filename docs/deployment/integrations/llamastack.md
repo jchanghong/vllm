@@ -1,16 +1,16 @@
 # Llama Stack
 
-vLLM is also available via [Llama Stack](https://github.com/llamastack/llama-stack).
+vLLM 也可通过 [Llama Stack](https://github.com/llamastack/llama-stack) 使用。
 
-To install Llama Stack, run
+要安装 Llama Stack，运行
 
 ```bash
 pip install llama-stack -q
 ```
 
-## Inference using OpenAI-Compatible API
+## 使用 OpenAI 兼容 API 进行推理
 
-Then start the Llama Stack server and configure it to point to your vLLM server with the following settings:
+然后启动 Llama Stack 服务器，并通过以下设置将其指向您的 vLLM 服务器：
 
 ```yaml
 inference:
@@ -20,12 +20,11 @@ inference:
       url: http://127.0.0.1:8000
 ```
 
-Please refer to [this guide](https://llama-stack.readthedocs.io/en/latest/providers/inference/remote_vllm.html) for more details on this remote vLLM provider.
+请参阅[此指南](https://llama-stack.readthedocs.io/en/latest/providers/inference/remote_vllm.html)以获取有关此远程 vLLM 提供程序的更多详细信息。
 
-## Inference using Embedded vLLM
+## 使用嵌入式 vLLM 进行推理
 
-An [inline provider](https://github.com/llamastack/llama-stack/tree/main/llama_stack/providers/inline/inference)
-is also available. This is a sample of configuration using that method:
+还提供了一个[内联提供程序](https://github.com/llamastack/llama-stack/tree/main/llama_stack/providers/inline/inference)。以下是使用该方法的配置示例：
 
 ```yaml
 inference:

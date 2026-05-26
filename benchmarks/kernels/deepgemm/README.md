@@ -1,12 +1,12 @@
-# DeepSeek DeepGEMM Kernels Benchmark
+# DeepSeek DeepGEMM 内核基准测试
 
-This directory includes benchmarks between DeepSeek's DeepGEMM block fp8 kernels against vLLM's existing triton and CUTLASS-based kernels.
+此目录包含 DeepSeek 的 DeepGEMM 块 fp8 内核与 vLLM 现有的基于 Triton 和 CUTLASS 的内核之间的基准测试。
 
-Currently, this just includes dense GEMMs and only works on Hopper GPUs.
+目前仅包含稠密 GEMM，且仅适用于 Hopper GPU。
 
-## Setup
+## 环境配置
 
-You need to install vLLM in your usual fashion, then install DeepGEMM from source in its own directory:
+您需要先按常规方式安装 vLLM，然后在自己的目录中从源码安装 DeepGEMM：
 
 ```bash
 git clone --recursive https://github.com/deepseek-ai/DeepGEMM
@@ -15,7 +15,7 @@ python setup.py install
 uv pip install -e .
 ```
 
-## Usage
+## 使用方法
 
 ```console
 python benchmark_fp8_block_dense_gemm.py

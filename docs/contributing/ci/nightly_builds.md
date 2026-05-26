@@ -1,160 +1,158 @@
-# Nightly Builds of vLLM Wheels
+# vLLM Wheels 的每日构建
 
-vLLM maintains a per-commit wheel repository (commonly referred to as "nightly") at `https://wheels.vllm.ai` that provides pre-built wheels for every commit on the `main` branch since `v0.5.3`. This document explains how the nightly wheel index mechanism works.
+vLLM 维护一个每次提交的 wheel 仓库（通常称为"每日构建"），地址为 `https://wheels.vllm.ai`，提供自 `v0.5.3` 以来 `main` 分支上每次提交的预构建 wheel。本文档解释了每日构建的 wheel 索引机制的工作原理。
 
-## Build and Upload Process on CI
+## CI 上的构建和上传流程
 
-### Wheel Building
+### Wheel 构建
 
-Wheels are built in the `Release` pipeline (`.buildkite/release-pipeline.yaml`) after a PR is merged into the main branch, with multiple variants:
+Wheel 在 PR 合并到主分支后在 `Release` 流水线（`.buildkite/release-pipeline.yaml`）中构建，包含多个变体：
 
-- **Backend variants**: `cpu` and `cuXXX` (e.g., `cu129`, `cu130`).
-- **Architecture variants**: `x86_64` and `aarch64`.
+- **后端变体**：`cpu` 和 `cuXXX`（例如 `cu129`、`cu130`）。
+- **架构变体**：`x86_64` 和 `aarch64`。
 
-Each build step:
+每个构建步骤：
 
-1. Builds the wheel in a Docker container.
-2. Renames the wheel filename to use the correct manylinux tag (currently `manylinux_2_31`) for PEP 600 compliance.
-3. Uploads the wheel to S3 bucket `vllm-wheels` under `/{commit_hash}/`.
+1. 在 Docker 容器中构建 wheel。
+2. 重命名 wheel 文件名以使用正确的 manylinux 标签（当前为 `manylinux_2_31`），以符合 PEP 600 标准。
+3. 将 wheel 上传到 S3 存储桶 `vllm-wheels` 下的 `/{commit_hash}/`。
 
-### Index Generation
+### 索引生成
 
-After uploading each wheel, the `.buildkite/scripts/upload-wheels.sh` script:
+上传每个 wheel 后，`.buildkite/scripts/upload-wheels.sh` 脚本：
 
-1. **Lists all existing wheels** in the commit directory from S3
-2. **Generates indices** using `.buildkite/scripts/generate-nightly-index.py`:
-    - Parses wheel filenames to extract metadata (version, variant, platform tags).
-    - Creates HTML index files (`index.html`) for PyPI compatibility.
-    - Generates machine-readable `metadata.json` files.
-3. **Uploads indices** to multiple locations (overriding existing ones):
-    - `/{commit_hash}/` - Always uploaded for commit-specific access.
-    - `/nightly/` - Only for commits on `main` branch (not PRs).
-    - `/{version}/` - Only for release wheels (no `dev` in its version).
+1. **列出 S3 中提交目录下所有现有的 wheel**
+2. **使用 `.buildkite/scripts/generate-nightly-index.py` 生成索引**：
+    - 解析 wheel 文件名以提取元数据（版本、变体、平台标签）。
+    - 创建用于 PyPI 兼容性的 HTML 索引文件（`index.html`）。
+    - 生成机器可读的 `metadata.json` 文件。
+3. **将索引上传到多个位置**（覆盖现有文件）：
+    - `/{commit_hash}/` - 始终上传，用于特定提交的访问。
+    - `/nightly/` - 仅针对 `main` 分支的提交（非 PR）。
+    - `/{version}/` - 仅针对发布 wheel（版本中不含 `dev`）。
 
-!!! tip "Handling Concurrent Builds"
-    The index generation script can handle multiple variants being built concurrently by always listing all wheels in the commit directory before generating indices, avoiding race conditions.
+!!! tip "处理并发构建"
+    索引生成脚本可以处理多个变体同时构建的情况，它总是在生成索引前列出提交目录下的所有 wheel，从而避免竞态条件。
 
-## Directory Structure
+## 目录结构
 
-The S3 bucket structure follows this pattern:
+S3 存储桶结构遵循以下模式：
 
 ```text
 s3://vllm-wheels/
-├── {commit_hash}/              # Commit-specific wheels and indices
-│   ├── vllm-*.whl              # All wheel files
-│   ├── index.html              # Project list (default variant)
+├── {commit_hash}/              # 特定提交的 wheel 和索引
+│   ├── vllm-*.whl              # 所有 wheel 文件
+│   ├── index.html              # 项目列表（默认变体）
 │   ├── vllm/
-│   │   ├── index.html          # Package index (default variant)
-│   │   └── metadata.json       # Metadata (default variant)
-│   ├── cu129/                  # Variant subdirectory
-│   │   ├── index.html          # Project list (cu129 variant)
+│   │   ├── index.html          # 包索引（默认变体）
+│   │   └── metadata.json       # 元数据（默认变体）
+│   ├── cu129/                  # 变体子目录
+│   │   ├── index.html          # 项目列表（cu129 变体）
 │   │   └── vllm/
-│   │       ├── index.html      # Package index (cu129 variant)
-│   │       └── metadata.json   # Metadata (cu129 variant)
-│   ├── cu130/                  # Variant subdirectory
-│   ├── cpu/                    # Variant subdirectory
-│   └── .../                    # More variant subdirectories
-├── nightly/                    # Latest main branch wheels (mirror of latest commit)
-└── {version}/                  # Release version indices (e.g., 0.11.2)
+│   │       ├── index.html      # 包索引（cu129 变体）
+│   │       └── metadata.json   # 元数据（cu129 变体）
+│   ├── cu130/                  # 变体子目录
+│   ├── cpu/                    # 变体子目录
+│   └── .../                    # 更多变体子目录
+├── nightly/                    # 最新的主分支 wheel（镜像最新提交）
+└── {version}/                  # 发布版本索引（例如 0.11.2）
 ```
 
-All built wheels are stored in `/{commit_hash}/`, while different indices are generated and reference them.
-This avoids duplication of wheel files.
+所有构建的 wheel 都存储在 `/{commit_hash}/` 中，而不同的索引则生成并引用它们。
+这避免了 wheel 文件的重复。
 
-For example, you can specify the following URLs to use different indices:
+例如，您可以指定以下 URL 来使用不同的索引：
 
-- `https://wheels.vllm.ai/nightly/cu130` for the latest main branch wheels built with CUDA 13.0.
-- `https://wheels.vllm.ai/{commit_hash}` for wheels built at a specific commit (default variant).
-- `https://wheels.vllm.ai/0.12.0/cpu` for 0.12.0 release wheels built for CPU variant.
+- `https://wheels.vllm.ai/nightly/cu130` 获取使用 CUDA 13.0 构建的最新主分支 wheel。
+- `https://wheels.vllm.ai/{commit_hash}` 获取特定提交构建的 wheel（默认变体）。
+- `https://wheels.vllm.ai/0.12.0/cpu` 获取为 CPU 变体构建的 0.12.0 发布 wheel。
 
-Please note that not all variants are present on every commit. The available variants are subject to change over time, e.g., changing cu130 to cu131.
+请注意，并非每个提交都存在所有变体。可用的变体会随时间变化，例如将 cu130 更改为 cu131。
 
-### Variant Organization
+### 变体组织
 
-Indices are organized by variant:
+索引按变体组织：
 
-- **Default variant**: Wheels without variant suffix (i.e., built with the current `VLLM_MAIN_CUDA_VERSION`) are placed in the root.
-- **Variant subdirectories**: Wheels with variant suffixes (e.g., `+cu130`, `.cpu`) are organized in subdirectories.
-- **Alias to default**: The default variant can have an alias (e.g., `cu129` for now) for consistency and convenience.
+- **默认变体**：没有变体后缀的 wheel（即使用当前 `VLLM_MAIN_CUDA_VERSION` 构建的）放置在根目录。
+- **变体子目录**：带有变体后缀的 wheel（例如 `+cu130`、`.cpu`）组织在子目录中。
+- **默认变体别名**：默认变体可以有一个别名（例如当前为 `cu129`），以保持一致性并方便使用。
 
-The variant is extracted from the wheel filename (as described in the [file name convention](https://packaging.python.org/en/latest/specifications/binary-distribution-format/#file-name-convention)):
+变体从 wheel 文件名中提取（如[文件命名约定](https://packaging.python.org/en/latest/specifications/binary-distribution-format/#file-name-convention)中所述）：
 
-- The variant is encoded in the local version identifier (e.g. `+cu129` or `dev<N>+g<hash>.cu130`).
-- Examples:
-    - `vllm-0.11.2.dev278+gdbc3d9991-cp38-abi3-manylinux1_x86_64.whl` → default variant
-    - `vllm-0.10.2rc2+cu129-cp38-abi3-manylinux2014_aarch64.whl` → `cu129` variant
-    - `vllm-0.11.1rc8.dev14+gaa384b3c0.cu130-cp38-abi3-manylinux1_x86_64.whl` → `cu130` variant
+- 变体编码在本地版本标识符中（例如 `+cu129` 或 `dev<N>+g<hash>.cu130`）。
+- 示例：
+    - `vllm-0.11.2.dev278+gdbc3d9991-cp38-abi3-manylinux1_x86_64.whl` → 默认变体
+    - `vllm-0.10.2rc2+cu129-cp38-abi3-manylinux2014_aarch64.whl` → `cu129` 变体
+    - `vllm-0.11.1rc8.dev14+gaa384b3c0.cu130-cp38-abi3-manylinux1_x86_64.whl` → `cu130` 变体
 
-## Index Generation Details
+## 索引生成细节
 
-The `generate-nightly-index.py` script performs the following:
+`generate-nightly-index.py` 脚本执行以下操作：
 
-1. **Parses wheel filenames** using regex to extract:
-    - Package name
-    - Version (with variant extracted)
-    - Python tag, ABI tag, platform tag
-    - Build tag (if present)
-2. **Groups wheels by variant**, then by package name:
-    - Currently only `vllm` is built, but the structure supports multiple packages in the future.
-3. **Generates HTML indices** (compliant with the [Simple repository API](https://packaging.python.org/en/latest/specifications/simple-repository-api/#simple-repository-api)):
-    - Top-level `index.html`: Lists all packages and variant subdirectories
-    - Package-level `index.html`: Lists all wheel files for that package
-    - Uses relative paths to wheel files for portability
-4. **Generates metadata.json**:
-    - Machine-readable JSON containing all wheel metadata
-    - Includes `path` field with URL-encoded relative path to wheel file
-    - Used by `setup.py` to locate compatible pre-compiled wheels during Python-only builds
+1. **使用正则表达式解析 wheel 文件名**以提取：
+    - 包名称
+    - 版本（同时提取变体）
+    - Python 标签、ABI 标签、平台标签
+    - 构建标签（如果存在）
+2. **按变体分组 wheel**，然后按包名称分组：
+    - 目前只构建 `vllm`，但该结构支持将来添加多个包。
+3. **生成 HTML 索引**（符合[简单仓库 API](https://packaging.python.org/en/latest/specifications/simple-repository-api/#simple-repository-api) 标准）：
+    - 顶层 `index.html`：列出所有包和变体子目录
+    - 包级别 `index.html`：列出该包的所有 wheel 文件
+    - 使用指向 wheel 文件的相对路径以确保可移植性
+4. **生成 metadata.json**：
+    - 包含所有 wheel 元数据的机器可读 JSON
+    - 包含带有 URL 编码相对路径的 `path` 字段，指向 wheel 文件
+    - 由 `setup.py` 用于在仅 Python 构建期间定位兼容的预编译 wheel
 
-### Special Handling for AWS Services
+### AWS 服务的特殊处理
 
-The wheels and indices are directly stored on AWS S3, and we use AWS CloudFront as a CDN in front of the S3 bucket.
+Wheel 和索引直接存储在 AWS S3 上，我们使用 AWS CloudFront 作为 S3 存储桶前的 CDN。
 
-Since S3 does not provide proper directory listing, to support PyPI-compatible simple repository API behavior, we deploy a CloudFront Function that:
+由于 S3 不提供适当的目录列表功能，为了支持 PyPI 兼容的简单仓库 API 行为，我们部署了一个 CloudFront Function，用于：
 
-- redirects any URL that does not end with `/` and does not look like a file (i.e., does not contain a dot `.` in the last path segment) to the same URL with a trailing `/`
-- appends `/index.html` to any URL that ends with `/`
+- 将任何不以 `/` 结尾且看起来不像文件（即最后一个路径段中不包含点 `.`）的 URL 重定向到带有尾部 `/` 的相同 URL
+- 将任何以 `/` 结尾的 URL 附加 `/index.html`
 
-For example, the following requests would be handled as:
+例如，以下请求将被处理为：
 
 - `/nightly` -> `/nightly/index.html`
 - `/nightly/cu130/` -> `/nightly/cu130/index.html`
-- `/nightly/index.html` or `/nightly/vllm.whl` -> unchanged
+- `/nightly/index.html` 或 `/nightly/vllm.whl` -> 保持不变
 
-!!! note "AWS S3 Filename Escaping"
+!!! note "AWS S3 文件名转义"
 
-    S3 will automatically escape filenames upon upload according to its [naming rule](https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html). The direct impact on vllm is that `+` in filenames will be converted to `%2B`. We take special care in the index generation script to escape filenames properly when generating the HTML indices and JSON metadata, to ensure the URLs are correct and can be directly used.
+    S3 会根据其[命名规则](https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html)在上传时自动转义文件名。对 vllm 的直接影响是文件名中的 `+` 将被转换为 `%2B`。我们在索引生成脚本中特别注意正确转义文件名，以确保 URL 正确且可直接使用。
 
-## Usage of precompiled wheels in `setup.py` {#precompiled-wheels-usage}
+## `setup.py` 中预编译 wheel 的使用 {#precompiled-wheels-usage}
 
-When installing vLLM with `VLLM_USE_PRECOMPILED=1`, the `setup.py` script:
+当使用 `VLLM_USE_PRECOMPILED=1` 安装 vLLM 时，`setup.py` 脚本：
 
-1. **Determines wheel location** via `precompiled_wheel_utils.determine_wheel_url()`:
-    - Env var `VLLM_PRECOMPILED_WHEEL_LOCATION` (user-specified URL/path) always takes precedence and skips all other steps.
-    - Determines the variant from `VLLM_MAIN_CUDA_VERSION` (can be overridden with env var `VLLM_PRECOMPILED_WHEEL_VARIANT`); the default variant will also be tried as a fallback.
-    - Determines the _base commit_ (explained later) of this branch (can be overridden with env var `VLLM_PRECOMPILED_WHEEL_COMMIT`).
-2. **Fetches metadata** from `https://wheels.vllm.ai/{commit}/vllm/metadata.json` (for the default variant) or `https://wheels.vllm.ai/{commit}/{variant}/vllm/metadata.json` (for a specific variant).
-3. **Selects compatible wheel** based on:
-    - Package name (`vllm`)
-    - Platform tag (architecture match)
-4. **Downloads and extracts** precompiled artifacts from the wheel:
-    - Native extension modules (`.so` files)
-    - The `vllm-rs` Rust frontend binary
-    - Flash Attention Python modules and Triton/FlashMLA Python files
-5. **Patches package_data** to include extracted files in the installation
+1. **通过 `precompiled_wheel_utils.determine_wheel_url()` 确定 wheel 位置**：
+    - 环境变量 `VLLM_PRECOMPILED_WHEEL_LOCATION`（用户指定的 URL/路径）始终优先，并跳过所有其他步骤。
+    - 从 `VLLM_MAIN_CUDA_VERSION` 确定变体（可通过环境变量 `VLLM_PRECOMPILED_WHEEL_VARIANT` 覆盖）；默认变体也将作为后备尝试。
+    - 确定此分支的_基础提交_（将在后面解释）（可通过环境变量 `VLLM_PRECOMPILED_WHEEL_COMMIT` 覆盖）。
+2. **从 `https://wheels.vllm.ai/{commit}/vllm/metadata.json`（针对默认变体）或 `https://wheels.vllm.ai/{commit}/{variant}/vllm/metadata.json`（针对特定变体）获取元数据**。
+3. **基于以下条件选择兼容的 wheel**：
+    - 包名称（`vllm`）
+    - 平台标签（架构匹配）
+4. **从 wheel 下载并提取预编译产物**：
+    - 原生扩展模块（`.so` 文件）
+    - `vllm-rs` Rust 前端二进制文件
+    - Flash Attention Python 模块和 Triton/FlashMLA Python 文件
+5. **修补 package_data**以将提取的文件包含在安装中
 
-!!! note "What is the base commit?"
+!!! note "什么是基础提交？"
 
-    The base commit is determined by finding the merge-base
-    between the current branch and upstream `main`, ensuring
-    compatibility between source code and precompiled binaries.
+    基础提交是通过找到当前分支与上游 `main` 之间的合并基础来确定的，确保源代码与预编译二进制文件之间的兼容性。
 
-_Note: it's users' responsibility to ensure there is no native code (e.g., C++ or CUDA) changes before using precompiled wheels._
+_注意：使用预编译 wheel 之前，确保没有原生代码（例如 C++ 或 CUDA）更改是用户的责任。_
 
-## Implementation Files
+## 实现文件
 
-Key files involved in the nightly wheel mechanism:
+涉及每日构建 wheel 机制的关键文件：
 
-- **`.buildkite/release-pipeline.yaml`**: CI pipeline that builds wheels
-- **`.buildkite/scripts/upload-wheels.sh`**: Script that uploads wheels and generates indices
-- **`.buildkite/scripts/generate-nightly-index.py`**: Python script that generates PyPI-compatible indices
-- **`setup.py`**: Contains `precompiled_wheel_utils` class for fetching and using precompiled wheels
+- **`.buildkite/release-pipeline.yaml`**：构建 wheel 的 CI 流水线
+- **`.buildkite/scripts/upload-wheels.sh`**：上传 wheel 并生成索引的脚本
+- **`.buildkite/scripts/generate-nightly-index.py`**：生成 PyPI 兼容索引的 Python 脚本
+- **`setup.py`**：包含用于获取和使用预编译 wheel 的 `precompiled_wheel_utils` 类

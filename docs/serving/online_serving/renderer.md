@@ -1,14 +1,14 @@
-# Renderer APIs
+# 渲染器 API
 
-Our renderer API is designed to disaggregate the render phase(preprocessing) and enable a token-in / token-out API server.
+我们的渲染器 API 旨在分离渲染阶段（预处理）并实现一个令牌输入/令牌输出的 API 服务器。
 
-- GPU-less deployment of frontend: Allow preprocessing (tokenization, MM input processing) and postprocessing (detokenization, tool call parsing, reasoning parsing) to run without GPU.
-- Disaggregated tokenization: Support use cases such as llm-d, Dynamo, and custom frontends that need to leverage vLLM's preprocessing logic without running the full inference engine.
-- Tokens-in / tokens-out engine: Make the engine a pure token-in / token-out service, decoupled from request preprocessing.
+- **前端的无 GPU 部署**：允许预处理（分词、多模态输入处理）和后处理（逆分词、工具调用解析、推理解析）在无需 GPU 的情况下运行。
+- **分离式分词**：支持如 llm-d、Dynamo 和自定义前端等使用场景，这些场景需要利用 vLLM 的预处理逻辑而不运行完整的推理引擎。
+- **令牌输入/令牌输出引擎**：使引擎成为纯令牌输入/令牌输出服务，与请求预处理解耦。
 
-## API Reference
+## API 参考
 
-- [Completions Render API](renderer.md) (`/v1/completions/render`)
-    - Render completion requests
-- [Chat Completions Render API](renderer.md) (`/v1/chat/completions/render`)
-    - Render chat completions
+- [补全渲染 API](renderer.md)（`/v1/completions/render`）
+    - 渲染补全请求
+- [聊天补全渲染 API](renderer.md)（`/v1/chat/completions/render`）
+    - 渲染聊天补全

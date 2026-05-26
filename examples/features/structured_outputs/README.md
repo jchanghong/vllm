@@ -1,49 +1,49 @@
-# Structured Outputs
+# 结构化输出
 
-This script demonstrates various structured output capabilities of vLLM's OpenAI-compatible server.
-It can run individual constraint type or all of them.
-It supports both streaming responses and concurrent non-streaming requests.
+此脚本演示了 vLLM 与 OpenAI 兼容服务器的各种结构化输出能力。
+它可以单独运行某种约束类型，也可以运行所有类型。
+它同时支持流式响应和并发的非流式请求。
 
-To use this example, you must start an vLLM server with any model of your choice.
+要使用此示例，您必须启动一个运行任意模型的 vLLM 服务器。
 
 ```bash
 vllm serve Qwen/Qwen2.5-3B-Instruct
 ```
 
-To serve a reasoning model, you can use the following command:
+要服务推理模型，可以使用以下命令：
 
 ```bash
 vllm serve deepseek-ai/DeepSeek-R1-Distill-Qwen-7B \
     --reasoning-parser deepseek_r1
 ```
 
-If you want to run this script standalone with `uv`, you can use the following:
+如果您想使用 `uv` 独立运行此脚本，可以使用以下命令：
 
 ```bash
 uvx --from git+https://github.com/vllm-project/vllm#subdirectory=examples/features/structured_outputs \
     structured-outputs
 ```
 
-See [feature docs](https://docs.vllm.ai/en/latest/features/structured_outputs.html) for more information.
+有关更多信息，请参阅[功能文档](https://docs.vllm.ai/en/latest/features/structured_outputs.html)。
 
 !!! tip
-    If vLLM is running remotely, then set `OPENAI_BASE_URL=<remote_url>` before running the script.
+    如果 vLLM 正在远程运行，请在运行脚本前设置 `OPENAI_BASE_URL=<remote_url>`。
 
-## Usage
+## 用法
 
-Run all constraints, non-streaming:
+运行所有约束，非流式：
 
 ```bash
 uv run structured_outputs_offline.py
 ```
 
-Run all constraints, streaming:
+运行所有约束，流式：
 
 ```bash
 uv run structured_outputs_offline.py --stream
 ```
 
-Run certain constraints, for example `structural_tag` and `regex`, streaming:
+运行特定约束，例如 `structural_tag` 和 `regex`，流式：
 
 ```bash
 uv run structured_outputs_offline.py \
@@ -51,7 +51,7 @@ uv run structured_outputs_offline.py \
     --stream
 ```
 
-Run all constraints, with reasoning models and streaming:
+运行所有约束，使用推理模型并流式：
 
 ```bash
 uv run structured_outputs_offline.py --reasoning --stream

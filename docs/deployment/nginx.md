@@ -1,16 +1,16 @@
-# Using Nginx
+# 使用 Nginx
 
-This document shows how to launch multiple vLLM serving containers and use Nginx to act as a load balancer between the servers.
+本文档展示了如何启动多个 vLLM 服务容器，并使用 Nginx 作为这些服务器之间的负载均衡器。
 
-## Build Nginx Container
+## 构建 Nginx 容器
 
-This guide assumes that you have just cloned the vLLM project and you're currently in the vllm root directory.
+本指南假设您刚刚克隆了 vLLM 项目，并且当前位于 vllm 根目录。
 
 ```bash
 export vllm_root=`pwd`
 ```
 
-Create a file named `Dockerfile.nginx`:
+创建一个名为 `Dockerfile.nginx` 的文件：
 
 ```dockerfile
 FROM nginx:latest
@@ -19,17 +19,17 @@ EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
 ```
 
-Build the container:
+构建容器：
 
 ```bash
 docker build . -f Dockerfile.nginx --tag nginx-lb
 ```
 
-## Create Simple Nginx Config file
+## 创建简单的 Nginx 配置文件
 
-Create a file named `nginx_conf/nginx.conf`. Note that you can add as many servers as you'd like. In the below example we'll start with two. To add more, add another `server vllmN:8000 max_fails=3 fail_timeout=10000s;` entry to `upstream backend`.
+创建一个名为 `nginx_conf/nginx.conf` 的文件。注意，您可以添加任意数量的服务器。在下面的示例中，我们从两个服务器开始。要添加更多服务器，请在 `upstream backend` 中添加另一个 `server vllmN:8000 max_fails=3 fail_timeout=10000s;` 条目。
 
-??? console "Config"
+??? console "配置"
 
     ```console
     upstream backend {
@@ -49,14 +49,14 @@ Create a file named `nginx_conf/nginx.conf`. Note that you can add as many serve
     }
     ```
 
-## Build vLLM Container
+## 构建 vLLM 容器
 
 ```bash
 cd $vllm_root
 docker build -f docker/Dockerfile . --tag vllm
 ```
 
-If you are behind proxy, you can pass the proxy settings to the docker build command as shown below:
+如果您在代理后面，可以将代理设置传递给 docker build 命令，如下所示：
 
 ```bash
 cd $vllm_root
@@ -67,22 +67,22 @@ docker build \
     --build-arg https_proxy=$https_proxy
 ```
 
-## Create Docker Network
+## 创建 Docker 网络
 
 ```bash
 docker network create vllm_nginx
 ```
 
-## Launch vLLM Containers
+## 启动 vLLM 容器
 
-Notes:
+注意事项：
 
-- If you have your HuggingFace models cached somewhere else, update `hf_cache_dir` below.
-- If you don't have an existing HuggingFace cache you will want to start `vllm0` and wait for the model to complete downloading and the server to be ready. This will ensure that `vllm1` can leverage the model you just downloaded and it won't have to be downloaded again.
-- The below example assumes GPU backend used. If you are using CPU backend, remove `--gpus device=ID`, add `VLLM_CPU_KVCACHE_SPACE` and `VLLM_CPU_OMP_THREADS_BIND` environment variables to the docker run command.
-- Adjust the model name that you want to use in your vLLM servers if you don't want to use `Llama-2-7b-chat-hf`.
+- 如果您的 HuggingFace 模型缓存在其他位置，请更新下面的 `hf_cache_dir`。
+- 如果您没有现有的 HuggingFace 缓存，建议先启动 `vllm0` 并等待模型完成下载和服务器就绪。这样可以确保 `vllm1` 能够利用您刚刚下载的模型，而无需再次下载。
+- 下面的示例假设使用 GPU 后端。如果您使用 CPU 后端，请移除 `--gpus device=ID`，并在 docker run 命令中添加 `VLLM_CPU_KVCACHE_SPACE` 和 `VLLM_CPU_OMP_THREADS_BIND` 环境变量。
+- 如果您不想使用 `Llama-2-7b-chat-hf`，请调整您想在 vLLM 服务器中使用的模型名称。
 
-??? console "Commands"
+??? console "命令"
 
     ```console
     mkdir -p ~/.cache/huggingface/hub/
@@ -110,9 +110,9 @@ Notes:
     ```
 
 !!! note
-    If you are behind proxy, you can pass the proxy settings to the docker run command via `-e http_proxy=$http_proxy -e https_proxy=$https_proxy`.
+    如果您在代理后面，可以通过 `-e http_proxy=$http_proxy -e https_proxy=$https_proxy` 将代理设置传递给 docker run 命令。
 
-## Launch Nginx
+## 启动 Nginx
 
 ```bash
 docker run \
@@ -123,14 +123,14 @@ docker run \
     --name nginx-lb nginx-lb:latest
 ```
 
-## Verify That vLLM Servers Are Ready
+## 验证 vLLM 服务器已就绪
 
 ```bash
 docker logs vllm0 | grep Uvicorn
 docker logs vllm1 | grep Uvicorn
 ```
 
-Both outputs should look like this:
+两个输出都应该如下所示：
 
 ```console
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)

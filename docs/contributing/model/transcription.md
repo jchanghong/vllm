@@ -1,20 +1,20 @@
-# Speech-to-Text (Transcription/Translation) Support
+# 语音转文本（转录/翻译）支持
 
-This document walks you through the steps to add support for speech-to-text (ASR) models to vLLM’s transcription and translation APIs by implementing [SupportsTranscription][vllm.model_executor.models.interfaces.SupportsTranscription].
-Please refer to the [supported models](../../models/supported_models.md#transcription) for further guidance.
+本文档将引导您完成通过实现 [SupportsTranscription][vllm.model_executor.models.interfaces.SupportsTranscription] 来为 vLLM 的转录和翻译 API 添加语音转文本（ASR）模型支持的步骤。
+请参考[支持的模型](../../models/supported_models.md#transcription)获取进一步指导。
 
-## Update the base vLLM model
+## 更新基础 vLLM 模型
 
-It is assumed you have already implemented your model in vLLM according to the basic model guide. Extend your model with the [SupportsTranscription][vllm.model_executor.models.interfaces.SupportsTranscription] interface and implement the following class attributes and methods.
+假设您已经根据基础模型指南在 vLLM 中实现了您的模型。使用 [SupportsTranscription][vllm.model_executor.models.interfaces.SupportsTranscription] 接口扩展您的模型，并实现以下类属性和方法。
 
-### `supported_languages` and `supports_transcription_only`
+### `supported_languages` 和 `supports_transcription_only`
 
-Declare supported languages and capabilities:
+声明支持的语言和能力：
 
-- The `supported_languages` mapping is validated at init time.
-- Set `supports_transcription_only=True` if the model should not serve text generation (eg Whisper).
+- `supported_languages` 映射在初始化时进行验证。
+- 如果模型不应提供文本生成服务（例如 Whisper），请设置 `supports_transcription_only=True`。
 
-??? code "supported_languages and supports_transcription_only"
+??? code "supported_languages 和 supports_transcription_only"
 
     ```python
     from typing import ClassVar, Mapping, Literal
@@ -27,21 +27,21 @@ Declare supported languages and capabilities:
     from vllm.model_executor.models.interfaces import SupportsTranscription
     
     class YourASRModel(nn.Module, SupportsTranscription):
-        # Map of ISO 639-1 language codes to language names
+        # ISO 639-1 语言代码到语言名称的映射
         supported_languages: ClassVar[Mapping[str, str]] = {
             "en": "English",
             "it": "Italian",
-            # ... add more as needed
+            # ... 根据需要添加更多
         }
         
-        # If your model only supports audio-conditioned generation
-        # (no text-only generation), enable this flag.
+        # 如果您的模型仅支持音频条件生成
+        #（不提供纯文本生成），请启用此标志。
         supports_transcription_only: ClassVar[bool] = True
     ```
 
-Provide an ASR configuration via [get_speech_to_text_config][vllm.model_executor.models.interfaces.SupportsTranscription.get_speech_to_text_config].
+通过 [get_speech_to_text_config][vllm.model_executor.models.interfaces.SupportsTranscription.get_speech_to_text_config] 提供 ASR 配置。
 
-This is for controlling general behavior of the API when serving your model:
+这是用于控制服务您的模型时 API 的通用行为：
 
 ??? code "get_speech_to_text_config()"
 
@@ -58,19 +58,19 @@ This is for controlling general behavior of the API when serving your model:
             return SpeechToTextConfig(
                 sample_rate=16_000,
                 max_audio_clip_s=30,
-                # Set to None to disable server-side chunking if your
-                # model/processor handles it already
+                # 如果您的模型/处理器已经处理了分块，
+                # 请设置为 None 以禁用服务端分块
                 min_energy_split_window_size=None,
             )
     ```
 
-See [Audio preprocessing and chunking](#audio-preprocessing-and-chunking) for what each field controls.
+请参阅[音频预处理和分块](#audio-preprocessing-and-chunking)了解每个字段的控制内容。
 
-Implement the prompt construction via [get_generation_prompt][vllm.model_executor.models.interfaces.SupportsTranscription.get_generation_prompt]. The server builds a [SpeechToTextParams][vllm.config.speech_to_text.SpeechToTextParams] object that bundles the resampled waveform, task parameters, and request-specific options. Your model receives this single object and returns a valid [PromptType][vllm.inputs.llm.PromptType]. There are two common patterns:
+通过 [get_generation_prompt][vllm.model_executor.models.interfaces.SupportsTranscription.get_generation_prompt] 实现提示构建。服务器构建一个 [SpeechToTextParams][vllm.config.speech_to_text.SpeechToTextParams] 对象，该对象包含重采样后的波形、任务参数和请求特定的选项。您的模型接收这个单一对象并返回一个有效的 [PromptType][vllm.inputs.llm.PromptType]。有两种常见模式：
 
-#### Multimodal LLM with audio embeddings (e.g., Voxtral, Gemma3n)
+#### 带音频嵌入的多模态 LLM（例如 Voxtral, Gemma3n）
 
-Return a dict containing `multi_modal_data` with the audio, and either a `prompt` string or `prompt_token_ids`:
+返回一个包含 `multi_modal_data`（音频）以及 `prompt` 字符串或 `prompt_token_ids` 的字典：
 
 ??? code "get_generation_prompt()"
 
@@ -102,11 +102,11 @@ Return a dict containing `multi_modal_data` with the audio, and either a `prompt
             }
     ```
 
-    For further clarification on multi modal inputs, please refer to [Multi-Modal Inputs](../../features/multimodal_inputs.md).
+    有关多模态输入的进一步说明，请参考[多模态输入](../../features/multimodal_inputs.md)。
 
-#### Encoder–decoder audio-only (e.g., Whisper)
+#### 编码器-解码器纯音频（例如 Whisper）
 
-Return a dict with separate `encoder_prompt` and `decoder_prompt` entries:
+返回一个包含独立 `encoder_prompt` 和 `decoder_prompt` 条目的字典：
 
 ??? code "get_generation_prompt()"
 
@@ -146,11 +146,11 @@ Return a dict with separate `encoder_prompt` and `decoder_prompt` entries:
             return cast(PromptType, prompt)
     ```
 
-### `validate_language` (optional)
+### `validate_language`（可选）
 
-Language validation via [validate_language][vllm.model_executor.models.interfaces.SupportsTranscription.validate_language]
+通过 [validate_language][vllm.model_executor.models.interfaces.SupportsTranscription.validate_language] 进行语言验证
 
-If your model requires a language and you want a default, override this method (see Whisper):
+如果您的模型需要语言并且您想要一个默认值，请重写此方法（参见 Whisper）：
 
 ??? code "validate_language()"
 
@@ -167,11 +167,11 @@ If your model requires a language and you want a default, override this method (
         return super().validate_language(language)
     ```
 
-### `get_num_audio_tokens` (optional)
+### `get_num_audio_tokens`（可选）
 
-Token accounting for streaming via [get_num_audio_tokens][vllm.model_executor.models.interfaces.SupportsTranscription.get_num_audio_tokens]
+通过 [get_num_audio_tokens][vllm.model_executor.models.interfaces.SupportsTranscription.get_num_audio_tokens] 实现流式的 token 计数
 
-Provide a fast duration→token estimate to improve streaming usage statistics:
+提供一个快速的持续时间到 token 的估算，以改善流式使用统计：
 
 ??? code "get_num_audio_tokens()"
 
@@ -186,19 +186,19 @@ Provide a fast duration→token estimate to improve streaming usage statistics:
             stt_config: SpeechToTextConfig,
             model_config: ModelConfig,
         ) -> int | None:
-            # Return None if unknown; otherwise return an estimate.
-            return int(audio_duration_s * stt_config.sample_rate // 320)  # example
+            # 如果未知则返回 None；否则返回一个估算值。
+            return int(audio_duration_s * stt_config.sample_rate // 320)  # 示例
     ```
 
-## Audio preprocessing and chunking
+## 音频预处理和分块
 
-The API server takes care of basic audio I/O and optional chunking before building prompts:
+API 服务器在构建提示之前负责基本的音频 I/O 和可选的分块：
 
-- Resampling: Input audio is resampled to `SpeechToTextConfig.sample_rate` using `AudioResampler`.
-- Chunking: If `SpeechToTextConfig.allow_audio_chunking` is True and the duration exceeds `max_audio_clip_s`, the server splits the audio into overlapping chunks and generates a prompt per chunk. Overlap is controlled by `overlap_chunk_second`.
-- Energy-aware splitting: When `min_energy_split_window_size` is set, the server finds low-energy regions to minimize cutting within words.
+- 重采样：输入的音频使用 `AudioResampler` 重采样到 `SpeechToTextConfig.sample_rate`。
+- 分块：如果 `SpeechToTextConfig.allow_audio_chunking` 为 True 且持续时间超过 `max_audio_clip_s`，服务器会将音频分割成重叠的块，并为每个块生成一个提示。重叠部分由 `overlap_chunk_second` 控制。
+- 能量感知分割：当设置了 `min_energy_split_window_size` 时，服务器会寻找低能量区域以最小化在单词中间切割。
 
-Relevant server logic:
+相关的服务器逻辑：
 
 ??? code "_preprocess_speech_to_text()"
 
@@ -225,9 +225,9 @@ Relevant server logic:
         return prompts, duration
     ```
 
-## Exposing tasks automatically
+## 自动暴露任务
 
-vLLM automatically advertises transcription support if your model implements the interface:
+如果您的模型实现了该接口，vLLM 会自动声明转录支持：
 
 ```python
 if supports_transcription(model):
@@ -236,27 +236,27 @@ if supports_transcription(model):
     supported_tasks.append("transcription")
 ```
 
-When enabled, the server initializes the transcription and translation handlers:
+启用后，服务器会初始化转录和翻译处理器：
 
 ```python
 state.openai_serving_transcription = OpenAIServingTranscription(...) if "transcription" in supported_tasks else None
 state.openai_serving_translation = OpenAIServingTranslation(...) if "transcription" in supported_tasks else None
 ```
 
-No extra registration is required beyond having your model class available via the model registry and implementing `SupportsTranscription`.
+除了通过模型注册表提供您的模型类并实现 `SupportsTranscription` 之外，无需额外注册。
 
-## Examples in-tree
+## 树内示例
 
-- Whisper encoder–decoder (audio-only): [vllm/model_executor/models/whisper.py](../../../vllm/model_executor/models/whisper.py)
-- Voxtral decoder-only (audio embeddings + LLM): [vllm/model_executor/models/voxtral.py](../../../vllm/model_executor/models/voxtral.py). Make sure to have installed `mistral-common[audio]`.
-- Gemma3n decoder-only with fixed instruction prompt: [vllm/model_executor/models/gemma3n_mm.py](../../../vllm/model_executor/models/gemma3n_mm.py)
-- Qwen3-Omni multimodal with audio embeddings: [vllm/model_executor/models/qwen3_omni_moe_thinker.py](../../../vllm/model_executor/models/qwen3_omni_moe_thinker.py)
+- Whisper 编码器-解码器（纯音频）：[vllm/model_executor/models/whisper.py](../../../vllm/model_executor/models/whisper.py)
+- Voxtral 仅解码器（音频嵌入 + LLM）：[vllm/model_executor/models/voxtral.py](../../../vllm/model_executor/models/voxtral.py)。确保已安装 `mistral-common[audio]`。
+- Gemma3n 仅解码器，带固定指令提示：[vllm/model_executor/models/gemma3n_mm.py](../../../vllm/model_executor/models/gemma3n_mm.py)
+- Qwen3-Omni 多模态，带音频嵌入：[vllm/model_executor/models/qwen3_omni_moe_thinker.py](../../../vllm/model_executor/models/qwen3_omni_moe_thinker.py)
 
-## Test with the API
+## 使用 API 测试
 
-Once your model implements `SupportsTranscription`, you can test the endpoints (API mimics OpenAI):
+一旦您的模型实现了 `SupportsTranscription`，您可以测试端点（API 模仿 OpenAI）：
 
-- Transcription (ASR):
+- 转录（ASR）：
 
     ```bash
     curl -s -X POST \
@@ -267,7 +267,7 @@ Once your model implements `SupportsTranscription`, you can test the endpoints (
       http://localhost:8000/v1/audio/transcriptions
     ```
 
-- Translation (source → English unless otherwise supported):
+- 翻译（源语言 → 英文，除非另有支持）：
 
     ```bash
     curl -s -X POST \
@@ -278,9 +278,9 @@ Once your model implements `SupportsTranscription`, you can test the endpoints (
       http://localhost:8000/v1/audio/translations
     ```
 
-Or check out more examples in [examples/speech_to_text](../../../examples/speech_to_text).
+或在 [examples/speech_to_text](../../../examples/speech_to_text) 中查看更多示例。
 
 !!! note
-    - If your model handles chunking internally (e.g., via its processor or encoder), set `min_energy_split_window_size=None` in the returned `SpeechToTextConfig` to disable server-side chunking.
-    - Implementing `get_num_audio_tokens` improves accuracy of streaming usage metrics (`prompt_tokens`) without an extra forward pass.
-    - For multilingual behavior, keep `supported_languages` aligned with actual model capabilities.
+    - 如果您的模型在内部处理分块（例如，通过其处理器或编码器），请在返回的 `SpeechToTextConfig` 中设置 `min_energy_split_window_size=None` 以禁用服务端分块。
+    - 实现 `get_num_audio_tokens` 可以在无需额外前向传播的情况下提高流式使用指标（`prompt_tokens`）的准确性。
+    - 对于多语言行为，请保持 `supported_languages` 与实际模型能力一致。

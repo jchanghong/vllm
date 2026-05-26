@@ -1,31 +1,30 @@
-# Generative Models
+# 生成式模型
 
-vLLM provides first-class support for generative models, which covers most of LLMs.
+vLLM 对生成式模型提供了一流支持，涵盖了大多数大语言模型 (LLM)。
 
-In vLLM, generative models implement the [VllmModelForTextGeneration][vllm.model_executor.models.VllmModelForTextGeneration] interface.
-Based on the final hidden states of the input, these models output log probabilities of the tokens to generate,
-which are then passed through [Sampler][vllm.v1.sample.sampler.Sampler] to obtain the final text.
+在 vLLM 中，生成式模型实现了 [VllmModelForTextGeneration][vllm.model_executor.models.VllmModelForTextGeneration] 接口。
+基于输入的最终隐藏状态，这些模型输出要生成的 token 的对数概率，
+然后通过 [Sampler][vllm.v1.sample.sampler.Sampler] 获得最终文本。
 
-## Configuration
+## 配置
 
-### Model Runner (`--runner`)
+### 模型运行器 (`--runner`)
 
-Run a model in generation mode via the option `--runner generate`.
+通过 `--runner generate` 选项在生成模式下运行模型。
 
 !!! tip
-    There is no need to set this option in the vast majority of cases as vLLM can automatically
-    detect the model runner to use via `--runner auto`.
+    绝大多数情况下无需设置此选项，因为 vLLM 可以通过 `--runner auto` 自动检测要使用的模型运行器。
 
-## Offline Inference
+## 离线推理
 
-The [LLM][vllm.LLM] class provides various methods for offline inference.
-See [configuration](../api/README.md#configuration) for a list of options when initializing the model.
+[LLM][vllm.LLM] 类提供了多种离线推理方法。
+有关初始化模型时的选项列表，请参阅[配置](../api/README.md#configuration)。
 
 ### `LLM.generate`
 
-The [generate][vllm.LLM.generate] method is available to all generative models in vLLM.
-It is similar to [its counterpart in HF Transformers](https://huggingface.co/docs/transformers/main/en/main_classes/text_generation#transformers.GenerationMixin.generate),
-except that tokenization and detokenization are also performed automatically.
+[generate][vllm.LLM.generate] 方法适用于 vLLM 中的所有生成式模型。
+它类似于 [HF Transformers 中的对应方法](https://huggingface.co/docs/transformers/main/en/main_classes/text_generation#transformers.GenerationMixin.generate)，
+不同之处在于 token 化和反 token 化也会自动执行。
 
 ```python
 from vllm import LLM
@@ -39,8 +38,8 @@ for output in outputs:
     print(f"Prompt: {prompt!r}, Generated text: {generated_text!r}")
 ```
 
-You can optionally control the language generation by passing [SamplingParams][vllm.SamplingParams].
-For example, you can use greedy sampling by setting `temperature=0`:
+您还可以通过传递 [SamplingParams][vllm.SamplingParams] 来控制语言生成。
+例如，可以通过设置 `temperature=0` 来使用贪心采样：
 
 ```python
 from vllm import LLM, SamplingParams
@@ -56,15 +55,15 @@ for output in outputs:
 ```
 
 !!! important
-    By default, vLLM will use sampling parameters recommended by model creator by applying the `generation_config.json` from the huggingface model repository if it exists. In most cases, this will provide you with the best results by default if [SamplingParams][vllm.SamplingParams] is not specified.
+    默认情况下，如果 huggingface 模型仓库中存在 `generation_config.json`，vLLM 将应用其中模型创建者推荐的采样参数。在大多数情况下，如果未指定 [SamplingParams][vllm.SamplingParams]，这能为您提供最佳结果。
 
-    However, if vLLM's default sampling parameters are preferred, please pass `generation_config="vllm"` when creating the [LLM][vllm.LLM] instance.
-A code example can be found here: [examples/basic/offline_inference/basic.py](../../examples/basic/offline_inference/basic.py)
+    但是，如果您更希望使用 vLLM 的默认采样参数，请在创建 [LLM][vllm.LLM] 实例时传递 `generation_config="vllm"`。
+代码示例请参见：[examples/basic/offline_inference/basic.py](../../examples/basic/offline_inference/basic.py)
 
 ### `LLM.beam_search`
 
-The [beam_search][vllm.LLM.beam_search] method implements [beam search](https://huggingface.co/docs/transformers/en/generation_strategies#beam-search) on top of [generate][vllm.LLM.generate].
-For example, to search using 5 beams and output at most 50 tokens:
+[beam_search][vllm.LLM.beam_search] 方法在 [generate][vllm.LLM.generate] 之上实现了[束搜索](https://huggingface.co/docs/transformers/en/generation_strategies#beam-search)。
+例如，使用 5 个束并最多输出 50 个 token：
 
 ```python
 from vllm import LLM
@@ -81,13 +80,13 @@ for output in outputs:
 
 ### `LLM.chat`
 
-The [chat][vllm.LLM.chat] method implements chat functionality on top of [generate][vllm.LLM.generate].
-In particular, it accepts input similar to [OpenAI Chat Completions API](https://platform.openai.com/docs/api-reference/chat)
-and automatically applies the model's [chat template](https://huggingface.co/docs/transformers/en/chat_templating) to format the prompt.
+[chat][vllm.LLM.chat] 方法在 [generate][vllm.LLM.generate] 之上实现了聊天功能。
+具体来说，它接受类似于 [OpenAI Chat Completions API](https://platform.openai.com/docs/api-reference/chat) 的输入，
+并自动应用模型的[聊天模板](https://huggingface.co/docs/transformers/en/chat_templating)来格式化提示。
 
 !!! important
-    In general, only instruction-tuned models have a chat template.
-    Base models may perform poorly as they are not trained to respond to the chat conversation.
+    通常，只有指令微调模型才有聊天模板。
+    基础模型表现可能不佳，因为它们未经训练来响应聊天对话。
 
 ??? code
 
@@ -121,24 +120,24 @@ and automatically applies the model's [chat template](https://huggingface.co/doc
         print(f"Prompt: {prompt!r}, Generated text: {generated_text!r}")
     ```
 
-A code example can be found here: [examples/basic/offline_inference/chat.py](../../examples/basic/offline_inference/chat.py)
+代码示例请参见：[examples/basic/offline_inference/chat.py](../../examples/basic/offline_inference/chat.py)
 
-If the model doesn't have a chat template or you want to specify another one,
-you can explicitly pass a chat template:
+如果模型没有聊天模板，或者您想指定其他模板，
+您可以显式传递聊天模板：
 
 ```python
 from vllm.entrypoints.chat_utils import load_chat_template
 
-# You can find a list of existing chat templates under `examples/`
+# 您可以在 `examples/` 目录下找到现有聊天模板列表
 custom_template = load_chat_template(chat_template="<path_to_template>")
 print("Loaded chat template:", custom_template)
 
 outputs = llm.chat(conversation, chat_template=custom_template)
 ```
 
-## Online Serving
+## 在线服务
 
-Our [OpenAI-Compatible Server](../serving/online_serving/openai_compatible_server.md) provides endpoints that correspond to the offline APIs:
+我们的[兼容 OpenAI 的服务器](../serving/online_serving/openai_compatible_server.md)提供了与离线 API 对应的端点：
 
-- [Completions API](../serving/online_serving/openai_compatible_server.md#completions-api) is similar to `LLM.generate` but only accepts text.
-- [Chat API](../serving/online_serving/openai_compatible_server.md#chat-api)  is similar to `LLM.chat`, accepting both text and [multi-modal inputs](../features/multimodal_inputs.md) for models with a chat template.
+- [Completions API](../serving/online_serving/openai_compatible_server.md#completions-api) 类似于 `LLM.generate`，但只接受文本。
+- [Chat API](../serving/online_serving/openai_compatible_server.md#chat-api) 类似于 `LLM.chat`，接受文本和[多模态输入](../features/multimodal_inputs.md)（适用于带有聊天模板的模型）。

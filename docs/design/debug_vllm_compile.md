@@ -1,159 +1,135 @@
-# How to debug the vLLM-torch.compile integration
+# 如何调试 vLLM-torch.compile 集成
 
-TL;DR:
+TL;DR：
 
-- use tlparse to acquire torch.compile logs. Include these logs in bug reports and/or support asks.
-- The vLLM-torch.compile integration is multiple pieces. vLLM exposes flags to turn off each piece:
+- 使用 tlparse 获取 torch.compile 日志。将这些日志包含在错误报告和/或支持请求中。
+- vLLM-torch.compile 集成由多个组件组成。vLLM 提供了关闭每个组件的标志：
 
-| Online Flag                    | Offline Flag                                                                   | Result                                               |
-|--------------------------------|--------------------------------------------------------------------------------|------------------------------------------------------|
-| --enforce-eager                | enforce_eager=True                                                             | Turn off torch.compile and CUDAGraphs                |
-| -cc.mode=0                     | compilation_config=CompilationConfig(mode=CompilationMode.NONE)                | Turn off torch.compile only                          |
-| -cc.mode=1                     | compilation_config=CompilationConfig(mode=CompilationMode.STOCK_TORCH_COMPILE) | Turn off vLLM-compile modifications to torch.compile |
-| -cc.cudagraph_mode=NONE        | compilation_config=CompilationConfig(cudagraph_mode=CUDAGraphMode.NONE)        | Turn off CUDAGraphs only                             |
-| -cc.backend=eager              | compilation_config=CompilationConfig(backend='eager')                          | Turn off TorchInductor                               |
-| -cc.ir_enable_torch_wrap=False | compilation_config=CompilationConfig(ir_enable_torch_wrap=False)               | Turn off vLLM IR wrapping                            |
+| 在线标志 | 离线标志 | 结果 |
+| - | - | - |
+| --enforce-eager | enforce_eager=True | 关闭 torch.compile 和 CUDA 图 |
+| -cc.mode=0 | compilation_config=CompilationConfig(mode=CompilationMode.NONE) | 仅关闭 torch.compile |
+| -cc.mode=1 | compilation_config=CompilationConfig(mode=CompilationMode.STOCK_TORCH_COMPILE) | 关闭 vLLM-compile 对 torch.compile 的修改 |
+| -cc.cudagraph_mode=NONE | compilation_config=CompilationConfig(cudagraph_mode=CUDAGraphMode.NONE) | 仅关闭 CUDA 图 |
+| -cc.backend=eager | compilation_config=CompilationConfig(backend='eager') | 关闭 TorchInductor |
+| -cc.ir_enable_torch_wrap=False | compilation_config=CompilationConfig(ir_enable_torch_wrap=False) | 关闭 vLLM IR 包装 |
 
-## vLLM-torch.compile overview
+## vLLM-torch.compile 概览
 
-To improve performance, vLLM leverages torch.compile and CUDAGraphs to speed things up.
-torch.compile generates optimized kernels for PyTorch code while CUDAGraphs eliminates overhead.
-Most notably, vLLM-compile is NOT torch.compile, it is a custom compiler built using internal PyTorch Compile APIs.
+为了提升性能，vLLM 利用 torch.compile 和 CUDA 图来加速。torch.compile 为 PyTorch 代码生成优化内核，而 CUDA 图消除了开销。最值得注意的是，vLLM-compile 不是 torch.compile，它是使用 PyTorch 编译内部 API 构建的自定义编译器。
 
-![vLLM-compile diagram](../assets/design/debug_vllm_compile/design_diagram.png)
+![vLLM-compile 图](../assets/design/debug_vllm_compile/design_diagram.png)
 
-- Given a model, we do a full graph capture via TorchDynamo that is dynamic on the batch size (number of tokens)
-- vLLM then optionally splits and/or specializes this graph and then uses TorchInductor to compile each graph into a compiled artifact.
-This step may use vLLM custom Inductor passes to further optimize the graph. This includes vLLM IR lowering to remove dispatch overhead.
-- The compiled artifact is saved to vLLM's compile cache so that it can be loaded in the future.
-- vLLM applies CUDAGraphs to reduce CPU overheads.
+- 给定一个模型，我们通过 TorchDynamo 进行完整的图捕获，该图在批量大小（token 数）上是动态的。
+- 然后 vLLM 可选地分割和/或特化此图，然后使用 TorchInductor 将每个图编译成编译产物。此步骤可能使用 vLLM 自定义 Inductor 传递进一步优化图。这包括 vLLM IR 降级以消除分派开销。
+- 编译产物保存到 vLLM 的编译缓存中，以便将来加载。
+- vLLM 应用 CUDA 图以减少 CPU 开销。
 
-Things can go wrong in each of the four steps. When something does go wrong, please try to isolate the subsystem
-that went wrong -- this will allow you to turn off the minimal number of things to keep reliability
-goals while minimizing impact to performance and also helps us (vLLM) when you open a bug report.
+在这四个步骤中都可能出现问题。当出现问题时，请尝试隔离出问题的子系统——这将允许您关闭最少的功能以保持可靠性目标，同时最小化对性能的影响，并且在您提交错误报告时也有助于我们（vLLM）。
 
-For more details on the design, please see the following resources:
+有关设计的更多详情，请参见以下资源：
 
-- [Introduction to vLLM-torch.compile blogpost](https://blog.vllm.ai/2025/08/20/torch-compile.html)
-- [vLLM-torch.compile integration design](./torch_compile.md)
-- [vLLM IR design](./vllm_ir.md)
-- [vLLM Office Hours #26](https://www.youtube.com/live/xLyxc7hxCJc?si=Xulo9pe53C6ywf0V&t=561)
-- [Talk at PyTorch Conference 2025](https://youtu.be/1wV1ESbGrVQ?si=s1GqymUfwiwOrDTg&t=725)
+- [vLLM-torch.compile 介绍博客文章](https://blog.vllm.ai/2025/08/20/torch-compile.html)
+- [vLLM-torch.compile 集成设计](./torch_compile.md)
+- [vLLM IR 设计](./vllm_ir.md)
+- [vLLM 办公时间 #26](https://www.youtube.com/live/xLyxc7hxCJc?si=Xulo9pe53C6ywf0V&t=561)
+- [PyTorch 大会 2025 演讲](https://youtu.be/1wV1ESbGrVQ?si=s1GqymUfwiwOrDTg&t=725)
 
-## Use tlparse
+## 使用 tlparse
 
-Use [tlparse](https://github.com/meta-pytorch/tlparse) to view torch.compile
-logs. These logs show all stages of the compilation process, including the fused
-kernels that torch.compile produces.
+使用 [tlparse](https://github.com/meta-pytorch/tlparse) 查看 torch.compile 日志。这些日志显示编译过程的所有阶段，包括 torch.compile 生成的融合内核。
 
-Install tlparse:
+安装 tlparse：
 
 ```sh
 pip install tlparse
 ```
 
-To enable the torch.compile logs, you can set the envvar `TORCH_TRACE=<dir>`.
-During tracing, a file per rank will be created inside of that directory, with
-each file containing the artifacts during compilation. If you can, we recommend
-sending these log files along with bug reports -- they are very helpful.
+要启用 torch.compile 日志，可以设置环境变量 `TORCH_TRACE=<dir>`。在追踪期间，该目录中会为每个 rank 创建一个文件，每个文件包含编译过程中的产物。如果可以，我们建议将这些日志文件与错误报告一起发送——它们非常有帮助。
 
-Usage (offline inference)
+用法（离线推理）
 
 ```sh
 TORCH_TRACE=~/trace_dir python my_script.py
 tlparse ~/trace_dir/<rank_0_log_file>
 ```
 
-Usage (serving)
+用法（服务）
 
 ```sh
 TORCH_TRACE=~/trace_dir vllm serve
-# ctrl-c out of the server
+# 退出服务器（ctrl-c）
 tlparse ~/trace_dir/<rank_0_log_file>
 ```
 
-Given one of the log files, the `tlparse` command outputs some HTML files
-(perhaps into e.g. `./tl_out/index.html`).
-Open it to see the logs. It'll look something like the following:
+给定其中一个日志文件，`tlparse` 命令会输出一些 HTML 文件（可能输出到例如 `./tl_out/index.html`）。打开它查看日志。它看起来像下面这样：
 
-![tlparse example](../assets/design/debug_vllm_compile/tlparse_inductor.png)
+![tlparse 示例](../assets/design/debug_vllm_compile/tlparse_inductor.png)
 
-## Turn off vLLM-torch.compile integration
+## 关闭 vLLM-torch.compile 集成
 
-Pass `--enforce-eager` to turn off the vLLM-torch.compile integration and run entirely
-in eager mode. This includes turning off CUDAGraphs.
+传递 `--enforce-eager` 以关闭 vLLM-torch.compile 集成并完全在即时模式下运行。这包括关闭 CUDA 图。
 
 ```sh
-# Online
+# 在线
 vllm serve --enforce-eager
 ```
 
 ```py
-# Offline
+# 离线
 LLM(model, enforce_eager=True)
 ```
 
-To turn off just torch.compile, pass `mode = NONE` to the compilation config.
-(`-cc` is short for `--compilation_config`):
+仅关闭 torch.compile，在编译配置中传递 `mode = NONE`（`-cc` 是 `--compilation_config` 的简写）：
 
 ```sh
-# Online
+# 在线
 vllm serve -cc.mode=0
 ```
 
 ```py
-# Offline
+# 离线
 from vllm.config.compilation import CompilationConfig, CompilationMode
 LLM(model, compilation_config=CompilationConfig(mode=CompilationMode.NONE))
 ```
 
-To turn off just CUDAGraphs, pass `cudagraph_mode = NONE`:
+仅关闭 CUDA 图，传递 `cudagraph_mode = NONE`：
 
 ```sh
-# Online
+# 在线
 vllm serve -cc.cudagraph_mode=NONE
 ```
 
 ```py
-# Offline
+# 离线
 from vllm.config.compilation import CompilationConfig, CUDAGraphMode
 LLM(model, compilation_config=CompilationConfig(cudagraph_mode=CUDAGraphMode.NONE))
 ```
 
-vLLM IR makes heavy use of the compilation pipeline, from functionalization, custom fusions, and lowering.
-To turn that off and capture eager-mode dispatching behavior of vLLM IR, run with `ir_enable_torch_wrap=False`.
-IR torch wrap is only enabled by default when using `mode=VLLM_COMPILE` and `backend="inductor"` (default).
+vLLM IR 大量使用编译管道，包括函数化、自定义融合和降级。要关闭此功能并捕获 vLLM IR 的即时模式分派行为，请使用 `ir_enable_torch_wrap=False` 运行。IR torch wrap 仅在使用 `mode=VLLM_COMPILE` 和 `backend="inductor"`（默认）时默认启用。
 
 ```sh
-# Online
+# 在线
 vllm serve -cc.ir_enable_torch_wrap=False
 ```
 
 ```py
-# Offline
+# 离线
 from vllm.config.compilation import CompilationConfig
 LLM(model, compilation_config=CompilationConfig(ir_enable_torch_wrap=False))
 ```
 
-## Debugging TorchDynamo
+## 调试 TorchDynamo
 
-vLLM requires model code be capturable into a full graph via TorchDynamo (torch.compile's frontend).
-TorchDynamo does not support all of Python. It will error (in fullgraph mode) if it cannot support
-a feature (this is sometimes known as a graph break).
+vLLM 要求模型代码可通过 TorchDynamo（torch.compile 的前端）捕获为完整图。TorchDynamo 不支持所有 Python 特性。如果遇到不支持的特性（这有时被称为图断裂），它将在完整图模式下报错。
 
-If you encounter a graph break, please [open an issue to pytorch/pytorch](https://github.com/pytorch/pytorch) so the PyTorch devs can prioritize.
-Then, try your best to rewrite the code to avoid the graph break.
-For more information, see this [Dynamo guide](https://docs.pytorch.org/docs/stable/compile/programming_model.dynamo_core_concepts.html).
+如果您遇到图断裂，请[向 pytorch/pytorch 提交问题](https://github.com/pytorch/pytorch)，以便 PyTorch 开发者可以优先处理。然后，请尽力重写代码以避免图断裂。更多信息，请参见此 [Dynamo 指南](https://docs.pytorch.org/docs/stable/compile/programming_model.dynamo_core_concepts.html)。
 
-## Debugging Dynamic Shape full graph capture
+## 调试动态形状完整图捕获
 
-vLLM requires that the model's forward pass be capturable into a full graph that is dynamic
-on the batch size (i.e. the number of tokens). It (by default) compiles this one graph into
-one artifact and uses this artifact for all batch sizes.
+vLLM 要求模型的前向传播可以被捕获为一个在批量大小（即 token 数）上是动态的完整图。它（默认情况下）将这一个图编译成一个产物，并对所有批量大小使用此产物。
 
-If your code cannot be captured with Dynamic Shapes, you may see silent incorrectness,
-loud errors, or CUDA illegal memory accesses. For example, the following is not
-capturable into a single graph:
+如果您的代码无法使用动态形状捕获，您可能会遇到静默不正确、显式错误或 CUDA 非法内存访问。例如，以下内容无法捕获为单个图：
 
 ```py
 if data.size[0] % 128 == 0:
@@ -162,200 +138,162 @@ else:
     bar(...)
 ```
 
-This problem is easy to diagnose. Use tlparse and click on `compilation_metrics`:
-it will tell you symbolic constraints on the batch size. If there is any constraint
-that restricts the batch sizes, then we've got a problem.
+这个问题很容易诊断。使用 tlparse 并点击 `compilation_metrics`：它将告诉您批量大小上的符号约束。如果存在任何限制批量大小的约束，那么我们就遇到了问题。
 
-![Bad tlparse example](../assets/design/debug_vllm_compile/dynamic_shapes.png)
+![不良 tlparse 示例](../assets/design/debug_vllm_compile/dynamic_shapes.png)
 
-To avoid this, please either:
+为避免此问题，请执行以下任一操作：
 
-1. avoid branching on the number of tokens
-2. wrap the branching logic into a custom operator. TorchDynamo does not
-trace into custom operators.
+1. 避免对 token 数量进行分支
+2. 将分支逻辑包装到自定义算子中。TorchDynamo 不会追踪自定义算子。
 
-## Debugging constraint violations and dynamic shapes guards issues
+## 调试约束违反和动态形状守卫问题
 
-Dynamic-shape guards are a specific category of Dynamo guards. They are constraints that `torch.compile`
-attaches to dynamic dimensions (e.g., `seq_len`) to ensure the compiled artifact remains valid.
-These guards typically appear when framework code, custom passes, or user code branches based on
-dynamic shape values.
+动态形状守卫是 Dynamo 守卫的一个特定类别。它们是 `torch.compile` 附加到动态维度（例如 `seq_len`）的约束，以确保编译后的产物保持有效。这些守卫通常出现在框架代码、自定义传递或用户代码根据动态形状值进行分支时。
 
-**Example:**
+**示例：**
 
 ```python
 if x > 10:
-    # path A
+    # 路径 A
 else:
-    # path B
+    # 路径 B
 ```
 
-This creates a guard `x > 10` or `x <= 10` depending on which path was traced.
+这创建了一个守卫 `x > 10` 或 `x <= 10`，取决于追踪了哪个路径。
 
-**vLLM's Assumption:**
-vLLM assumes that all guards added by torch.compile are safe to drop and will not
-constrain the compiled graph to specific input shapes. When this assumption is violated,
-it can cause issues that users need to debug.
-Some side effects that indicates this assumption is violated are runtime errors
-or `ConstraintViolationErrors`.
+**vLLM 的假设：**
+vLLM 假设 torch.compile 添加的所有守卫都是安全丢弃的，并且不会将编译后的图约束到特定的输入形状。当此假设被违反时，可能会导致用户需要调试的问题。表明此假设被违反的一些副作用是运行时错误或 `ConstraintViolationErrors`。
 
-A `ConstraintViolationErrors` will be thrown if a dynamic shape gets constrained to
-a single value. If you encounter a constraint violation error or suspect that a dynamic
-shapes guard is being added incorrectly, you can use stricter dynamic shape modes to
-help debug the issue:
+如果动态形状被约束为单个值，将抛出 `ConstraintViolationErrors`。如果您遇到约束违反错误或怀疑动态形状守卫被错误添加，您可以使用更严格的动态形状模式来帮助调试问题：
 
 ```sh
-# Online - using unbacked mode
+# 在线 - 使用 unbacked 模式
 vllm serve meta-llama/Llama-3.2-1B -cc.dynamic_shapes_config.type=unbacked
 
-# Online - using backed_size_oblivious mode
+# 在线 - 使用 backed_size_oblivious 模式
 vllm serve meta-llama/Llama-3.2-1B -cc.dynamic_shapes_config.type=backed_size_oblivious
 ```
 
 ```py
-# Offline - using unbacked mode
+# 离线 - 使用 unbacked 模式
 from vllm.config.compilation import CompilationConfig, DynamicShapesConfig, DynamicShapesType
 LLM(model, compilation_config=CompilationConfig(
     dynamic_shapes_config=DynamicShapesConfig(type=DynamicShapesType.UNBACKED)
 ))
 
-# Offline - using backed_size_oblivious mode
+# 离线 - 使用 backed_size_oblivious 模式
 from vllm.config.compilation import CompilationConfig, DynamicShapesConfig, DynamicShapesType
 LLM(model, compilation_config=CompilationConfig(
     dynamic_shapes_config=DynamicShapesConfig(type=DynamicShapesType.BACKED_SIZE_OBLIVIOUS)
 ))
 ```
 
-These modes are stricter and reduce or eliminate the need of dynamic shapes guarding, which can help isolate issues:
+这些模式更严格，减少或消除了动态形状守卫的需要，这有助于隔离问题：
 
-- `unbacked`: Uses unbacked symints which don't allow guards, making it easier to identify where guards are being incorrectly added
-- `backed_size_oblivious`: Uses a mode that is stricter about guarding.
+- `unbacked`：使用无后盾的 symint，不允许守卫，更容易识别守卫被错误添加的位置
+- `backed_size_oblivious`：使用对守卫更严格的模式
 
-For more details on dynamic shapes modes, see [Dynamic shapes and vLLM guard dropping](torch_compile.md#dynamic-shapes-and-vllm-guard-dropping).
+关于动态形状模式的更多详情，请参见[动态形状与 vLLM 守卫丢弃](torch_compile.md#dynamic-shapes-and-vllm-guard-dropping)。
 
-### Printing guards
+### 打印守卫
 
-To see all guards that are being added during compilation, you can use `TORCH_LOGS=+dynamic`:
+要查看编译过程中添加的所有守卫，可以使用 `TORCH_LOGS=+dynamic`：
 
 ```sh
 TORCH_LOGS=+dynamic vllm serve meta-llama/Llama-3.2-1B
 ```
 
-Look for `[guard added]` in the logs to see where guards are being added. This can help you identify which operations are
-causing guards to be added incorrectly.
+在日志中查找 `[guard added]`，以查看守卫被添加的位置。这有助于识别哪些操作导致守卫被错误添加。
 
-## Debugging TorchInductor
+## 调试 TorchInductor
 
-TorchInductor takes a captured graph and then compiles it down to some Python code
-that may call 1+ triton kernels. On rare (but unfortunate) occasions, it may
-produce an incorrect triton kernel. This may manifest as silent incorrectness,
-CUDA illegal memory accesses, or loud errors.
+TorchInductor 接收捕获的图，然后将其编译为一些 Python 代码，这些代码可能调用 1 个或多个 triton 内核。在罕见（但不幸）的情况下，它可能产生不正确的 triton 内核。这可能表现为静默不正确、CUDA 非法内存访问或显式错误。
 
-### Inductor runtime assertions
+### Inductor 运行时断言
 
-By default (on torch < 2.12), vLLM disables Inductor's runtime assertions
-(`assert_size_stride`, `assert_alignment`) to avoid ~2ms overhead per forward
-pass on large models. Setting `VLLM_LOGGING_LEVEL=DEBUG` automatically
-re-enables them so debugging sessions get full shape/stride validation:
+默认情况下（在 torch < 2.12 上），vLLM 禁用 Inductor 的运行时断言（`assert_size_stride`、`assert_alignment`）以避免大型模型上每次前向传播约 2ms 的开销。设置 `VLLM_LOGGING_LEVEL=DEBUG` 会自动重新启用它们，以便调试会话获得完整的形状/步长验证：
 
 ```sh
 VLLM_LOGGING_LEVEL=DEBUG vllm serve <model>
 ```
 
-You can also override them explicitly via `--compilation-config`:
+您也可以通过 `--compilation-config` 显式覆盖它们：
 
 ```sh
 vllm serve <model> -cc.inductor_compile_config='{"size_asserts": true, "alignment_asserts": true, "scalar_asserts": true}'
 ```
 
-On torch >= 2.12, PyTorch uses an efficient assert-once strategy and these
-flags are no longer suppressed by vLLM.
+在 torch >= 2.12 上，PyTorch 使用了高效的断言一次策略，vLLM 不再抑制这些标志。
 
-To debug if TorchInductor is at fault, you can disable it by passing `backend='eager'`
-to the compilation config:
+要调试是否是 TorchInductor 的问题，可以通过在编译配置中传递 `backend='eager'` 来禁用它：
 
 ```sh
-# online
+# 在线
 vllm serve -cc.backend=eager
 ```
 
 ```py
-# offline
+# 离线
 LLM(compilation_config=CompilationConfig(backend='eager'))
 ```
 
-If Inductor is at fault, [file a bug to PyTorch](https://github.com/pytorch/pytorch).
-If you're feeling adventurous, you can debug the triton kernels in the Inductor output code
-(that you can locate via using tlparse).
+如果是 Inductor 的问题，[向 PyTorch 提交 bug](https://github.com/pytorch/pytorch)。如果您有冒险精神，可以在 Inductor 输出代码中调试 triton 内核（您可以通过 tlparse 定位到这些代码）。
 
-![tlparse example](../assets/design/debug_vllm_compile/tlparse_inductor.png)
+![tlparse 示例](../assets/design/debug_vllm_compile/tlparse_inductor.png)
 
-You can also use `TORCH_LOGS=output_code <command>` to print the Inductor output code.
+您也可以使用 `TORCH_LOGS=output_code <command>` 来打印 Inductor 输出代码。
 
-### Editable TorchInductor code
+### 可编辑的 TorchInductor 代码
 
-You can edit the TorchInductor code that gets run by setting `VLLM_COMPILE_CACHE_SAVE_FORMAT=unpacked`
-or passing `-cc.compile_cache_save_format=unpacked`. The default is `binary`, which means it is not editable.
+您可以通过设置 `VLLM_COMPILE_CACHE_SAVE_FORMAT=unpacked` 或传递 `-cc.compile_cache_save_format=unpacked` 来编辑 TorchInductor 运行的代码。默认值是 `binary`，这意味着不可编辑。
 
-This is a useful technique: you can put breakpoints (e.g. `torch.distributed.breakpoint()`)
-and print statements in the output code.
+这是一个有用的技巧：您可以在输出代码中设置断点（例如 `torch.distributed.breakpoint()`）和打印语句。
 
-## Debugging vLLM-compile cache
+## 调试 vLLM-compile 缓存
 
-vLLM built its own cache for torch.compile artifacts. The idea is that the artifacts
-can be compiled once and then reused after they have been compiled. This
-is a layer on top of [torch.compile's compiler cache](https://docs.pytorch.org/tutorials/recipes/torch_compile_caching_tutorial.html).
+vLLM 构建了自己的 torch.compile 产物缓存。其思路是产物可以编译一次，然后在编译后重复使用。这是建立在 [torch.compile 的编译器缓存](https://docs.pytorch.org/tutorials/recipes/torch_compile_caching_tutorial.html)之上的一个层。
 
-While torch.compile's compiler cache is rock-stable, vLLM's compiler cache is unfortunately
-not always correct. You can disable it via setting `VLLM_DISABLE_COMPILE_CACHE=1`.
+虽然 torch.compile 的编译器缓存非常稳定，但 vLLM 的编译器缓存不幸地并非总是正确。您可以通过设置 `VLLM_DISABLE_COMPILE_CACHE=1` 来禁用它。
 
-You can also manually remove this cache.
+您也可以手动删除此缓存。
 
-- Remove vLLM's compile cache with `rm -rf ~/.cache/vllm` (look at logs to see if the location changed)
-- Remove torch.compile's built-in caches with `rm -rf /tmp/torchinductor_$(whoami)`
+- 使用 `rm -rf ~/.cache/vllm` 删除 vLLM 的编译缓存（查看日志以确认位置是否改变）
+- 使用 `rm -rf /tmp/torchinductor_$(whoami)` 删除 torch.compile 的内置缓存
 
-vLLM's cache is a mapping from cache key to a compiled artifact. vLLM computes
-the cache key via combining multiple factors (e.g. config flags and model name).
-If vLLM's compile cache is wrong, this usually means that a factor is missing.
-Please see [this example](https://github.com/vllm-project/vllm/blob/18b39828d90413d05d770dfd2e2f48304f4ca0eb/vllm/config/model.py#L310)
-of how vLLM computes part of the cache key.
+vLLM 的缓存是从缓存键到编译产物的映射。vLLM 通过组合多个因素（例如配置标志和模型名称）来计算缓存键。如果 vLLM 的编译缓存出错，这通常意味着缺少某个因素。请参见[此示例](https://github.com/vllm-project/vllm/blob/18b39828d90413d05d770dfd2e2f48304f4ca0eb/vllm/config/model.py#L310)，了解 vLLM 如何计算部分缓存键。
 
-vLLM's compilation cache requires that the code being compiled ends up being serializable.
-If this is not the case, then it will error out on save. Usually the fixes are to either:
+vLLM 的编译缓存要求被编译的代码必须是可序列化的。如果不是这种情况，将在保存时报错。通常的修复方法是：
 
-- rewrite the non-serializable pieces (perhaps difficult because it's difficult to
-  tell right now what is serializable and what isn't)
-- file a bug report
-- ignore the error by setting `VLLM_DISABLE_COMPILE_CACHE=1` (note that this will
-  make warm server starts a lot slower).
+- 重写不可序列化的部分（可能很困难，因为目前很难判断什么是可序列化的，什么不是）
+- 提交错误报告
+- 通过设置 `VLLM_DISABLE_COMPILE_CACHE=1` 忽略错误（注意这将使热服务器启动慢得多）。
 
-## Debugging CUDAGraphs
+## 调试 CUDA 图
 
-CUDAGraphs is a feature that allows one to:
+CUDA 图是一个功能，允许：
 
-- Capture a callable that launches 1+ CUDA kernels into a CUDAGraph
-- Replay the CUDAGraph
+- 将调用 1 个以上 CUDA 内核的可调用对象捕获到 CUDA 图中
+- 重放 CUDA 图
 
-The captured CUDAGraph contains all of the memory used during the capture process.
-The replay of the CUDAGraph reads and writes to exactly the same regions of memory.
+捕获的 CUDA 图包含捕获过程中使用的所有内存。CUDA 图的重放读取和写入完全相同的内存区域。
 
-This leads to some restrictions:
+这带来了一些限制：
 
-1. In order to use CUDAGraphs on new data, you'll need to copy the data into a buffer
-that the CUDAGraph is reading from
-2. CUDAGraphs only capture CUDA kernels, they don't capture work done on CPU.
+1. 为了在新数据上使用 CUDA 图，您需要将数据复制到 CUDA 图正在读取的缓冲区中
+2. CUDA 图只捕获 CUDA 内核，不捕获 CPU 上完成的工作。
 
-vLLM uses the raw CUDAGraphs API, which is unsafe when used incorrectly.
+vLLM 使用原始 CUDA 图 API，如果使用不当，这是不安全的。
 
-To turn off just CUDAGraphs, pass `cudagraph_mode = NONE`:
+仅关闭 CUDA 图，传递 `cudagraph_mode = NONE`：
 
 ```sh
-# Online
+# 在线
 vllm serve -cc.cudagraph_mode=NONE
 ```
 
 ```py
-# Offline
+# 离线
 from vllm.config.compilation import CompilationConfig, CUDAGraphMode
 LLM(model, compilation_config=CompilationConfig(cudagraph_mode=CUDAGraphMode.NONE))
 ```

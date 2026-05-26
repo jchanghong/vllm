@@ -1,30 +1,30 @@
-# OpenAI-Compatible Server
+# OpenAI 兼容服务器
 
-vLLM provides an HTTP server that implements OpenAI's [Completions API](https://platform.openai.com/docs/api-reference/completions), [Chat API](https://platform.openai.com/docs/api-reference/chat), and more! This functionality lets you serve models and interact with them using an HTTP client.
+vLLM 提供了一个实现 OpenAI [补全 API](https://platform.openai.com/docs/api-reference/completions)、[聊天 API](https://platform.openai.com/docs/api-reference/chat) 等的 HTTP 服务器！此功能使你可以服务模型并使用 HTTP 客户端与之交互。
 
-## Supported APIs
+## 支持的 API
 
-We currently support the following OpenAI APIs:
+我们目前支持以下 OpenAI API：
 
-- [Completions API](#completions-api) (`/v1/completions`)
-    - Only applicable to [text generation models](../../models/generative_models.md).
-    - *Note: `suffix` parameter is not supported.*
-- [Responses API](#responses-api) (`/v1/responses`)
-    - Only applicable to [text generation models](../../models/generative_models.md).
-- [Chat Completions API](#chat-api) (`/v1/chat/completions`)
-    - Only applicable to [text generation models](../../models/generative_models.md) with a [chat template](../online_serving/README.md#chat-template).
-    - *Note: `user` parameter is ignored.*
-    - *Note:* Setting the `parallel_tool_calls` parameter to `false` ensures vLLM only returns zero or one tool call per request. Setting it to `true` (the default) allows returning more than one tool call per request. There is no guarantee more than one tool call will be returned if this is set to `true`, as that behavior is model dependent and not all models are designed to support parallel tool calls.
-- [Embeddings API](../../models/pooling_models/embed.md#openai-compatible-embeddings-api) (`/v1/embeddings`)
-    - Only applicable to [embedding models](../../models/pooling_models/embed.md).
-- [Transcriptions API](./speech_to_text.md#transcriptions-api) (`/v1/audio/transcriptions`)
-    - Only applicable to [Automatic Speech Recognition (ASR) models](../../models/supported_models.md#transcription).
-- [Translation API](./speech_to_text.md#translations-api) (`/v1/audio/translations`)
-    - Only applicable to [Automatic Speech Recognition (ASR) models](../../models/supported_models.md#transcription).
+- [补全 API](#completions-api)（`/v1/completions`）
+    - 仅适用于[文本生成模型](../../models/generative_models.md)。
+    - *注意：不支持 `suffix` 参数。*
+- [响应 API](#responses-api)（`/v1/responses`）
+    - 仅适用于[文本生成模型](../../models/generative_models.md)。
+- [聊天补全 API](#chat-api)（`/v1/chat/completions`）
+    - 仅适用于带有[聊天模板](../online_serving/README.md#chat-template)的[文本生成模型](../../models/generative_models.md)。
+    - *注意：`user` 参数被忽略。*
+    - *注意：* 将 `parallel_tool_calls` 参数设置为 `false` 可确保 vLLM 每个请求仅返回零个或一个工具调用。设置为 `true`（默认值）允许每个请求返回多个工具调用。如果设置为 `true`，并不能保证一定会返回多个工具调用，因为该行为取决于模型，并非所有模型都设计为支持并行工具调用。
+- [嵌入 API](../../models/pooling_models/embed.md#openai-compatible-embeddings-api)（`/v1/embeddings`）
+    - 仅适用于[嵌入模型](../../models/pooling_models/embed.md)。
+- [转录 API](./speech_to_text.md#transcriptions-api)（`/v1/audio/transcriptions`）
+    - 仅适用于[自动语音识别（ASR）模型](../../models/supported_models.md#transcription)。
+- [翻译 API](./speech_to_text.md#translations-api)（`/v1/audio/translations`）
+    - 仅适用于[自动语音识别（ASR）模型](../../models/supported_models.md#transcription)。
 
-## Completions API
+## 补全 API
 
-In your terminal, you can [install](../../getting_started/installation/README.md) vLLM, then start the server with the [`vllm serve`](../../configuration/serve_args.md) command. (You can also use our [Docker](../../deployment/docker.md) image.)
+在终端中，你可以[安装](../../getting_started/installation/README.md) vLLM，然后使用 [`vllm serve`](../../configuration/serve_args.md) 命令启动服务器。（你也可以使用我们的 [Docker](../../deployment/docker.md) 镜像。）
 
 ```bash
 vllm serve NousResearch/Meta-Llama-3-8B-Instruct \
@@ -32,7 +32,7 @@ vllm serve NousResearch/Meta-Llama-3-8B-Instruct \
   --api-key token-abc123
 ```
 
-To call the server, in your preferred text editor, create a script that uses an HTTP client. Include any messages that you want to send to the model. Then run that script. Below is an example script using the [official OpenAI Python client](https://github.com/openai/openai-python).
+要调用服务器，在你喜欢的文本编辑器中创建一个使用 HTTP 客户端的脚本。包含你想要发送给模型的任何消息。然后运行该脚本。以下是使用[官方 OpenAI Python 客户端](https://github.com/openai/openai-python)的示例脚本。
 
 ??? code
 
@@ -54,19 +54,19 @@ To call the server, in your preferred text editor, create a script that uses an 
     ```
 
 !!! tip
-    vLLM supports some parameters that are not supported by OpenAI, `top_k` for example.
-    You can pass these parameters to vLLM using the OpenAI client in the `extra_body` parameter of your requests, i.e. `extra_body={"top_k": 50}` for `top_k`.
+    vLLM 支持一些 OpenAI 不支持的参数，例如 `top_k`。
+    你可以在请求的 `extra_body` 参数中将这些参数传递给 vLLM，即 `extra_body={"top_k": 50}`。
 
 !!! important
-    By default, the server applies `generation_config.json` from the Hugging Face model repository if it exists. This means the default values of certain sampling parameters can be overridden by those recommended by the model creator.
+    默认情况下，如果 Hugging Face 模型仓库中存在 `generation_config.json`，服务器会应用它。这意味着某些采样参数的默认值可能会被模型创建者推荐的参数覆盖。
 
-    To disable this behavior, please pass `--generation-config vllm` when launching the server.
+    要禁用此行为，请在启动服务器时传递 `--generation-config vllm`。
 
-## Extra Parameters
+## 额外参数
 
-vLLM supports a set of parameters that are not part of the OpenAI API.
-In order to use them, you can pass them as extra parameters in the OpenAI client.
-Or directly merge them into the JSON payload if you are using HTTP call directly.
+vLLM 支持一组不属于 OpenAI API 的参数。
+要使用它们，你可以将它们作为 OpenAI 客户端中的额外参数传递。
+或者，如果你直接使用 HTTP 调用，可以直接将它们合并到 JSON 负载中。
 
 ```python
 completion = client.chat.completions.create(
@@ -80,10 +80,9 @@ completion = client.chat.completions.create(
 )
 ```
 
-## Extra HTTP Headers
+## 额外 HTTP 头
 
-Only `X-Request-Id` HTTP request header is supported for now. It can be enabled
-with `--enable-request-id-headers`.
+目前仅支持 `X-Request-Id` HTTP 请求头。可以通过 `--enable-request-id-headers` 启用。
 
 ??? code
 
@@ -109,18 +108,18 @@ with `--enable-request-id-headers`.
     print(completion._request_id)
     ```
 
-## API Reference
+## API 参考
 
-### Completions API
+### 补全 API
 
-Our Completions API is compatible with [OpenAI's Completions API](https://platform.openai.com/docs/api-reference/completions);
-you can use the [official OpenAI Python client](https://github.com/openai/openai-python) to interact with it.
+我们的补全 API 与 [OpenAI 的补全 API](https://platform.openai.com/docs/api-reference/completions) 兼容；
+你可以使用[官方 OpenAI Python 客户端](https://github.com/openai/openai-python)与之交互。
 
-Code example: [examples/basic/online_serving/openai_completion_client.py](../../../examples/basic/online_serving/openai_completion_client.py)
+代码示例：[examples/basic/online_serving/openai_completion_client.py](../../../examples/basic/online_serving/openai_completion_client.py)
 
-#### Extra parameters
+#### 额外参数
 
-The following [sampling parameters](../../api/README.md#inference-parameters) are supported.
+支持以下[采样参数](../../api/README.md#inference-parameters)。
 
 ??? code
 
@@ -128,7 +127,7 @@ The following [sampling parameters](../../api/README.md#inference-parameters) ar
     --8<-- "vllm/entrypoints/openai/completion/protocol.py:completion-sampling-params"
     ```
 
-The following extra parameters are supported:
+支持以下额外参数：
 
 ??? code
 
@@ -136,22 +135,22 @@ The following extra parameters are supported:
     --8<-- "vllm/entrypoints/openai/completion/protocol.py:completion-extra-params"
     ```
 
-### Chat API
+### 聊天 API
 
-Our Chat API is compatible with [OpenAI's Chat Completions API](https://platform.openai.com/docs/api-reference/chat);
-you can use the [official OpenAI Python client](https://github.com/openai/openai-python) to interact with it.
+我们的聊天 API 与 [OpenAI 的聊天补全 API](https://platform.openai.com/docs/api-reference/chat) 兼容；
+你可以使用[官方 OpenAI Python 客户端](https://github.com/openai/openai-python)与之交互。
 
-We support both [Vision](https://platform.openai.com/docs/guides/vision)- and
-[Audio](https://platform.openai.com/docs/guides/audio?audio-generation-quickstart-example=audio-in)-related parameters;
-see our [Multimodal Inputs](../../features/multimodal_inputs.md) guide for more information.
+我们支持 [Vision](https://platform.openai.com/docs/guides/vision) 和
+[Audio](https://platform.openai.com/docs/guides/audio?audio-generation-quickstart-example=audio-in) 相关参数；
+更多信息请参见我们的[多模态输入](../../features/multimodal_inputs.md)指南。
 
-- *Note: `image_url.detail` parameter is not supported.*
+- *注意：不支持 `image_url.detail` 参数。*
 
-Code example: [examples/basic/online_serving/openai_chat_completion_client.py](../../../examples/basic/online_serving/openai_chat_completion_client.py)
+代码示例：[examples/basic/online_serving/openai_chat_completion_client.py](../../../examples/basic/online_serving/openai_chat_completion_client.py)
 
-#### Extra parameters
+#### 额外参数
 
-The following [sampling parameters](../../api/README.md#inference-parameters) are supported.
+支持以下[采样参数](../../api/README.md#inference-parameters)。
 
 ??? code
 
@@ -159,7 +158,7 @@ The following [sampling parameters](../../api/README.md#inference-parameters) ar
     --8<-- "vllm/entrypoints/openai/chat_completion/protocol.py:chat-completion-sampling-params"
     ```
 
-The following extra parameters are supported:
+支持以下额外参数：
 
 ??? code
 
@@ -167,16 +166,16 @@ The following extra parameters are supported:
     --8<-- "vllm/entrypoints/openai/chat_completion/protocol.py:chat-completion-extra-params"
     ```
 
-### Responses API
+### 响应 API
 
-Our Responses API is compatible with [OpenAI's Responses API](https://platform.openai.com/docs/api-reference/responses);
-you can use the [official OpenAI Python client](https://github.com/openai/openai-python) to interact with it.
+我们的响应 API 与 [OpenAI 的响应 API](https://platform.openai.com/docs/api-reference/responses) 兼容；
+你可以使用[官方 OpenAI Python 客户端](https://github.com/openai/openai-python)与之交互。
 
-Code example: [examples/tool_calling/openai_responses_client_with_tools.py](../../../examples/tool_calling/openai_responses_client_with_tools.py)
+代码示例：[examples/tool_calling/openai_responses_client_with_tools.py](../../../examples/tool_calling/openai_responses_client_with_tools.py)
 
-#### Extra parameters
+#### 额外参数
 
-The following extra parameters in the request object are supported:
+请求对象中支持以下额外参数：
 
 ??? code
 
@@ -184,7 +183,7 @@ The following extra parameters in the request object are supported:
     --8<-- "vllm/entrypoints/openai/responses/protocol.py:responses-extra-params"
     ```
 
-The following extra parameters in the response object are supported:
+响应对象中支持以下额外参数：
 
 ??? code
 

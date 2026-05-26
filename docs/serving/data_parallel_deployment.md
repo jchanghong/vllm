@@ -1,133 +1,133 @@
-# Data Parallel Deployment
+# 数据并行部署
 
-vLLM supports Data Parallel deployment, where model weights are replicated across separate instances/GPUs to process independent batches of requests.
+vLLM 支持数据并行部署，其中模型权重在单独的实例/GPU 之间复制，以处理独立的请求批次。
 
-This will work with both dense and MoE models.
+这适用于密集模型和 MoE 模型。
 
-For MoE models, particularly those like DeepSeek that employ MLA (Multi-head Latent Attention), it can be advantageous to use data parallel for the attention layers and expert or tensor parallel (EP or TP) for the expert layers.
+对于 MoE 模型，特别是像 DeepSeek 这样采用 MLA（多头潜在注意力）的模型，对注意力层使用数据并行，对专家层使用专家并行或张量并行（EP 或 TP）可能是有利的。
 
-In these cases, the data parallel ranks are not completely independent. Forward passes must be aligned, and expert layers across all ranks are required to synchronize during every forward pass, even when there are fewer requests to be processed than DP ranks.
+在这些情况下，数据并行秩不是完全独立的。前向传递必须对齐，并且所有秩上的专家层需要在每次前向传递期间同步，即使待处理的请求数量少于 DP 秩的数量。
 
-By default, expert layers form a tensor parallel group of size `DP × TP`. To use expert parallelism instead, include the `--enable-expert-parallel` CLI arg (on all nodes in the multi-node case). See [Expert Parallel Deployment](expert_parallel_deployment.md) for details on how attention and expert layers behave differently with EP enabled.
+默认情况下，专家层形成一个大小为 `DP × TP` 的张量并行组。要改用专家并行，请包含 `--enable-expert-parallel` CLI 参数（在多节点情况下，在所有节点上）。有关启用 EP 后注意力和专家层行为的详细信息，请参见[专家并行部署](expert_parallel_deployment.md)。
 
-In vLLM, each DP rank is deployed as a separate "core engine" process that communicates with front-end process(es) via ZMQ sockets. Data Parallel attention can be combined with Tensor Parallel attention, in which case each DP engine owns a number of per-GPU worker processes equal to the configured TP size.
+在 vLLM 中，每个 DP 秩作为一个独立的"核心引擎"进程部署，通过 ZMQ 套接字与前端进程通信。数据并行注意力可以与张量并行注意力结合使用，在这种情况下，每个 DP 引擎拥有多个等于配置的 TP 大小的按 GPU 工作进程。
 
-For MoE models, when any requests are in progress in any rank, we must ensure that empty "dummy" forward passes are performed in all ranks that don't currently have any requests scheduled. This is handled via a separate DP Coordinator process that communicates with all ranks, and a collective operation performed every N steps to determine when all ranks become idle and can be paused. When TP is used in conjunction with DP, expert layers form a group of size `DP × TP` (using either tensor parallelism by default, or expert parallelism if `--enable-expert-parallel` is set).
+对于 MoE 模型，当任何秩中有请求正在处理时，我们必须确保在所有当前没有调度请求的秩中执行空的"虚拟"前向传递。这是通过一个单独的 DP 协调器进程与所有秩通信，以及每 N 步执行一次集合操作来确定所有秩何时变为空闲并可以暂停来处理的。当 TP 与 DP 结合使用时，专家层形成一个大小为 `DP × TP` 的组（默认使用张量并行，如果设置了 `--enable-expert-parallel`，则使用专家并行）。
 
-In all cases, it is beneficial to load-balance requests between DP ranks. For online deployments, this balancing can be optimized by taking into account the state of each DP engine - in particular its currently scheduled and waiting (queued) requests, and KV cache state. Each DP engine has an independent KV cache, and the benefit of prefix caching can be maximized by directing prompts intelligently.
+在所有情况下，在 DP 秩之间负载均衡请求都是有益的。对于在线部署，可以通过考虑每个 DP 引擎的状态（特别是其当前调度和等待（排队）的请求以及 KV 缓存状态）来优化这种平衡。每个 DP 引擎具有独立的 KV 缓存，并且可以通过智能地引导提示来最大化前缀缓存的好处。
 
-This document focuses on online deployments (with the API server). DP + EP is also supported for offline usage (via the LLM class), for an example see [examples/features/data_parallel/data_parallel_offline.py](../../examples/features/data_parallel/data_parallel_offline.py).
+本文档侧重于在线部署（使用 API 服务器）。DP + EP 也支持离线使用（通过 LLM 类），示例请参见 [examples/features/data_parallel/data_parallel_offline.py](../../examples/features/data_parallel/data_parallel_offline.py)。
 
-There are two distinct modes supported for online deployments - self-contained with internal load balancing, or externally per-rank process deployment and load balancing.
+在线部署支持两种不同的模式——带有内部负载均衡的自包含模式，或外部按秩进程部署和负载均衡模式。
 
-## Internal Load Balancing
+## 内部负载均衡
 
-vLLM supports "self-contained" data parallel deployments that expose a single API endpoint.
+vLLM 支持"自包含"的数据并行部署，暴露单个 API 端点。
 
-It can be configured by simply including e.g. `--data-parallel-size=4` in the vllm serve command line arguments. This will require 4 GPUs. It can be combined with tensor parallel, for example `--data-parallel-size=4 --tensor-parallel-size=2`, which would require 8 GPUs. When sizing DP deployments, remember that `--max-num-seqs` applies per DP rank.
+可以通过在 `vllm serve` 命令行参数中简单地包含例如 `--data-parallel-size=4` 来配置。这将需要 4 个 GPU。它可以与张量并行结合使用，例如 `--data-parallel-size=4 --tensor-parallel-size=2`，这将需要 8 个 GPU。在确定 DP 部署的大小时，请记住 `--max-num-seqs` 适用于每个 DP 秩。
 
-Running a single data parallel deployment across multiple nodes requires a different `vllm serve` to be run on each node, specifying which DP ranks should run on that node. In this case, there will still be a single HTTP entrypoint - the API server(s) will run only on one node, but it doesn't necessarily need to be co-located with the DP ranks.
+跨多个节点运行单个数据并行部署需要在每个节点上运行不同的 `vllm serve`，指定该节点上应运行的 DP 秩。在这种情况下，仍将有一个单一的 HTTP 入口点——API 服务器将只在一个节点上运行，但不一定需要与 DP 秩位于同一位置。
 
-This will run DP=4, TP=2 on a single 8-GPU node:
+这将在单个 8-GPU 节点上运行 DP=4、TP=2：
 
 ```bash
 vllm serve $MODEL --data-parallel-size 4 --tensor-parallel-size 2
 ```
 
-This will run DP=4 with DP ranks 0 and 1 on the head node and ranks 2 and 3 on the second node:
+这将运行 DP=4，DP 秩 0 和 1 在头节点上，秩 2 和 3 在第二个节点上：
 
 ```bash
-# Node 0  (with ip address 10.99.48.128)
+# 节点 0（IP 地址 10.99.48.128）
 vllm serve $MODEL --data-parallel-size 4 --data-parallel-size-local 2 \
                   --data-parallel-address 10.99.48.128 --data-parallel-rpc-port 13345
-# Node 1
+# 节点 1
 vllm serve $MODEL --headless --data-parallel-size 4 --data-parallel-size-local 2 \
                   --data-parallel-start-rank 2 \
                   --data-parallel-address 10.99.48.128 --data-parallel-rpc-port 13345
 ```
 
-This will run DP=4 with only the API server on the first node and all engines on the second node:
+这将运行 DP=4，仅 API 服务器在第一个节点上，所有引擎在第二个节点上：
 
 ```bash
-# Node 0  (with ip address 10.99.48.128)
+# 节点 0（IP 地址 10.99.48.128）
 vllm serve $MODEL --data-parallel-size 4 --data-parallel-size-local 0 \
                   --data-parallel-address 10.99.48.128 --data-parallel-rpc-port 13345
-# Node 1
+# 节点 1
 vllm serve $MODEL --headless --data-parallel-size 4 --data-parallel-size-local 4 \
                   --data-parallel-address 10.99.48.128 --data-parallel-rpc-port 13345
 ```
 
-This DP mode can also be used with Ray by specifying `--data-parallel-backend=ray`:
+此 DP 模式也可以通过指定 `--data-parallel-backend=ray` 与 Ray 一起使用：
 
 ```bash
 vllm serve $MODEL --data-parallel-size 4 --data-parallel-size-local 2 \
                   --data-parallel-backend=ray
 ```
 
-There are several notable differences when using Ray:
+使用 Ray 时有几个显著的区别：
 
-- A single launch command (on any node) is needed to start all local and remote DP ranks, therefore it is more convenient compared to launching on each node
-- There is no need to specify `--data-parallel-address`, and the node where the command is run is used as `--data-parallel-address`
-- There is no need to specify `--data-parallel-rpc-port`
-- When a single DP group requires multiple nodes, *e.g.* in case a single model replica needs to run on at least two nodes, make sure to set `VLLM_RAY_DP_PACK_STRATEGY="span"` in which case `--data-parallel-size-local` is ignored and will be automatically determined
-- Remote DP ranks will be allocated based on node resources of the Ray cluster
+- 只需要一个启动命令（在任何节点上）即可启动所有本地和远程 DP 秩，因此比在每个节点上启动更方便
+- 无需指定 `--data-parallel-address`，运行命令的节点被用作 `--data-parallel-address`
+- 无需指定 `--data-parallel-rpc-port`
+- 当单个 DP 组需要多个节点时，*例如*，单个模型副本需要在至少两个节点上运行时，请确保设置 `VLLM_RAY_DP_PACK_STRATEGY="span"`，此时 `--data-parallel-size-local` 将被忽略并自动确定
+- 远程 DP 秩将根据 Ray 集群的节点资源进行分配
 
-Currently, the internal DP load balancing is done within the API server process(es) and is based on the running and waiting queues in each of the engines. This could be made more sophisticated in future by incorporating KV cache aware logic.
+目前，内部 DP 负载均衡在 API 服务器进程中完成，基于每个引擎中的运行和等待队列。未来可以通过引入 KV 缓存感知逻辑使其更加复杂。
 
-When deploying large DP sizes using this method, the API server process can become a bottleneck. In this case, the orthogonal `--api-server-count` command line option can be used to scale this out (for example `--api-server-count=4`). This is transparent to users - a single HTTP endpoint / port is still exposed. Note that this API server scale-out is "internal" and still confined to the "head" node.
+使用此方法部署大型 DP 时，API 服务器进程可能成为瓶颈。在这种情况下，可以使用正交的 `--api-server-count` 命令行选项来扩展它（例如 `--api-server-count=4`）。这对用户是透明的——仍然暴露单个 HTTP 端点/端口。请注意，此 API 服务器扩展是"内部的"，仍然局限于"头"节点。
 
 <figure markdown="1">
-![DP Internal LB Diagram](../assets/deployment/dp_internal_lb.png)
+![DP 内部负载均衡图](../assets/deployment/dp_internal_lb.png)
 </figure>
 
-## Hybrid Load Balancing
+## 混合负载均衡
 
-Hybrid load balancing sits between the internal and external approaches. Each node runs its own API server(s) that only queue requests to the data-parallel engines colocated on that node. An upstream load balancer (for example, an ingress controller or traffic router) spreads user requests across those per-node endpoints.
+混合负载均衡介于内部和外部方法之间。每个节点运行自己的 API 服务器，仅将请求排队到同一节点上的数据并行引擎。上游负载均衡器（例如，入口控制器或流量路由器）将用户请求分发到这些按节点端点。
 
-Enable this mode with `--data-parallel-hybrid-lb` while still launching every node with the global data-parallel size. The key differences from internal load balancing are:
+使用 `--data-parallel-hybrid-lb` 启用此模式，同时仍然使用全局数据并行大小启动每个节点。与内部负载均衡的主要区别在于：
 
-- You must provide `--data-parallel-size-local` and `--data-parallel-start-rank` so each node knows which ranks it owns.
-- Not compatible with `--headless` since every node exposes an API endpoint.
-- Scale `--api-server-count` per node based on the number of local ranks
+- 你必须提供 `--data-parallel-size-local` 和 `--data-parallel-start-rank`，以便每个节点知道它拥有哪些秩。
+- 与 `--headless` 不兼容，因为每个节点都暴露一个 API 端点。
+- 根据本地秩的数量，在每个节点上扩展 `--api-server-count`
 
-In this configuration, each node keeps scheduling decisions local, which reduces cross-node traffic and avoids single node bottlenecks at larger DP sizes.
+在此配置中，每个节点将调度决策保持本地，从而减少跨节点流量并避免在更大 DP 规模下出现单节点瓶颈。
 
-## External Load Balancing
+## 外部负载均衡
 
-For larger scale deployments especially, it can make sense to handle the orchestration and load balancing of data parallel ranks externally.
+特别是对于更大规模的部署，外部处理数据并行秩的编排和负载均衡是有意义的。
 
-In this case, it's more convenient to treat each DP rank like a separate vLLM deployment, with its own endpoint, and have an external router balance HTTP requests between them, making use of appropriate real-time telemetry from each server for routing decisions.
+在这种情况下，将每个 DP 秩视为一个单独的 vLLM 部署（具有自己的端点）更方便，并由外部路由器在它们之间均衡 HTTP 请求，利用每个服务器的适当实时遥测数据进行路由决策。
 
-This can already be done trivially for non-MoE models, since each deployed server is fully independent. In that case, launch independent vLLM instances without any `--data-parallel-*` arguments; external DP CLI options are only supported for MoE deployments.
+对于非 MoE 模型，这已经可以轻松实现，因为每个部署的服务器是完全独立的。在这种情况下，启动独立的 vLLM 实例，无需任何 `--data-parallel-*` 参数；仅在 MoE 部署中支持外部 DP CLI 选项。
 
-We support an equivalent topology for MoE DP+EP which can be configured via the following CLI arguments.
+我们支持 MoE DP+EP 的等效拓扑结构，可以通过以下 CLI 参数进行配置。
 
-If DP ranks are co-located (same node / ip address), a default RPC port is used, but a different HTTP server port must be specified for each rank:
+如果 DP 秩位于同一位置（同一节点/IP 地址），则使用默认的 RPC 端口，但必须为每个秩指定不同的 HTTP 服务器端口：
 
 ```bash
-# Rank 0
+# 秩 0
 CUDA_VISIBLE_DEVICES=0 vllm serve $MODEL --data-parallel-size 2 --data-parallel-rank 0 \
                                          --port 8000
-# Rank 1
+# 秩 1
 CUDA_VISIBLE_DEVICES=1 vllm serve $MODEL --data-parallel-size 2 --data-parallel-rank 1 \
                                          --port 8001
 ```
 
-For multi-node cases, the address/port of rank 0 must also be specified:
+对于多节点情况，还必须指定秩 0 的地址/端口：
 
 ```bash
-# Rank 0  (with ip address 10.99.48.128)
+# 秩 0（IP 地址 10.99.48.128）
 vllm serve $MODEL --data-parallel-size 2 --data-parallel-rank 0 \
                   --data-parallel-address 10.99.48.128 --data-parallel-rpc-port 13345
-# Rank 1
+# 秩 1
 vllm serve $MODEL --data-parallel-size 2 --data-parallel-rank 1 \
                   --data-parallel-address 10.99.48.128 --data-parallel-rpc-port 13345
 ```
 
-The coordinator process also runs in this scenario, co-located with the DP rank 0 engine.
+协调器进程也在此场景中运行，与 DP 秩 0 引擎位于同一位置。
 
 <figure markdown="1">
-![DP External LB Diagram](../assets/deployment/dp_external_lb.png)
+![DP 外部负载均衡图](../assets/deployment/dp_external_lb.png)
 </figure>
 
-In the above diagram, each of the dotted boxes corresponds to a separate launch of `vllm serve` - these could be separate Kubernetes pods, for example.
+在上图中，每个虚线框对应一个单独的 `vllm serve` 启动——例如，这些可以是单独的 Kubernetes Pod。

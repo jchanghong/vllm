@@ -1,35 +1,27 @@
-# Frequently Asked Questions
+# 常见问题解答
 
-> Q: How can I serve multiple models on a single port using the OpenAI API?
+> 问：如何使用 OpenAI API 在单个端口上服务多个模型？
 
-A: Assuming that you're referring to using OpenAI compatible server to serve multiple models at once, that is not currently supported, you can run multiple instances of the server (each serving a different model) at the same time, and have another layer to route the incoming request to the correct server accordingly.
-
----
-
-> Q: Which model to use for offline inference embedding?
-
-A: You can try [e5-mistral-7b-instruct](https://huggingface.co/intfloat/e5-mistral-7b-instruct) and [BAAI/bge-base-en-v1.5](https://huggingface.co/BAAI/bge-base-en-v1.5);
-more are listed [here](../models/supported_models.md).
-
-By extracting hidden states, vLLM can automatically convert text generation models like [Llama-3-8B](https://huggingface.co/meta-llama/Meta-Llama-3-8B),
-[Mistral-7B-Instruct-v0.3](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3) into embedding models,
-but they are expected to be inferior to models that are specifically trained on embedding tasks.
+答：假设您指的是使用兼容 OpenAI 的服务器同时服务多个模型，目前不支持此功能。您可以同时运行多个服务器实例（每个实例服务不同的模型），并使用另一层将传入请求路由到相应的服务器。
 
 ---
 
-> Q: Can the output of a prompt vary across runs in vLLM?
+> 问：离线推理嵌入应该使用哪个模型？
 
-A: Yes, it can. vLLM does not guarantee stable log probabilities (logprobs) for the output tokens. Variations in logprobs may occur due to
-numerical instability in Torch operations or non-deterministic behavior in batched Torch operations when batching changes. For more details,
-see the [Numerical Accuracy section](https://pytorch.org/docs/stable/notes/numerical_accuracy.html#batched-computations-or-slice-computations).
+答：您可以尝试 [e5-mistral-7b-instruct](https://huggingface.co/intfloat/e5-mistral-7b-instruct) 和 [BAAI/bge-base-en-v1.5](https://huggingface.co/BAAI/bge-base-en-v1.5)；更多模型请参见[此处](../models/supported_models.md)。
 
-In vLLM, the same requests might be batched differently due to factors such as other concurrent requests,
-changes in batch size, or batch expansion in speculative decoding. These batching variations, combined with numerical instability of Torch operations,
-can lead to slightly different logit/logprob values at each step. Such differences can accumulate, potentially resulting in
-different tokens being sampled. Once a different token is sampled, further divergence is likely.
+通过提取隐藏状态，vLLM 可以自动将文本生成模型（如 [Llama-3-8B](https://huggingface.co/meta-llama/Meta-Llama-3-8B)、[Mistral-7B-Instruct-v0.3](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3)）转换为嵌入模型，但它们的性能预计不如专门针对嵌入任务训练的模型。
 
-## Mitigation Strategies
+---
 
-- For improved stability and reduced variance, use `float32`. Note that this will require more memory.
-- If using `bfloat16`, switching to `float16` can also help.
-- Using request seeds can aid in achieving more stable generation for temperature > 0, but discrepancies due to precision differences may still occur.
+> 问：在 vLLM 中，同一个提示的输出会因运行而异吗？
+
+答：是的，可能会。vLLM 不保证输出令牌的对数概率（logprobs）稳定。对数概率的变化可能由于 Torch 操作中的数值不稳定性，或批处理 Torch 操作在批处理变化时的非确定性行为。更多详情，请参见[数值精度部分](https://pytorch.org/docs/stable/notes/numerical_accuracy.html#batched-computations-or-slice-computations)。
+
+在 vLLM 中，相同的请求可能因其他并发请求、批处理大小变化或推测解码中的批处理扩展等因素而以不同方式批处理。这些批处理变化，加上 Torch 操作的数值不稳定性，可能导致每一步的 logit/logprob 值略有不同。这种差异会累积，可能导致采样到不同的令牌。一旦采样到不同的令牌，进一步的分歧就更可能发生。
+
+## 缓解策略
+
+- 为获得更好的稳定性和更低的方差，请使用 `float32`。请注意，这将需要更多内存。
+- 如果使用 `bfloat16`，切换到 `float16` 也有帮助。
+- 使用请求种子有助于在 temperature > 0 时实现更稳定的生成，但由于精度差异导致的偏差仍可能发生。

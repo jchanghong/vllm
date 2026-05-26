@@ -1,159 +1,159 @@
-# EPD Correctness Test
+# EPD 正确性测试
 
-This test verifies that EPD (Encoder-Prefill-Decode) disaggregation produces identical outputs to a baseline single instance.
+此测试验证 EPD（编码器-预填充-解码）分离式架构是否能产生与基线单个实例相同的输出。
 
-## What It Tests
+## 测试内容
 
-- **Baseline**: Single vLLM instance serving a multimodal model
-- **EPD (1E+1PD)**: 1 Encoder + 1 Prefill-Decode instance
-- **Baseline (1P+1D)**: 1 Prefill + 1 Decode instance
-- **EPD (1E+1P+1D)**: 1 Encoder + 1 Prefill + 1 Decode instance
+- **基线**: 单个 vLLM 实例服务多模态模型
+- **EPD (1E+1PD)**: 1 个编码器 + 1 个预填充-解码实例
+- **基线 (1P+1D)**: 1 个预填充 + 1 个解码实例
+- **EPD (1E+1P+1D)**: 1 个编码器 + 1 个预填充 + 1 个解码实例
 
-The test ensures that disaggregated encoding produces **identical** outputs to the baseline.
+该测试确保分离式编码产生与基线**完全相同**的输出。
 
-Note that currently PD disaggregation set up may give slightly different results from a single instance. Therefore, we need the result from 1P+1D as the baseline for 1E+1P+1D
+请注意，当前的 PD 分离式设置可能与单个实例产生略微不同的结果。因此，我们需要 1P+1D 的结果作为 1E+1P+1D 的基线。
 
-Please refer to [Disaggregated Encoder Feature](../../../../docs/features/disagg_encoder.md) for the detailed explanation for the EPD features.
+有关 EPD 功能的详细说明，请参阅[分离式编码器功能文档](../../../../docs/features/disagg_encoder.md)。
 
-## Files
+## 文件
 
-- `run_epd_correctness_test.sh` - Main test script (starts all instances and runs tests)
-- `test_epd_correctness.py` - Python test script (compares outputs)
+- `run_epd_correctness_test.sh` - 主测试脚本（启动所有实例并运行测试）
+- `test_epd_correctness.py` - Python 测试脚本（比较输出）
 
-## Usage
+## 使用方法
 
-### Multimodal Prompts (Default)
+### 多模态提示（默认）
 
 ```bash
 cd vllm
 ./tests/v1/ec_connector/integration/run_epd_correctness_test.sh
 ```
 
-This runs the test with actual multimodal (image) prompts.
+此测试使用实际的多模态（图像）提示运行。
 
-### Text-Only Prompts
+### 纯文本提示
 
 ```bash
 cd vllm
 USE_MM_PROMPTS=0 ./tests/v1/ec_connector/integration/run_epd_correctness_test.sh
 ```
 
-This runs a quick test with text-only prompts to verify the setup works.
+此测试使用纯文本提示快速运行，以验证设置是否正常工作。
 
-### Custom Configuration
+### 自定义配置
 
 ```bash
-# Use specific GPUs
+# 使用特定的 GPU
 GPU_E=0 GPU_PD=1 GPU_P=1 GPU_D=2 bash ./tests/v1/ec_connector/integration/run_epd_correctness_test.sh
 
-# Use specific ports
+# 使用特定的端口
 ENDPOINT_PORT=10001 bash ./tests/v1/ec_connector/integration/run_epd_correctness_test.sh
 
-# Use specific model
+# 使用特定的模型
 MODEL="Qwen/Qwen2.5-VL-3B-Instruct" bash ./tests/v1/ec_connector/integration/run_epd_correctness_test.sh
 
-# Use specific storage path
+# 使用特定的存储路径
 EC_SHARED_STORAGE_PATH="/tmp/my_ec_cache" bash ./tests/v1/ec_connector/integration/run_epd_correctness_test.sh
 ```
 
-## How It Works
+## 工作原理
 
-### Step 1: Baseline
+### 步骤 1：基线
 
-1. Start single vLLM instance on GPU
-2. Run test prompts (multimodal or text-only)
-3. Save outputs to `.vllm_epd_baseline.txt`
-4. Shutdown instance
+1. 在 GPU 上启动单个 vLLM 实例
+2. 运行测试提示（多模态或纯文本）
+3. 将输出保存到 `.vllm_epd_baseline.txt`
+4. 关闭实例
 
-### Step 2: EPD (1E + 1PD)
+### 步骤 2：EPD (1E + 1PD)
 
-1. Clear encoder cache storage
-2. Start instances and proxy
-3. Run same test prompts
-4. Assert outputs match baseline exactly
-5. Shutdown instances
+1. 清除编码器缓存存储
+2. 启动实例和代理
+3. 运行相同的测试提示
+4. 断言输出与基线完全匹配
+5. 关闭实例
 
-### Step 3: EPD (1E + 1P + 1D)
+### 步骤 3：EPD (1E + 1P + 1D)
 
-1. Clear encoder cache storage
-2. Start instances and proxy
-3. Run same test prompts
-4. Assert outputs match baseline exactly
-5. Shutdown instances
+1. 清除编码器缓存存储
+2. 启动实例和代理
+3. 运行相同的测试提示
+4. 断言输出与基线完全匹配
+5. 关闭实例
 
-## Test Scenarios
+## 测试场景
 
-### Multimodal Prompts (--use_mm_prompts)
+### 多模态提示（--use_mm_prompts）
 
-Tests encoder cache transfer:
+测试编码器缓存传输：
 
-- Single image query
-- Multiple images in one request
-- Mixed image and text
-- Image with detailed questions
+- 单张图像查询
+- 单个请求中的多张图像
+- 混合图像和文本
+- 带有详细问题的图像
 
-### Text-Only Prompts (default)
+### 纯文本提示（默认）
 
-Quick sanity check:
+快速合理性检查：
 
-- Simple text queries
-- Text-only explanations
-- Verifies proxy routing works
+- 简单的文本查询
+- 纯文本解释
+- 验证代理路由是否正常工作
 
-## Expected Behavior
+## 预期行为
 
-### ✅ Test Passes When
+### ✅ 测试通过条件
 
-- All disagg outputs match baseline outputs exactly
-- No errors during instance startup
-- Encoder cache is properly saved and loaded
-- Proxy correctly routes requests
+- 所有分离式输出与基线输出完全匹配
+- 实例启动期间无错误
+- 编码器缓存正确保存和加载
+- 代理正确路由请求
 
-### ❌ Test Fails When
+### ❌ 测试失败条件
 
-- Outputs differ between baseline and disagg
-- Server startup fails
-- Encoder cache not found (should fall back to local execution)
-- Proxy routing errors
+- 基线和分离式输出之间存在差异
+- 服务器启动失败
+- 未找到编码器缓存（应回退到本地执行）
+- 代理路由错误
 
-## Notes
+## 备注
 
-- The test uses deterministic generation (`temperature=0.0`, `seed=42`)
-- Encoder cache should enable exact output reproduction
-- Test cleans up all instances and cache files after completion
-- Safe to run multiple times (idempotent)
-- We setup the PD disagg part with NixlConnector. Please read details about EPD in `examples/disaggregated/disaggregated_encoder/README.md`
+- 测试使用确定性生成（`temperature=0.0`，`seed=42`）
+- 编码器缓存应能够精确复现输出
+- 测试完成后清理所有实例和缓存文件
+- 可以安全地多次运行（幂等）
+- 我们使用 NixlConnector 设置 PD 分离部分。有关 EPD 的详细信息，请阅读 `examples/disaggregated/disaggregated_encoder/README.md`
 
-## Requirements
+## 要求
 
-- Multiple GPUs (3 for 1E+1P+1D, 2 for 1E+1PD, 1 for baseline)
-    - 1E+1P+1D is runnable with 2 GPU by assign E and P on the same GPU now.
-- Multimodal model (e.g., Qwen2.5-VL-3B-Instruct)
-- Internet access (for accessing vllm test images)
+- 多个 GPU（1E+1P+1D 需要 3 个，1E+1PD 需要 2 个，基线需要 1 个）
+    - 1E+1P+1D 现在可以通过将 E 和 P 分配在同一 GPU 上以 2 个 GPU 运行。
+- 多模态模型（例如，Qwen2.5-VL-3B-Instruct）
+- 互联网访问（用于访问 vllm 测试图像）
 
-## Debugging
+## 调试
 
-### Check Logs
+### 检查日志
 
-Logs and baseline output are saved in `/tmp/` by default.
-Can be customized by changing the environment variables.
+日志和基线输出默认保存在 `/tmp/` 中。
+可以通过更改环境变量进行自定义。
 
-### Check Encoder Cache
+### 检查编码器缓存
 
 ```bash
-# Verify cache files are created
+# 验证缓存文件是否已创建
 ls -la $EC_SHARED_STORAGE_PATH/
 
-# Should see directories with mm_hash names
-# Each containing encoder_cache.safetensors
+# 应看到以 mm_hash 命名的目录
+# 每个目录包含 encoder_cache.safetensors
 ```
 
-### Manual Testing
+### 手动测试
 
-Run individual components:
+运行各个组件：
 
 ```bash
-# Baseline only
+# 仅基线
 python test_epd_correctness.py \
     --service_url http://localhost:8000 \
     --model_name Qwen/Qwen2.5-VL-3B-Instruct \
@@ -161,7 +161,7 @@ python test_epd_correctness.py \
     --baseline_file test_output.txt \
     --use_mm_prompts
 
-# Disagg only (requires baseline output file!)
+# 仅分离式（需要基线输出文件！）
 python test_epd_correctness.py \
     --service_url http://localhost:8000 \
     --model_name Qwen/Qwen2.5-VL-3B-Instruct \

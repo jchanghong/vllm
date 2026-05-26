@@ -1,36 +1,36 @@
 # Chatbox
 
-[Chatbox](https://github.com/chatboxai/chatbox) is a desktop client for LLMs, available on Windows, Mac, Linux.
+[Chatbox](https://github.com/chatboxai/chatbox) 是一款 LLM 桌面客户端，适用于 Windows、Mac 和 Linux。
 
-It allows you to deploy a large language model (LLM) server with vLLM as the backend, which exposes OpenAI-compatible endpoints.
+它允许您使用 vLLM 作为后端部署大语言模型（LLM）服务器，该服务器暴露与 OpenAI 兼容的端点。
 
-## Prerequisites
+## 前提条件
 
-Set up the vLLM environment:
+设置 vLLM 环境：
 
 ```bash
 pip install vllm
 ```
 
-## Deploy
+## 部署
 
-1. Start the vLLM server with the supported chat completion model, e.g.
+1. 使用支持的对话补全模型启动 vLLM 服务器，例如：
 
     ```bash
     vllm serve qwen/Qwen1.5-0.5B-Chat
     ```
 
-1. Download and install [Chatbox desktop](https://chatboxai.app/en#download).
+1. 下载并安装 [Chatbox 桌面版](https://chatboxai.app/en#download)。
 
-1. On the bottom left of settings, Add Custom Provider
-    - API Mode: `OpenAI API Compatible`
-    - Name: vllm
-    - API Host: `http://{vllm server host}:{vllm server port}/v1`
-    - API Path: `/chat/completions`
-    - Model: `qwen/Qwen1.5-0.5B-Chat`
+1. 在设置的左下角，添加自定义提供者（Add Custom Provider）
+    - API 模式：`OpenAI API Compatible`
+    - 名称：vllm
+    - API 主机：`http://{vllm server host}:{vllm server port}/v1`
+    - API 路径：`/chat/completions`
+    - 模型：`qwen/Qwen1.5-0.5B-Chat`
 
-    ![Chatbox settings screen](../../assets/deployment/chatbox-settings.png)
+    ![Chatbox 设置界面](../../assets/deployment/chatbox-settings.png)
 
-1. Go to `Just chat`, and start to chat:
+1. 前往 `Just chat`，开始聊天：
 
-    ![Chatbot chat screen](../../assets/deployment/chatbox-chat.png)
+    ![聊天机器人聊天界面](../../assets/deployment/chatbox-chat.png)

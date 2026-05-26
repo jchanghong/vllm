@@ -1,16 +1,16 @@
-# Usage Stats Collection
+# 使用统计信息收集
 
-vLLM collects anonymous usage data by default to help the engineering team better understand which hardware and model configurations are widely used. This data allows them to prioritize their efforts on the most common workloads. The collected data is transparent, does not contain any sensitive information.
+vLLM 默认会收集匿名使用数据，以帮助工程团队更好地了解哪些硬件和模型配置被广泛使用。这些数据使他们能够优先处理最常见的工作负载。收集的数据是透明的，不包含任何敏感信息。
 
-A subset of the data, after cleaning and aggregation, will be publicly released for the community's benefit. For example, you can see the 2024 usage report [here](https://2024.vllm.ai).
+部分数据在经过清理和聚合后，将公开发布以供社区使用。例如，您可以在此处查看 2024 年的使用报告[2024 年报告](https://2024.vllm.ai)。
 
-## What data is collected?
+## 收集哪些数据？
 
-The list of data collected by the latest version of vLLM can be found here: [vllm/usage/usage_lib.py](../../vllm/usage/usage_lib.py)
+最新版本 vLLM 收集的数据列表示例如下：[vllm/usage/usage_lib.py](../../vllm/usage/usage_lib.py)
 
-Here is an example as of v0.4.0:
+以下是 v0.4.0 版本的一个示例：
 
-??? console "Output"
+??? console "输出"
 
     ```json
     {
@@ -43,18 +43,18 @@ Here is an example as of v0.4.0:
     }
     ```
 
-You can preview the collected data by running the following command:
+您可以通过运行以下命令预览收集的数据：
 
 ```bash
 tail ~/.config/vllm/usage_stats.json
 ```
 
-## Opting out
+## 选择退出
 
-You can opt out of usage stats collection by setting the `VLLM_NO_USAGE_STATS` or `DO_NOT_TRACK` environment variable, or by creating a `~/.config/vllm/do_not_track` file:
+您可以通过设置 `VLLM_NO_USAGE_STATS` 或 `DO_NOT_TRACK` 环境变量，或创建 `~/.config/vllm/do_not_track` 文件来选择退出使用统计信息收集：
 
 ```bash
-# Any of the following methods can disable usage stats collection
+# 以下任何一种方法都可以禁用使用统计信息收集
 export VLLM_NO_USAGE_STATS=1
 export DO_NOT_TRACK=1
 mkdir -p ~/.config/vllm && touch ~/.config/vllm/do_not_track

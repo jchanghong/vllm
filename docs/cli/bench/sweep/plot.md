@@ -1,9 +1,9 @@
 # vllm bench sweep plot
 
-## JSON CLI Arguments
+## JSON CLI 参数
 
 --8<-- "docs/cli/json_tip.inc.md"
 
-## Arguments
+## 参数
 
 --8<-- "docs/generated/argparse/bench_sweep_plot.inc.md"

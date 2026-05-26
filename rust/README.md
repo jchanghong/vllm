@@ -1,52 +1,52 @@
 # vllm-frontend-rs
 
-This is a Rust drop-in alternative frontend for vLLM. The current goal is to rebuild the northbound serving layer in Rust while still talking to the core Python vLLM engine process(es) via ZMQ over the existing engine boundary.
+这是 vLLM 的 Rust 直接替代前端。当前目标是用 Rust 重构北向服务层，同时仍通过 ZMQ 在现有引擎边界上与核心 Python vLLM 引擎进程通信。
 
-It should still be considered experimental, and is not feature-complete. We are working to add more functionality from the python front-end.
+它仍应被视为实验性的，尚未实现完整功能。我们正在努力从 Python 前端添加更多功能。
 
-See <https://github.com/Inferact/vllm-frontend-rs> for the original commit history before it was moved into the main vllm repo.
+原始提交历史（在移入主 vllm 仓库之前）请参见 <https://github.com/Inferact/vllm-frontend-rs>。
 
-## Architecture
+## 架构
 
-The component is organized as a Cargo workspace with several crates, layered bottom-up:
+该组件组织为一个 Cargo 工作空间，包含多个 crate，自底向上分层：
 
 ```text
 ┌─────────────────────────────────┐
-│  vllm-cmd / vllm-rs             │  CLI entrypoint:
-│                                 │  Python vLLM frontend subprocess
-│                                 │  Rust managed-engine serve mode
+│  vllm-cmd / vllm-rs             │  CLI 入口点：
+│                                 │  Python vLLM 前端子进程
+│                                 │  Rust 托管引擎服务模式
 ├─────────────────────────────────┤
-│  vllm-server                    │  OpenAI-compatible HTTP API (axum)
+│  vllm-server                    │  兼容 OpenAI 的 HTTP API (axum)
 ├─────────────────────────────────┤
-│  vllm-chat                      │  Chat completions: template rendering,
-│                                 │  structured assistant events,
-│                                 │  reasoning & tool parsing
+│  vllm-chat                      │  聊天补全：模板渲染、
+│                                 │  结构化助手事件、
+│                                 │  推理与工具解析
 ├─────────────────────────────────┤
-│  vllm-text                      │  Tokenizer & incremental detokenizer
+│  vllm-text                      │  分词器与增量逆分词器
 ├─────────────────────────────────┤
-│  vllm-llm                       │  Thin token-in/token-out facade over
-│                                 │  the engine client
+│  vllm-llm                       │  引擎客户端上层的
+│                                 │  轻量 token 输入/输出外观
 ├─────────────────────────────────┤
-│  vllm-engine-core-client        │  ZMQ transport + MessagePack protocol
-│                                 │  for the headless vLLM engine
+│  vllm-engine-core-client        │  无头 vLLM 引擎的
+│                                 │  ZMQ 传输 + MessagePack 协议
 └─────────────────────────────────┘
 ```
 
-`vllm-rs` integrates into Python `vllm` as a Rust frontend subprocess.
-Python owns process startup and launches the Rust API server as a Python-supervised worker, while
-passing the inherited listening socket and transport addresses into `vllm-rs`.
+`vllm-rs` 作为 Rust 前端子进程集成到 Python `vllm` 中。
+Python 负责进程启动，并将 Rust API 服务器作为 Python 监督的工作进程启动，
+同时将继承的监听套接字和传输地址传递给 `vllm-rs`。
 
-For example:
+例如：
 
 ```bash
 VLLM_USE_RUST_FRONTEND=1 vllm serve Qwen/Qwen3-0.6B
 ```
 
-### External Engine
+### 外部引擎
 
-`vllm-rs serve` can be run standalone with `--data-parallel-size-local 0` when the Python engines
-are started elsewhere and this node should run only the Rust frontend. The frontend still uses
-the global `--data-parallel-size` to determine how many engines it expects to join the shared handshake.
+当 Python 引擎在其他地方启动，且本节点应仅运行 Rust 前端时，
+`vllm-rs serve` 可以使用 `--data-parallel-size-local 0` 独立运行。前端仍然使用
+全局的 `--data-parallel-size` 来确定它期望加入共享握手的引擎数量。
 
 ```bash
 vllm serve Qwen/Qwen3-0.6B \
@@ -57,7 +57,7 @@ vllm serve Qwen/Qwen3-0.6B \
   --data-parallel-size-local 1
 ```
 
-Then start the Rust frontend-only server:
+然后启动纯 Rust 前端服务器：
 
 ```bash
 vllm-rs serve Qwen/Qwen3-0.6B \
@@ -67,16 +67,16 @@ vllm-rs serve Qwen/Qwen3-0.6B \
   --data-parallel-size-local 0
 ```
 
-To build the `vllm-rs` in isolation:
+单独构建 `vllm-rs`：
 
 ```bash
-# from the local checkout
+# 从本地检出目录
 cargo install --path src/cmd --bin vllm-rs
 ```
 
-### Example Request
+### 示例请求
 
-After either startup path, you can use any OpenAI-compatible client:
+两种启动路径完成后，都可以使用任何兼容 OpenAI 的客户端：
 
 ```bash
 curl http://127.0.0.1:8000/v1/chat/completions \

@@ -1,87 +1,70 @@
-# Deprecation Policy
+# 弃用策略
 
-This document outlines the official policy and process for deprecating features
-in the vLLM project.
+本文档概述了 vLLM 项目中弃用功能的官方策略和流程。
 
-## Overview
+## 概述
 
-vLLM uses a structured "deprecation pipeline" to guide the lifecycle of
-deprecated features. This policy ensures that users are given clear and
-sufficient notice when a feature is deprecated and that deprecations proceed in
-a consistent and predictable manner.
+vLLM 使用结构化的"弃用管线"来指导弃用功能的生命周期。
+此策略确保用户在功能被弃用时得到清晰和充分的通知，并且弃用过程以一致和可预测的方式进行。
 
-We aim to strike a balance between continued innovation and respecting users’
-reliance on existing functionality. Deprecations are tied to our **minor (Y)
-releases** following semantic versioning (X.Y.Z), where:
+我们的目标是在持续创新与尊重用户对现有功能的依赖之间取得平衡。弃用与我们的**次要（Y）版本**发布相关联，遵循语义化版本控制（X.Y.Z），其中：
 
-- **X** is a major version (rare)
-- **Y** is a minor version (used for significant changes, including deprecations/removals)
-- **Z** is a patch version (used for fixes and safer enhancements)
+- **X** 是主版本（很少）
+- **Y** 是次版本（用于重大更改，包括弃用/移除）
+- **Z** 是补丁版本（用于修复和更安全的增强）
 
-Features that fall under this policy include (at a minimum) the following:
+属于此策略的功能至少包括以下内容：
 
-- CLI flags
-- Environment variables
-- Configuration files
-- APIs in the OpenAI-compatible API server
-- Public Python APIs for the `vllm` library
+- CLI 标志
+- 环境变量
+- 配置文件
+- OpenAI 兼容 API 服务器中的 API
+- `vllm` 库的公共 Python API
 
-## Deprecation Pipeline
+## 弃用管线
 
-The deprecation process consists of several clearly defined stages that span
-multiple Y releases:
+弃用过程包括几个明确定义的阶段，跨越多个 Y 版本：
 
-### 1. Deprecated (Still On By Default)
+### 1. 已弃用（默认仍启用）
 
-- **Action**: Feature is marked as deprecated.
-- **Timeline**: A removal version is explicitly stated in the deprecation
-warning (e.g., "This will be removed in v0.10.0").
-- **Communication**: Deprecation is noted in the following, as applicable:
-    - Help strings
-    - Log output
-    - API responses
-    - `/metrics` output (for metrics features)
-    - User-facing documentation
-    - Release notes
-    - GitHub Issue (RFC) for feedback
-    - Documentation and use of the `@typing_extensions.deprecated` decorator for Python APIs
+- **操作**：功能被标记为已弃用。
+- **时间线**：弃用警告中明确说明移除版本（例如，"这将在 v0.10.0 中移除"）。
+- **沟通渠道**：在以下适当位置注明弃用信息：
+    - 帮助字符串
+    - 日志输出
+    - API 响应
+    - `/metrics` 输出（针对指标功能）
+    - 面向用户的文档
+    - 发布说明
+    - 用于反馈的 GitHub Issue（RFC）
+    - Python API 使用 `@typing_extensions.deprecated` 装饰器的文档
 
-### 2. Deprecated (Off By Default)
+### 2. 已弃用（默认禁用）
 
-- **Action**: Feature is disabled by default, but can still be re-enabled via a
-CLI flag or environment variable. Feature throws an error when used without
-re-enabling.
-- **Purpose**: Allows users who missed earlier warnings a temporary escape hatch
-while signaling imminent removal. Ensures any remaining usage is clearly
-surfaced and blocks silent breakage before full removal.
+- **操作**：功能默认禁用，但可以通过 CLI 标志或环境变量重新启用。未重新启用时使用该功能会抛出错误。
+- **目的**：允许错过早期警告的用户使用临时逃生通道，同时表明即将移除。确保任何剩余的使用被清晰暴露，并在完全移除前防止静默破坏。
 
-### 3. Removed
+### 3. 已移除
 
-- **Action**: Feature is completely removed from the codebase.
-- **Note**: Only features that have passed through the previous deprecation
-stages will be removed.
+- **操作**：功能已从代码库中完全移除。
+- **注意**：只有经过前面弃用阶段的功能才会被移除。
 
-## Example Timeline
+## 示例时间线
 
-Assume a feature is deprecated in `v0.9.0`.
+假设某个功能在 `v0.9.0` 中被弃用。
 
-| Release       | Status                                                                                          |
+| 版本         | 状态                                                                                          |
 | ------------- | ----------------------------------------------------------------------------------------------- |
-| `v0.9.0`      | Feature is deprecated with clear removal version listed.                                        |
-| `v0.10.0`     | Feature is now off by default, throws an error when used, and can be re-enabled for legacy use. |
-| `v0.11.0`     | Feature is removed.                                                                             |
+| `v0.9.0`      | 功能被弃用，并列出明确的移除版本。                                        |
+| `v0.10.0`     | 功能现在默认禁用，使用时抛出错误，可以重新启用以供旧版使用。 |
+| `v0.11.0`     | 功能被移除。                                                                             |
 
-## Important Guidelines
+## 重要指南
 
-- **No Removals in Patch Releases**: Removing deprecated features in patch
-(`.Z`) releases is disallowed to avoid surprising users.
-- **Grace Period for Existing Deprecations**: Any feature deprecated **before
-this policy** will have its grace period start **now**, not retroactively.
-- **Documentation is Critical**: Ensure every stage of the pipeline is
-documented clearly for users.
+- **补丁版本中不移除**：在补丁（`.Z`）版本中移除已弃用的功能是不允许的，以避免给用户带来意外。
+- **现有弃用的宽限期**：在此策略**之前**已弃用的任何功能，其宽限期将从**现在**开始，而非追溯。
+- **文档至关重要**：确保管线的每个阶段都为用户清晰地记录在文档中。
 
-## Final Notes
+## 最后说明
 
-This policy is a living document and may evolve as the needs of the project and
-its users change. Community feedback is welcome and encouraged as we refine the
-process.
+此策略是一份动态文档，可能随着项目及其用户需求的变化而演变。在我们完善该流程的过程中，欢迎并鼓励社区反馈。

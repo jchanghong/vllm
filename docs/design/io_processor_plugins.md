@@ -1,19 +1,19 @@
-# IO Processor Plugins
+# IO 处理器插件
 
-IO Processor plugins are a feature that allows pre- and post-processing of the model input and output for pooling models. The idea is that users are allowed to pass a custom input to vLLM that is converted into one or more model prompts and fed to the model `encode` method. One potential use-case of such plugins is that of using vLLM for generating multi-modal data. Say users feed an image to vLLM and get an image in output.
+IO 处理器插件是一种功能，允许对池化模型的模型输入和输出进行预处理和后处理。其思路是允许用户向 vLLM 传递自定义输入，该输入被转换成一个或多个模型 prompt 并馈送到模型的 `encode` 方法。此类插件的一个潜在用途是使用 vLLM 生成多模态数据。例如，用户向 vLLM 输入一张图像并得到一张图像作为输出。
 
-When performing an inference with IO Processor plugins, the prompt type is defined by the plugin and the same is valid for the final request output. vLLM does not perform any validation of input/output data, and it is up to the plugin to ensure the correct data is being fed to the model and returned to the user. As of now these plugins support only pooling models and can be triggered via the `encode` method in `LLM` and `AsyncLLM`, or in online serving mode via the `/pooling` endpoint.
+当使用 IO 处理器插件执行推理时，prompt 类型由插件定义，最终请求输出也是如此。vLLM 不对输入/输出数据执行任何验证，由插件确保正确的数据被馈送到模型并返回给用户。目前，这些插件仅支持池化模型，可以通过 `LLM` 和 `AsyncLLM` 中的 `encode` 方法触发，或通过在线服务模式下的 `/pooling` 端点触发。
 
-## Writing an IO Processor Plugin
+## 编写 IO 处理器插件
 
-IO Processor plugins implement the [`IOProcessor`][vllm.plugins.io_processors.interface.IOProcessor] interface:
+IO 处理器插件实现了 [`IOProcessor`][vllm.plugins.io_processors.interface.IOProcessor] 接口：
 
 ```python
 IOProcessorInput = TypeVar("IOProcessorInput")
 IOProcessorOutput = TypeVar("IOProcessorOutput")
 
 class IOProcessor(ABC, Generic[IOProcessorInput, IOProcessorOutput]):
-    """Abstract interface for pre/post-processing of engine I/O."""
+    """引擎 I/O 预处理/后处理的抽象接口。"""
 
     def __init__(self, vllm_config: VllmConfig, renderer: BaseRenderer):
         super().__init__()
@@ -67,9 +67,9 @@ class IOProcessor(ABC, Generic[IOProcessorInput, IOProcessorOutput]):
         request_id: str | None = None,
         **kwargs,
     ) -> IOProcessorOutput:
-        # We cannot guarantee outputs are returned in the same order they were
-        # fed to vLLM.
-        # Let's sort them by id before post_processing
+        # 我们无法保证输出返回的顺序与
+        # 输入 vLLM 时的顺序相同。
+        # 在后处理之前按 id 排序
         sorted_output = sorted(
             [(i, item) async for i, item in model_output], key=lambda output: output[0]
         )
@@ -77,18 +77,18 @@ class IOProcessor(ABC, Generic[IOProcessorInput, IOProcessorOutput]):
         return self.post_process(collected_output, request_id=request_id, **kwargs)
 ```
 
-The `parse_data` method is used for validating the user data and converting it into the input expected by the `pre_process*` methods.
-The `merge_sampling_params` and `merge_pooling_params` methods merge input `SamplingParams` or `PoolingParams` (if any) with the default one.
-The `pre_process*` methods take the validated plugin input to generate vLLM's model prompts for regular inference.
-The `post_process*` methods take `PoolingRequestOutput` objects as input and generate a custom plugin output.
+`parse_data` 方法用于验证用户数据并将其转换为 `pre_process*` 方法期望的输入。
+`merge_sampling_params` 和 `merge_pooling_params` 方法将输入的 `SamplingParams` 或 `PoolingParams`（如果有）与默认值合并。
+`pre_process*` 方法接受经过验证的插件输入以生成用于常规推理的 vLLM 模型 prompt。
+`post_process*` 方法接受 `PoolingRequestOutput` 对象作为输入并生成自定义的插件输出。
 
-An example implementation of a plugin that enables generating geotiff images with the PrithviGeospatialMAE model is available [here](https://github.com/IBM/terratorch/tree/main/terratorch/vllm/plugins/segmentation). Please, also refer to our online ([examples/pooling/plugin/prithvi_geospatial_mae_online.py](../../examples/pooling/plugin/prithvi_geospatial_mae_online.py)) and offline ([examples/pooling/plugin/prithvi_geospatial_mae_io_processor.py](../../examples/pooling/plugin/prithvi_geospatial_mae_io_processor.py)) inference examples.
+一个使用 PrithviGeospatialMAE 模型生成 geotiff 图像的插件实现示例可在[此处](https://github.com/IBM/terratorch/tree/main/terratorch/vllm/plugins/segmentation)找到。同时，请参考我们的在线（[examples/pooling/plugin/prithvi_geospatial_mae_online.py](../../examples/pooling/plugin/prithvi_geospatial_mae_online.py)）和离线（[examples/pooling/plugin/prithvi_geospatial_mae_io_processor.py](../../examples/pooling/plugin/prithvi_geospatial_mae_io_processor.py)）推理示例。
 
-## Using an IO Processor plugin
+## 使用 IO 处理器插件
 
-IO Processor plugins are loaded at engine startup and there are two methods for specifying the name of the plugin to be loaded:
+IO 处理器插件在引擎启动时加载，有两种方法指定要加载的插件名称：
 
-1. Via vLLM's `EngineArgs`: setting the `io_processor_plugin` argument in the `EngineArgs` used to initialize the `AsyncLLM`. The same can be achieved by passing the `io_processor_plugin` argument to `LLM` in offline mode, or by passing the `--io-processor-plugin` argument in serving mode.
-2. Via the model HF configuration: adding an `io_processor_plugin` field to the model config (config.json).
+1. 通过 vLLM 的 `EngineArgs`：在用于初始化 `AsyncLLM` 的 `EngineArgs` 中设置 `io_processor_plugin` 参数。在离线模式下，也可以通过将 `io_processor_plugin` 参数传递给 `LLM` 来实现；在服务模式下，通过传递 `--io-processor-plugin` 参数来实现。
+2. 通过模型 HF 配置：在模型配置（config.json）中添加 `io_processor_plugin` 字段。
 
-The order also determines method priority. i.e., setting the plugin name via `EngineArgs` will override any plugin name specified in the model HF config (config.json).
+顺序也决定了方法的优先级。即，通过 `EngineArgs` 设置插件名称将覆盖模型 HF 配置（config.json）中指定的任何插件名称。

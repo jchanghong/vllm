@@ -1,91 +1,91 @@
-# LoRA Resolver Plugins
+# LoRA 解析器插件
 
-This directory contains vLLM's LoRA resolver plugins built on the `LoRAResolver` framework.
-They automatically discover and load LoRA adapters from a specified local storage path, eliminating the need for manual configuration or server restarts.
+本目录包含基于 `LoRAResolver` 框架构建的 vLLM LoRA 解析器插件。
+它们自动从指定的本地存储路径发现并加载 LoRA 适配器，无需手动配置或重启服务器。
 
-## Overview
+## 概述
 
-LoRA Resolver Plugins provide a flexible way to dynamically load LoRA adapters at runtime. When vLLM
-receives a request for a LoRA adapter that hasn't been loaded yet, the resolver plugins will attempt
-to locate and load the adapter from their configured storage locations. This enables:
+LoRA 解析器插件提供了一种在运行时动态加载 LoRA 适配器的灵活方式。当 vLLM
+收到对尚未加载的 LoRA 适配器的请求时，解析器插件将尝试
+从配置的存储位置定位并加载该适配器。这实现了：
 
-- **Dynamic LoRA Loading**: Load adapters on-demand without server restarts
-- **Multiple Storage Backends**: Support for filesystem, S3, and custom backends. The built-in `lora_filesystem_resolver` requires a local storage path, while the built-in `hf_hub_resolver` will pull LoRA adapters from Huggingface Hub and proceed in an identical manner. In general, custom resolvers can be implemented to fetch from any source.
-- **Automatic Discovery**: Seamless integration with existing LoRA workflows
-- **Scalable Deployment**: Centralized adapter management across multiple vLLM instances
+- **动态 LoRA 加载**：无需重启服务器即可按需加载适配器
+- **多种存储后端**：支持文件系统、S3 和自定义后端。内置的 `lora_filesystem_resolver` 需要本地存储路径，而内置的 `hf_hub_resolver` 将从 Huggingface Hub 拉取 LoRA 适配器并以相同方式运行。通常，可以实现自定义解析器从任何源获取。
+- **自动发现**：与现有 LoRA 工作流无缝集成
+- **可扩展部署**：跨多个 vLLM 实例的集中式适配器管理
 
-## Prerequisites
+## 先决条件
 
-Before using LoRA Resolver Plugins, ensure the following environment variables are configured:
+在使用 LoRA 解析器插件之前，请确保已配置以下环境变量：
 
-### Required Environment Variables
+### 必需的环境变量
 
-1. **`VLLM_ALLOW_RUNTIME_LORA_UPDATING`**: Must be set to `true` or `1` to enable dynamic LoRA loading
+1. **`VLLM_ALLOW_RUNTIME_LORA_UPDATING`**：必须设置为 `true` 或 `1` 以启用动态 LoRA 加载
    ```bash
    export VLLM_ALLOW_RUNTIME_LORA_UPDATING=true
    ```
 
-2. **`VLLM_PLUGINS`**: Must include the desired resolver plugins (comma-separated list)
+2. **`VLLM_PLUGINS`**：必须包含所需的解析器插件（逗号分隔列表）
    ```bash
    export VLLM_PLUGINS=lora_filesystem_resolver
    ```
 
-3. **`VLLM_LORA_RESOLVER_CACHE_DIR`**: Must be set to a valid directory path for filesystem resolver
+3. **`VLLM_LORA_RESOLVER_CACHE_DIR`**：必须设置为文件系统解析器的有效目录路径
    ```bash
    export VLLM_LORA_RESOLVER_CACHE_DIR=/path/to/lora/adapters
    ```
 
-### Optional Environment Variables
+### 可选的环境变量
 
-- **`VLLM_PLUGINS`**: If not set, all available plugins will be loaded. If set to empty string, no plugins will be loaded.
+- **`VLLM_PLUGINS`**：如果未设置，将加载所有可用插件。如果设置为空字符串，则不加载任何插件。
 
-## Available Resolvers
+## 可用的解析器
 
 ### lora_filesystem_resolver
 
-The filesystem resolver is installed with vLLM by default and enables loading LoRA adapters from a local directory structure.
+文件系统解析器随 vLLM 默认安装，支持从本地目录结构加载 LoRA 适配器。
 
-#### Setup Steps
+#### 设置步骤
 
-1. **Create the LoRA adapter storage directory**:
+1. **创建 LoRA 适配器存储目录**：
    ```bash
    mkdir -p /path/to/lora/adapters
    ```
 
-2. **Set environment variables**:
+2. **设置环境变量**：
    ```bash
    export VLLM_ALLOW_RUNTIME_LORA_UPDATING=true
    export VLLM_PLUGINS=lora_filesystem_resolver
    export VLLM_LORA_RESOLVER_CACHE_DIR=/path/to/lora/adapters
    ```
 
-3. **Start vLLM server**:
-   Your base model can be `meta-llama/Llama-2-7b-hf`. Please make sure you set up the Hugging Face token in your env var `export HF_TOKEN=xxx235`.
+3. **启动 vLLM 服务器**：
+   您的基础模型可以是 `meta-llama/Llama-2-7b-hf`。请确保在环境变量中设置了 Hugging Face token `export HF_TOKEN=xxx235`。
    ```bash
    vllm serve your-base-model \
        --enable-lora
    ```
 
-#### Directory Structure Requirements
+#### 目录结构要求
 
-The filesystem resolver expects LoRA adapters to be organized in the following structure:
+文件系统解析器期望 LoRA 适配器按以下结构组织：
 
 ```text
 /path/to/lora/adapters/
 ├── adapter1/
 │   ├── adapter_config.json
 │   ├── adapter_model.bin
-│   └── tokenizer files (if applicable)
+│   └── tokenizer files（如适用）
 ├── adapter2/
 │   ├── adapter_config.json
 │   ├── adapter_model.bin
-│   └── tokenizer files (if applicable)
+│   └── tokenizer files（如适用）
 └── ...
 ```
 
-Each adapter directory must contain:
+每个适配器目录必须包含：
 
-- **`adapter_config.json`**: Required configuration file with the following structure:
+- **`adapter_config.json`**：必需的配置文件，结构如下：
   ```json
   {
     "peft_type": "LORA",
@@ -100,23 +100,23 @@ Each adapter directory must contain:
   }
   ```
 
-- **`adapter_model.bin`**: The LoRA adapter weights file
+- **`adapter_model.bin`**：LoRA 适配器权重文件
 
-#### Usage Example
+#### 使用示例
 
-1. **Prepare your LoRA adapter**:
+1. **准备您的 LoRA 适配器**：
    ```bash
-   # Assuming you have a LoRA adapter in /tmp/my_lora_adapter
+   # 假设您有一个 LoRA 适配器在 /tmp/my_lora_adapter
    cp -r /tmp/my_lora_adapter /path/to/lora/adapters/my_sql_adapter
    ```
 
-2. **Verify the directory structure**:
+2. **验证目录结构**：
    ```bash
    ls -la /path/to/lora/adapters/my_sql_adapter/
-   # Should show: adapter_config.json, adapter_model.bin, etc.
+   # 应显示：adapter_config.json, adapter_model.bin 等
    ```
 
-3. **Make a request using the adapter**:
+3. **使用适配器发起请求**：
    ```bash
    curl http://localhost:8000/v1/completions \
        -H "Content-Type: application/json" \
@@ -128,87 +128,87 @@ Each adapter directory must contain:
        }'
    ```
 
-#### How It Works
+#### 工作原理
 
-1. When vLLM receives a request for a LoRA adapter named `my_sql_adapter`
-2. The filesystem resolver checks if `/path/to/lora/adapters/my_sql_adapter/` exists
-3. If found, it validates the `adapter_config.json` file
-4. If the configuration matches the base model and is valid, the adapter is loaded
-5. The request is processed normally with the newly loaded adapter
-6. The adapter remains available for future requests
+1. 当 vLLM 收到对名为 `my_sql_adapter` 的 LoRA 适配器的请求时
+2. 文件系统解析器检查 `/path/to/lora/adapters/my_sql_adapter/` 是否存在
+3. 如果找到，它会验证 `adapter_config.json` 文件
+4. 如果配置与基础模型匹配且有效，则加载该适配器
+5. 请求使用新加载的适配器正常处理
+6. 该适配器将继续可用于后续请求
 
-## Advanced Configuration
+## 高级配置
 
-### Multiple Resolvers
+### 多个解析器
 
-You can configure multiple resolver plugins to load adapters from different sources:
+您可以配置多个解析器插件以从不同来源加载适配器：
 
-'lora_s3_resolver' is an example of a custom resolver you would need to implement
+`lora_s3_resolver` 是一个需要您自行实现的自定义解析器示例
 
 ```bash
 export VLLM_PLUGINS=lora_filesystem_resolver,lora_s3_resolver
 ```
 
-All listed resolvers are enabled; at request time, vLLM tries them in order until one succeeds.
+所有列出的解析器都已启用；在请求时，vLLM 按顺序尝试它们，直到其中一个成功。
 
-### Custom Resolver Implementation
+### 自定义解析器实现
 
-To implement your own resolver plugin:
+要实现您自己的解析器插件：
 
-1. **Create a new resolver class**:
+1. **创建新的解析器类**：
    ```python
    from vllm.lora.resolver import LoRAResolver, LoRAResolverRegistry
    from vllm.lora.request import LoRARequest
    
    class CustomResolver(LoRAResolver):
        async def resolve_lora(self, base_model_name: str, lora_name: str) -> Optional[LoRARequest]:
-           # Your custom resolution logic here
+           # 您的自定义解析逻辑
            pass
    ```
 
-2. **Register the resolver**:
+2. **注册解析器**：
    ```python
    def register_custom_resolver():
        resolver = CustomResolver()
        LoRAResolverRegistry.register_resolver("Custom Resolver", resolver)
    ```
 
-## Troubleshooting
+## 故障排除
 
-### Common Issues
+### 常见问题
 
 1. **"VLLM_LORA_RESOLVER_CACHE_DIR must be set to a valid directory"**
-   - Ensure the directory exists and is accessible
-   - Check file permissions on the directory
+   - 确保目录存在且可访问
+   - 检查目录的文件权限
 
 2. **"LoRA adapter not found"**
-   - Verify the adapter directory name matches the requested model name
-   - Check that `adapter_config.json` exists and is valid JSON
-   - Ensure `adapter_model.bin` exists in the directory
+   - 验证适配器目录名称与请求的模型名称匹配
+   - 检查 `adapter_config.json` 是否存在且为有效的 JSON
+   - 确保 `adapter_model.bin` 在目录中存在
 
 3. **"Invalid adapter configuration"**
-   - Verify `peft_type` is set to "LORA"
-   - Check that `base_model_name_or_path` matches your base model
-   - Ensure `target_modules` is properly configured
+   - 验证 `peft_type` 设置为 "LORA"
+   - 检查 `base_model_name_or_path` 与您的基础模型匹配
+   - 确保 `target_modules` 配置正确
 
 4. **"LoRA rank exceeds maximum"**
-   - Check that `r` value in `adapter_config.json` doesn't exceed `max_lora_rank` setting
+   - 检查 `adapter_config.json` 中的 `r` 值不超过 `max_lora_rank` 设置
 
-### Debugging Tips
+### 调试提示
 
-1. **Enable debug logging**:
+1. **启用调试日志**：
    ```bash
    export VLLM_LOGGING_LEVEL=DEBUG
    ```
 
-2. **Verify environment variables**:
+2. **验证环境变量**：
    ```bash
    echo $VLLM_ALLOW_RUNTIME_LORA_UPDATING
    echo $VLLM_PLUGINS
    echo $VLLM_LORA_RESOLVER_CACHE_DIR
    ```
 
-3. **Test adapter configuration**:
+3. **测试适配器配置**：
    ```bash
    python -c "
    import json

@@ -1,63 +1,62 @@
-# Multi-Modal Data Processing
+# 多模态数据处理
 
-To enable various optimizations in vLLM such as [chunked prefill](../configuration/optimization.md#chunked-prefill) and [prefix caching](../features/automatic_prefix_caching.md), we use [BaseMultiModalProcessor][vllm.multimodal.processing.BaseMultiModalProcessor] to provide the correspondence between placeholder feature tokens (e.g. `<image>`) and multi-modal inputs (e.g. the raw input image) based on the outputs of HF processor.
+为了在 vLLM 中启用各种优化（如[分块预填充](../configuration/optimization.md#chunked-prefill)和[前缀缓存](../features/automatic_prefix_caching.md)），我们使用 [BaseMultiModalProcessor][vllm.multimodal.processing.BaseMultiModalProcessor] 根据 HF processor 的输出来提供占位符特征 token（例如 `<image>`）与多模态输入（例如原始输入图像）之间的对应关系。
 
-Here are the main features of [BaseMultiModalProcessor][vllm.multimodal.processing.BaseMultiModalProcessor]:
+以下是 [BaseMultiModalProcessor][vllm.multimodal.processing.BaseMultiModalProcessor] 的主要特性：
 
-## Prompt Update Detection
+## Prompt 更新检测
 
-One of the main responsibilities of HF processor is to update the prompt with placeholder tokens. For example:
+HF processor 的主要职责之一是用占位符 token 更新 prompt。例如：
 
-- Insert feature placeholder tokens (e.g. `<image><image>...<image>`, the number of which equals to the feature size) at the start of the string.
-- Replace existing input placeholder tokens (e.g. `<image>` for a single image) with feature placeholder tokens (e.g. `<image><image>...<image>`, the number of which equals to the feature size).
+- 在字符串开头插入特征占位符 token（例如 `<image><image>...<image>`，数量等于特征大小）。
+- 将现有的输入占位符 token（例如单个图像的 `<image>`）替换为特征占位符 token（例如 `<image><image>...<image>`，数量等于特征大小）。
 
-The information about which tokens have been updated is key to finding the correspondence between placeholder feature tokens and multi-modal inputs.
+哪些 token 已被更新的信息是找到占位符特征 token 与多模态输入之间对应关系的关键。
 
-In vLLM, this information is specified using [PromptUpdate][vllm.multimodal.processing.PromptUpdate] in [_get_prompt_updates][vllm.multimodal.processing.BaseMultiModalProcessor._get_prompt_updates]. We can automatically detect whether HF has updated the prompt by checking the existence of the updated tokens.
+在 vLLM 中，此信息通过 [_get_prompt_updates][vllm.multimodal.processing.BaseMultiModalProcessor._get_prompt_updates] 中的 [PromptUpdate][vllm.multimodal.processing.PromptUpdate] 指定。我们可以通过检查更新后的 token 是否存在来自动检测 HF 是否已更新 prompt。
 
-## Tokenized Prompt Inputs
+## 分词后的 prompt 输入
 
-To enable tokenization in a separate process, we support passing input token IDs alongside multi-modal data.
+为了支持在单独的进程中进行分词，我们支持将输入 token ID 与多模态数据一起传递。
 
-### The problem
+### 问题
 
-Consider that HF processors follow these main steps:
+考虑 HF processor 遵循以下主要步骤：
 
-1. Tokenize the text
-2. Process multi-modal inputs
-3. Perform prompt updates
+1. 对文本进行分词
+2. 处理多模态输入
+3. 执行 prompt 更新
 
-And we require that:
+我们要求：
 
-- For text + multi-modal inputs, apply all steps 1--3.
-- For tokenized + multi-modal inputs, apply only steps 2--3.
+- 对于文本 + 多模态输入，应用步骤 1--3。
+- 对于分词后 + 多模态输入，仅应用步骤 2--3。
 
-How can we achieve this without rewriting HF processors? We can try to call the HF processor several times on different inputs:
+如何在不重写 HF processor 的情况下实现这一点？我们可以尝试在不同输入上多次调用 HF processor：
 
-- For text + multi-modal inputs, simply call the HF processor directly.
-- For tokenized + multi-modal inputs, call the processor only on the multi-modal inputs.
+- 对于文本 + 多模态输入，直接调用 HF processor。
+- 对于分词后 + 多模态输入，仅在多模态输入上调用 processor。
 
-While HF processors support text + multi-modal inputs natively, this is not so for tokenized + multi-modal inputs: an error is thrown if the number of input placeholder tokens do not correspond to the number of multi-modal inputs.
+虽然 HF processor 原生支持文本 + 多模态输入，但对于分词后 + 多模态输入并非如此：如果输入占位符 token 的数量与多模态输入的数量不对应，将抛出错误。
 
-Moreover, since the tokenized text has not passed through the HF processor, we have to apply Step 3 by ourselves to keep the output tokens and multi-modal data consistent with each other.
+此外，由于分词后的文本没有经过 HF processor，我们必须自行应用步骤 3 以保持输出 token 和多模态数据之间的一致性。
 
-### Dummy text
+### 虚拟文本
 
-We work around the first issue by requiring each model to define how to generate dummy text based on the number of multi-modal inputs, via [get_dummy_text][vllm.multimodal.processing.BaseDummyInputsBuilder.get_dummy_text]. This lets us generate dummy text corresponding to the multi-modal inputs and input them together to obtain the processed multi-modal data.
+我们通过要求每个模型通过 [get_dummy_text][vllm.multimodal.processing.BaseDummyInputsBuilder.get_dummy_text] 定义如何基于多模态输入数量生成虚拟文本来解决第一个问题。这使我们能够生成与多模态输入相对应的虚拟文本，并将它们一起输入以获得处理后的多模态数据。
 
-### Automatic prompt updating
+### 自动 prompt 更新
 
-We address the second issue by implementing model-agnostic code in
-[_apply_prompt_updates][vllm.multimodal.processing.BaseMultiModalProcessor._apply_prompt_updates] to automatically update the prompt with feature placeholder tokens based on the specification outputted by [_get_prompt_updates][vllm.multimodal.processing.BaseMultiModalProcessor._get_prompt_updates].
+我们通过在 [_apply_prompt_updates][vllm.multimodal.processing.BaseMultiModalProcessor._apply_prompt_updates] 中实现与模型无关的代码来解决第二个问题，该代码根据 [_get_prompt_updates][vllm.multimodal.processing.BaseMultiModalProcessor._get_prompt_updates] 输出的规范自动使用特征占位符 token 更新 prompt。
 
-### Summary
+### 总结
 
-With the help of dummy text and automatic prompt updating, our multi-modal processor can finally accept both text and token prompts with multi-modal data. The detailed logic is shown in [_apply_hf_processor_main][vllm.multimodal.processing.BaseMultiModalProcessor._apply_hf_processor_main].
+借助虚拟文本和自动 prompt 更新，我们的多模态 processor 最终可以接受文本 prompt 和 token prompt 以及多模态数据。详细逻辑请参见 [_apply_hf_processor_main][vllm.multimodal.processing.BaseMultiModalProcessor._apply_hf_processor_main]。
 
-## Processor Output Caching
+## Processor 输出缓存
 
-Some HF processors, such as the one for Qwen2-VL, are [very slow](https://github.com/vllm-project/vllm/issues/9238). To alleviate this problem, we cache the multi-modal outputs of HF processor to avoid processing the same multi-modal input (e.g. image) again.
+某些 HF processor，例如 Qwen2-VL 的 processor，[非常缓慢](https://github.com/vllm-project/vllm/issues/9238)。为缓解此问题，我们缓存 HF processor 的多模态输出，以避免重复处理相同的多模态输入（例如图像）。
 
-When new data is passed in, we first check which items are in the cache, and which ones are missing. The missing items are passed into the HF processor in a single batch and cached, before being merged with the existing items in the cache.
+当传入新数据时，我们首先检查哪些项在缓存中，哪些项缺失。缺失的项在一个批次中传入 HF processor 并缓存，然后与缓存中的现有项合并。
 
-Since we only process the missing multi-modal data items, the number of input placeholder tokens no longer corresponds to the number of the multi-modal inputs, so they can't be passed alongside the text prompt to HF processor. Therefore, we process the text and multi-modal inputs separately, using [dummy text](#dummy-text) to avoid HF errors. Since this skips HF's prompt updating code, we apply [automatic prompt updating](#automatic-prompt-updating) afterwards to keep the output tokens and multi-modal data consistent with each other.
+由于我们只处理缺失的多模态数据项，输入占位符 token 的数量不再与多模态输入的数量相对应，因此它们不能与文本 prompt 一起传入 HF processor。因此，我们分别处理文本和多模态输入，使用[虚拟文本](#虚拟文本)来避免 HF 错误。由于这跳过了 HF 的 prompt 更新代码，我们在之后应用[自动 prompt 更新](#自动-prompt-更新)以保持输出 token 和多模态数据之间的一致性。

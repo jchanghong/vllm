@@ -1,5 +1,5 @@
-# Meetups
+# 见面会
 
-We host regular meetups around the world. We will share the project updates from the vLLM team and have guest speakers from the industry to share their experience and insights.
+我们定期在全球举办见面会。我们将分享 vLLM 团队的项目更新，并邀请行业嘉宾分享他们的经验和见解。
 
-Please visit [vllm.ai/events](https://vllm.ai/events) to learn more.
+请访问 [vllm.ai/events](https://vllm.ai/events) 了解更多。

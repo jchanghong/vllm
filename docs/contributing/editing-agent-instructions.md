@@ -1,74 +1,74 @@
-# Editing Agent Instructions
+# 编辑 Agent 指令
 
-> Read this before modifying `AGENTS.md` or any guide it links to.
+> 在修改 `AGENTS.md` 或其链接的任何指南之前，请先阅读本文。
 
-## Token Budget Mindset
+## Token 预算心态
 
-`AGENTS.md` loads on every agent request; domain guides load on entry to a relevant area.
-Keep `AGENTS.md` under **200 lines** and each domain guide under **300 lines**.
-When a file exceeds its budget, split or prune — do not compress prose to fit.
+`AGENTS.md` 在每个 agent 请求时加载；领域指南在进入相关区域时加载。
+请将 `AGENTS.md` 保持在 **200 行**以内，每个领域指南保持在 **300 行**以内。
+当文件超出预算时，请拆分或精简——不要压缩文本来凑合。
 
-## When NOT to Add Content
+## 何时不添加内容
 
-Before writing a new rule, ask whether it is actually needed:
+在编写新规则之前，请先确认它是否真正必要：
 
-- **Agents already do it.** Test with a prompt first. If the agent behaves correctly without the rule, don't add it.
-- **One-off incident.** Prefer a code-level fix (lint rule, CI check, test assertion) over a new doc rule.
-- **Hardcoded paths.** File paths change; use "search for X" patterns instead.
-- **Upstream docs.** Don't reproduce pytest, ruff, or other tool docs — link to them.
-- **Contradicts an existing rule.** Search all linked guides before adding. If two rules conflict, consolidate into one.
-- **Already covered elsewhere.** Search `AGENTS.md` and every linked guide for overlapping guidance.
+- **Agent 已经做到了。** 先用提示词测试。如果 agent 在没有规则的情况下行为正确，则不要添加。
+- **一次性事件。** 优先选择代码级别的修复（lint 规则、CI 检查、测试断言）而不是新的文档规则。
+- **硬编码路径。** 文件路径会变化；请使用"搜索 X"模式代替。
+- **上游文档。** 不要复述 pytest、ruff 或其他工具的文档——链接到它们即可。
+- **与现有规则矛盾。** 在添加之前搜索所有链接的指南。如果两条规则冲突，合并为一条。
+- **已在其他地方涵盖。** 搜索 `AGENTS.md` 和每个链接的指南，查看是否有重叠的指导。
 
-If any of the above apply, **do not add the content**.
+如果以上任何一条适用，**不要添加该内容**。
 
-## Where Content Belongs
+## 内容归属位置
 
-The goal is a lean `AGENTS.md` plus rich domain guides that teach agents what they can't learn from the code alone.
+目标是精简的 `AGENTS.md` 加上丰富的领域指南，教授 agent 无法仅从代码中学到的知识。
 
-| Scope | File |
+| 范围 | 文件 |
 | ----- | ---- |
-| Project-wide invariants (contribution policy, env setup, test/lint commands, commit conventions) | `AGENTS.md` |
-| Area-specific knowledge (model patterns, format details, deprecation timelines) | Domain guide |
+| 项目级不变规则（贡献政策、环境设置、测试/lint 命令、提交约定） | `AGENTS.md` |
+| 特定领域知识（模型模式、格式细节、弃用时间线） | 领域指南 |
 
-**Rules of thumb:**
+**经验法则：**
 
-- If it only matters for one area, put it in a domain guide.
-- If it matters for all areas, consider `AGENTS.md` — but first verify agents don't already do it.
-- Create a new domain guide when you have 5 or more non-obvious instructions sharing a coherent scope.
+- 如果只与一个领域相关，放在领域指南中。
+- 如果与所有领域相关，考虑放在 `AGENTS.md` 中——但首先验证 agent 是否已自动执行。
+- 当有 5 条或更多非显而易见的指令共享一个连贯范围时，创建新的领域指南。
 
-## What Makes a Good Domain Guide
+## 好的领域指南的特征
 
-Add what agents can't infer from the code or public docs: project-specific
-conventions that differ from standard patterns, correct approaches that require
-cross-file context, and fixes for repeated mistakes.
-Each entry should be short, specific, and actionable — e.g., which files to
-touch, what order to change them in, and which tests to run.
+添加 agent 无法从代码或公共文档中推断出的内容：项目特定的
+约定（与标准模式不同）、需要跨文件上下文的正确方法，
+以及针对重复错误的修复。
+每条条目应简短、具体且可操作——例如，应修改哪些文件、
+按什么顺序修改，以及运行哪些测试。
 
-## Keeping Docs Lean
+## 保持文档精简
 
-- Every addition should trigger review of surrounding content for stale or redundant items.
-- Prefer examples over explanations — a 3-line snippet beats a paragraph of prose.
-- Merge related bullets into one principle instead of listing variants.
-- Use `search for X` instead of hardcoded file paths.
-- PR references are fine in domain guides for traceability, but avoid them in `AGENTS.md`.
+- 每次添加都应触发对周围内容中过时或冗余项目的审查。
+- 示例优于解释——3 行代码片段胜过一段文字。
+- 将相关的要点合并为一条原则，而不是列出各种变体。
+- 使用`搜索 X`代替硬编码的文件路径。
+- PR 引用在领域指南中可用于追溯，但避免在 `AGENTS.md` 中出现。
 
-## Anti-Patterns
+## 反模式
 
-| Pattern | Problem |
+| 模式 | 问题 |
 | ------- | ------- |
-| Reactive accumulation | Adding a rule per incident without pruning leads to bloat |
-| Copy-paste between guides | Duplicated content drifts apart; keep in one place, link from the other |
-| Imperative walls | Long DO NOT lists that agents skim past; consolidate into principles |
-| Config snapshots | Show the command to get the value, not the value itself |
+| 反应式积累 | 每次事件都添加规则而不进行精简会导致膨胀 |
+| 指南间复制粘贴 | 重复的内容会逐渐产生差异；应放在一处，从另一处链接 |
+| 指令墙 | 长长的"不要做"列表，agent 会一扫而过；应合并为原则 |
+| 配置快照 | 展示获取该值的命令，而不是值本身 |
 
-## Change Checklist
+## 变更检查清单
 
-Before submitting changes to any agent instruction file:
+在提交对任何 agent 指令文件的更改之前：
 
-- [ ] **Non-obvious?** Would an agent do the wrong thing without this rule?
-- [ ] **No conflicts?** Searched all linked guides for contradictions?
-- [ ] **Right file?** Project-wide goes in `AGENTS.md`, area-specific in a domain guide?
-- [ ] **Offset the addition?** Removed or consolidated something to compensate?
-- [ ] **Under budget?** `AGENTS.md` < 200 lines, domain guides < 300 lines?
-- [ ] **No hardcoded paths?** Uses "search for X" where paths may change?
-- [ ] **Tested?** Verified that an agent actually follows the new instruction?
+- [ ] **非显而易见的？** 没有这条规则，agent 会做错误的事情吗？
+- [ ] **没有冲突？** 已搜索所有链接的指南以查找矛盾？
+- [ ] **正确的文件？** 项目级内容放入 `AGENTS.md`，特定领域内容放入领域指南？
+- [ ] **有增有减？** 是否移除或合并了某些内容以补偿？
+- [ ] **在预算内？** `AGENTS.md` < 200 行，领域指南 < 300 行？
+- [ ] **没有硬编码路径？** 在路径可能变化的地方使用了"搜索 X"模式？
+- [ ] **已测试？** 已验证 agent 确实遵循了新指令？

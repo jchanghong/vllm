@@ -1,32 +1,32 @@
-# Interleaved Thinking
+# 交错思考
 
-## Introduction
+## 介绍
 
-Interleaved thinking allows models to reason between tool calls, enabling more sophisticated decision-making after receiving tool results. This feature helps models chain multiple tool calls with reasoning steps in between and make nuanced decisions based on intermediate results.
+交错思考允许模型在工具调用之间进行推理，从而在接收到工具结果后能够做出更复杂的决策。此功能帮助模型将多个工具调用与中间的推理步骤串联起来，并基于中间结果做出细致的决策。
 
-Important: Interleaved thinking increases token usage and response latency. Consider your budget and performance requirements when enabling this feature.
+重要提示：交错思考会增加 token 使用量和响应延迟。在启用此功能时，请考虑您的预算和性能要求。
 
-## How Interleaved Thinking Works
+## 交错思考的工作原理
 
-With interleaved thinking, the model can:
+使用交错思考，模型可以：
 
-- Reason about the results of a tool call before deciding what to do next
-- Chain multiple tool calls with reasoning steps in between
-- Make more nuanced decisions based on intermediate results
-- Provide transparent reasoning for its tool selection process
+- 在决定下一步操作之前，思考工具调用的结果
+- 将多个工具调用与中间的推理步骤串联起来
+- 基于中间结果做出更细致的决策
+- 为其工具选择过程提供透明的推理
 
-## Supported Models
+## 支持的模型
 
-vLLM currently supports the following interleaved thinking models:
+vLLM 目前支持以下交错思考模型：
 
-| Model Series | Reasoning Parser Name |
+| 模型系列 | 推理解析器名称 |
 | ------------ | --------------------- |
 | moonshotai/Kimi-K2-Thinking | kimi_k2 |
 | MiniMaxAI/MiniMax-M2 | minimax_m2 |
 
-## Example Usage
+## 示例用法
 
-To use interleaved thinking with tool calls, specify a model that supports this feature and enable tool calls in your chat completion request. Here's an example:
+要使用带有工具调用的交错思考，请指定一个支持此功能的模型，并在聊天补全请求中启用工具调用。以下是一个示例：
 
 ??? code
 
@@ -87,11 +87,11 @@ To use interleaved thinking with tool calls, specify a model that supports this 
         {
             "role": "assistant",
             "tool_calls": response.choices[0].message.tool_calls,
-            "reasoning": response.choices[0].message.reasoning, # append reasoning
+            "reasoning": response.choices[0].message.reasoning, # 追加推理内容
         }
     )
     
-    # Simulate tool execution
+    # 模拟工具执行
     available_tools = {"get_weather": get_current_weather}
     
     completion_tool_calls = response.choices[0].message.tool_calls
@@ -115,4 +115,4 @@ To use interleaved thinking with tool calls, specify a model that supports this 
     )
     print(response_2.choices[0].message.content)
     ```
-This example demonstrates how to set up interleaved thinking with tool calls using a weather retrieval function. The model reasons about the tool results before generating the final response.
+此示例演示了如何使用天气查询函数设置带有工具调用的交错思考。模型在生成最终响应之前会思考工具结果。

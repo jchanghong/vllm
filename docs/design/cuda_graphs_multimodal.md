@@ -1,27 +1,27 @@
-# Vision Encoder (ViT) CUDA Graphs
+# 视觉编码器（ViT）CUDA Graphs
 
-The [CUDA Graphs](cuda_graphs.md) infrastructure in vLLM primarily targets the **decoder** (language model) forward pass. vLLM also supports capturing the **encoder** (vision transformer) forward pass as CUDA Graphs, independently from the decoder. This is based on <https://github.com/vllm-project/vllm/pull/35963>.
+vLLM 中的 [CUDA Graphs](cuda_graphs.md) 基础设施主要针对**解码器**（语言模型）的前向传播。vLLM 还支持独立于解码器，将**编码器**（视觉 transformer）的前向传播捕获为 CUDA Graphs。这基于 <https://github.com/vllm-project/vllm/pull/35963>。
 
 !!! note
-    Encoder CUDA Graphs are orthogonal to decoder CUDA Graphs — both can be enabled simultaneously. Encoder graphs capture the vision encoder execution (e.g., ViT in Qwen3-VL), while decoder graphs capture the language model execution as described in the [CUDA Graphs design document](cuda_graphs.md).
+    编码器 CUDA Graphs 与解码器 CUDA Graphs 是正交的——两者可以同时启用。编码器 graphs 捕获视觉编码器的执行（例如 Qwen3-VL 中的 ViT），而解码器 graphs 捕获语言模型的执行，如 [CUDA Graphs 设计文档](cuda_graphs.md)中所述。
 
-## Motivation
+## 动机
 
-Vision encoder inference incurs CUDA kernel launch overhead on the host side. The overhead is more significant when the batch size is small or image size is small.
+视觉编码器推理会在主机端产生 CUDA 内核启动开销。当批次大小较小或图像尺寸较小时，这种开销更为显著。
 
-Encoder CUDA Graphs eliminate this overhead by pre-capturing the full encoder forward pass at multiple token budget levels during model initialization, then replaying the appropriate graph at runtime.
+编码器 CUDA Graphs 通过在模型初始化期间在多个 token 预算级别预捕获完整的编码器前向传播，然后在运行时回放相应的 graph，从而消除这种开销。
 
-## Design
+## 设计
 
-The encoder CUDA Graph system uses a **budget-based capture/replay** strategy, managed by [EncoderCudaGraphManager][vllm.v1.worker.encoder_cudagraph.EncoderCudaGraphManager]. The system contains the following core components:
+编码器 CUDA Graph 系统使用基于**预算的捕获/回放**策略，由 [EncoderCudaGraphManager][vllm.v1.worker.encoder_cudagraph.EncoderCudaGraphManager] 管理。该系统包含以下核心组件：
 
-* [EncoderCudaGraphManager][vllm.v1.worker.encoder_cudagraph.EncoderCudaGraphManager]: orchestrates capture, replay, greedy packing, and data-parallel execution for encoder CUDA Graphs.
-* [SupportsEncoderCudaGraph][vllm.model_executor.models.interfaces.SupportsEncoderCudaGraph]: a runtime-checkable protocol that models implement to opt-in to encoder CUDA Graphs.
-* [BudgetGraphMetadata][vllm.v1.worker.encoder_cudagraph.BudgetGraphMetadata]: holds the captured CUDA Graph and its associated I/O buffers for a single token budget level.
+* [EncoderCudaGraphManager][vllm.v1.worker.encoder_cudagraph.EncoderCudaGraphManager]：协调编码器 CUDA Graphs 的捕获、回放、贪心打包和数据并行执行。
+* [SupportsEncoderCudaGraph][vllm.model_executor.models.interfaces.SupportsEncoderCudaGraph]：一个运行时可检查的协议，模型实现它以选择加入编码器 CUDA Graphs。
+* [BudgetGraphMetadata][vllm.v1.worker.encoder_cudagraph.BudgetGraphMetadata]：保存单个 token 预算级别的已捕获 CUDA Graph 及其相关 I/O 缓冲区。
 
-### Budget-based graph capture
+### 基于预算的 graph 捕获
 
-Multiple CUDA Graphs are pre-captured at different **token budget** levels (e.g., `[2048, 4096, 8192, 13824]`). Each budget defines a fixed token capacity, and all budgets share the same maximum batch size (number of images). The `BudgetGraphMetadata` for each level stores the graph along with pre-allocated input, metadata, and output buffers:
+多个 CUDA Graphs 在不同的 **token 预算**级别（例如 `[2048, 4096, 8192, 13824]`）预捕获。每个预算定义一个固定的 token 容量，所有预算共享相同的最大批次大小（图像数量）。每个级别的 `BudgetGraphMetadata` 存储 graph 以及预先分配的输入、元数据和输出缓冲区：
 
 ```python
 @dataclass
@@ -30,61 +30,61 @@ class BudgetGraphMetadata:
     max_batch_size: int
     max_frames_per_batch: int
     graph: torch.cuda.CUDAGraph
-    input_buffer: torch.Tensor       # e.g. pixel_values
-    metadata_buffers: dict[str, torch.Tensor]  # e.g. embeddings, seq metadata
-    output_buffer: torch.Tensor      # encoder hidden states
+    input_buffer: torch.Tensor       # 例如 pixel_values
+    metadata_buffers: dict[str, torch.Tensor]  # 例如 embeddings, seq metadata
+    output_buffer: torch.Tensor      # 编码器隐藏状态
 ```
 
-Budgets are auto-generated as power-of-2 levels from a model-provided range via `get_encoder_cudagraph_budget_range()`, with the maximum budget always included even if it does not fall on a power-of-2 boundary. Budgets can also be explicitly specified by the user via `encoder_cudagraph_token_budgets` in `CompilationConfig`.
+预算通过 `get_encoder_cudagraph_budget_range()` 根据模型提供的范围自动生成为 2 的幂级别，即使最大值不在 2 的幂边界上，也始终包含最大预算。用户也可以通过 `CompilationConfig` 中的 `encoder_cudagraph_token_budgets` 显式指定预算。
 
-### Greedy bin-packing at runtime
+### 运行时贪心装箱
 
-When a batch of images arrives, the manager sorts images by output token count (smallest first) and greedily packs as many images as possible into each sub-batch while staying within the **largest** token budget and the maximum batch size. Once a sub-batch is finalized (the next image would overflow either constraint), the manager finds the **smallest** budget that fits the sub-batch's total tokens and replays the corresponding CUDA Graph. This repeats until the batch is exhausted. Images that exceed all budgets fall back to eager execution.
+当一批图像到达时，管理器按输出 token 数量（最小优先）对图像进行排序，并贪心地将尽可能多的图像打包到每个子批次中，同时保持在**最大** token 预算和最大批次大小范围内。一旦子批次最终确定（下一张图像将超出任一约束），管理器找到适合该子批次总 token 数的**最小**预算，并回放相应的 CUDA Graph。重复此过程直到批次耗尽。超出所有预算的图像回退到即时执行模式。
 
-For each graph replay:
+对于每次 graph 回放：
 
-1. Zero the pre-allocated `input_buffer`, then copy input tensors (e.g., `pixel_values`) into it.
-2. Zero `metadata_buffers`, then slice-copy precomputed values (e.g., rotary embeddings, sequence metadata).
-3. Replay the CUDA Graph.
-4. Clone outputs from `output_buffer` (cloning is necessary since the buffer is reused across replays).
+1. 将预先分配的 `input_buffer` 置零，然后将输入张量（例如 `pixel_values`）复制到其中。
+2. 将 `metadata_buffers` 置零，然后切片复制预计算的值（例如旋转位置编码、序列元数据）。
+3. 回放 CUDA Graph。
+4. 从 `output_buffer` 克隆输出（克隆是必要的，因为该缓冲区在多次回放中被重用）。
 
-### Data-parallel support
+### 数据并行支持
 
-When `mm_encoder_tp_mode="data"`, the manager distributes images across TP ranks using load-balanced assignment via `get_load_balance_assignment`, executes locally on each rank, then gathers results back in the original order via `tensor_model_parallel_all_gather`.
+当 `mm_encoder_tp_mode="data"` 时，管理器通过 `get_load_balance_assignment` 在 TP rank 之间使用负载均衡分配来分发图像，在每个 rank 上本地执行，然后通过 `tensor_model_parallel_all_gather` 按原始顺序收集结果。
 
-### Video inference support
+### 视频推理支持
 
-Following <https://github.com/vllm-project/vllm/pull/35963> (ViT full CUDA graph support for image inference), <https://github.com/vllm-project/vllm/pull/38061> extends the encoder CUDA graph framework to support video inference for Qwen3-VL. Previously, the CUDA graph capture/replay path only handled image inputs (`pixel_values` + `image_grid_thw`). Video inputs use different keys (`pixel_values_videos` + `video_grid_thw`) and require larger `cu_seqlens` buffers because each video item contributes multiple frames (`T` attention sequences). This PR generalizes the protocol and manager to handle both modalities through a single shared graph manager.
-
-!!! note
-    Video CUDA graphs are automatically disabled when EVS (Efficient Video Sampling) pruning is enabled, since EVS makes the token count data-dependent and incompatible with CUDA graph capture.
-
-    Mixed inputs (image+video) per prompt are also supported now.
-
-## Model integration via `SupportsEncoderCudaGraph`
-
-Models opt-in to encoder CUDA Graphs by implementing the [SupportsEncoderCudaGraph][vllm.model_executor.models.interfaces.SupportsEncoderCudaGraph] protocol. This protocol encapsulates all model-specific logic so that the manager remains model-agnostic. The protocol defines the following methods:
-
-* `get_encoder_cudagraph_config()` — returns static configuration (supported modalities, input key, buffer keys, output hidden size).
-* `get_encoder_cudagraph_budget_range(vllm_config)` — returns `(min_budget, max_budget)` for auto-inference of token budgets.
-* `get_encoder_cudagraph_num_items(mm_kwargs)` — returns the number of items (e.g. images) in the batch.
-* `get_encoder_cudagraph_per_item_output_tokens(mm_kwargs)` — returns per-item output token counts, used for greedy packing.
-* `get_encoder_cudagraph_per_item_input_sizes(mm_kwargs)` — returns per-item input sizes (e.g. patch counts), used for DP load balancing.
-* `select_encoder_cudagraph_items(mm_kwargs, indices)` — extracts a sub-batch of items by index, used during greedy packing and DP sharding.
-* `prepare_encoder_cudagraph_capture_inputs(...)` — creates dummy inputs for graph capture.
-* `prepare_encoder_cudagraph_replay_buffers(...)` — computes new buffer values from actual batch inputs before replay.
-* `encoder_cudagraph_forward(...)` — forward pass using precomputed buffers (called during capture and replay).
-* `encoder_eager_forward(...)` — fallback eager forward when no graph fits.
-* `get_input_modality(...)` - return the modality of the inputs.
-* `get_max_frames_per_video()` - return model-specific max frames per video.
-* `postprocess_encoder_output(...)` - post process encoder output, directly call scatter_output_slices by default
+继 <https://github.com/vllm-project/vllm/pull/35963>（支持图像推理的 ViT 完整 CUDA graph）之后，<https://github.com/vllm-project/vllm/pull/38061> 将编码器 CUDA graph 框架扩展到支持 Qwen3-VL 的视频推理。以前，CUDA graph 捕获/回放路径只处理图像输入（`pixel_values` + `image_grid_thw`）。视频输入使用不同的键（`pixel_values_videos` + `video_grid_thw`），并且需要更大的 `cu_seqlens` 缓冲区，因为每个视频项贡献多个帧（`T` 个注意力序列）。该 PR 通用了协议和管理器，通过单个共享的 graph 管理器处理两种模态。
 
 !!! note
-    The `SupportsEncoderCudaGraph` protocol is designed to be model-agnostic. New vision encoder models can opt-in by implementing the protocol methods without modifying the manager.
+    当 EVS（高效视频采样）修剪启用时，视频 CUDA graphs 会自动禁用，因为 EVS 使 token 数量依赖于数据，与 CUDA graph 捕获不兼容。
 
-**Supported models:**
+    现在也支持每个提示的混合输入（图像+视频）。
 
-| Architecture | Models | CG for Image | CG for Video |
+## 通过 `SupportsEncoderCudaGraph` 进行模型集成
+
+模型通过实现 [SupportsEncoderCudaGraph][vllm.model_executor.models.interfaces.SupportsEncoderCudaGraph] 协议来选择加入编码器 CUDA Graphs。该协议封装了所有模型特定的逻辑，使管理器保持模型无关。该协议定义了以下方法：
+
+* `get_encoder_cudagraph_config()` —— 返回静态配置（支持的模态、输入键、缓冲区键、输出隐藏层大小）。
+* `get_encoder_cudagraph_budget_range(vllm_config)` —— 返回用于自动推断 token 预算的 `(min_budget, max_budget)`。
+* `get_encoder_cudagraph_num_items(mm_kwargs)` —— 返回批次中的项（例如图像）数量。
+* `get_encoder_cudagraph_per_item_output_tokens(mm_kwargs)` —— 返回每项输出 token 数量，用于贪心打包。
+* `get_encoder_cudagraph_per_item_input_sizes(mm_kwargs)` —— 返回每项输入大小（例如 patch 数量），用于 DP 负载均衡。
+* `select_encoder_cudagraph_items(mm_kwargs, indices)` —— 按索引提取子批次项，用于贪心打包和 DP 分片。
+* `prepare_encoder_cudagraph_capture_inputs(...)` —— 为 graph 捕获创建虚拟输入。
+* `prepare_encoder_cudagraph_replay_buffers(...)` —— 在回放前从实际批次输入计算新的缓冲区值。
+* `encoder_cudagraph_forward(...)` —— 使用预计算缓冲区的前向传播（在捕获和回放期间调用）。
+* `encoder_eager_forward(...)` —— 当没有合适的 graph 时的回退即时前向传播。
+* `get_input_modality(...)` —— 返回输入的模态。
+* `get_max_frames_per_video()` —— 返回模型特定的每视频最大帧数。
+* `postprocess_encoder_output(...)` —— 后处理编码器输出，默认直接调用 `scatter_output_slices`。
+
+!!! note
+    `SupportsEncoderCudaGraph` 协议设计为模型无关。新的视觉编码器模型可以通过实现协议方法选择加入，而无需修改管理器。
+
+**支持的模型：**
+
+| 架构 | 模型 | 图像的 CG | 视频的 CG |
 | ------------ | ------ | ------------ | ------------ |
 | `Qwen2VLForConditionalGeneration` | `Qwen2-VL` | ✅︎ | ✅︎ |
 | `Qwen2_5_VLForConditionalGeneration` | `Qwen2.5-VL` | ✅︎ | ✅︎ |
@@ -93,44 +93,44 @@ Models opt-in to encoder CUDA Graphs by implementing the [SupportsEncoderCudaGra
 | `Step3VLForConditionalGeneration` | `Step3-VL` | ✅︎ | ❌︎ |
 
 !!! note
-    Encoder CUDA Graphs have currently been tested with `--mm-encoder-attn-backend=FLASH_ATTN` and `--mm-encoder-attn-backend=FLASHINFER` on Blackwell GPUs.
-    For Qwen2-VL and Qwen2.5-VL only FA2 and FA3 has been tested.
+    编码器 CUDA Graphs 目前已在 Blackwell GPU 上使用 `--mm-encoder-attn-backend=FLASH_ATTN` 和 `--mm-encoder-attn-backend=FLASHINFER` 进行了测试。
+    对于 Qwen2-VL 和 Qwen2.5-VL，仅测试了 FA2 和 FA3。
 
-## Configuration
+## 配置
 
-Three fields in `CompilationConfig` control encoder CUDA Graphs:
+`CompilationConfig` 中的三个字段控制编码器 CUDA Graphs：
 
-* `cudagraph_mm_encoder` (`bool`, default `False`) — enable CUDA Graph capture for multimodal encoder. When enabled, captures the full encoder forward as a CUDA Graph for each token budget level.
-* `encoder_cudagraph_token_budgets` (`list[int]`, default `[]`) — token budget levels for capture. If empty (default), auto-inferred from model architecture as power-of-2 levels. User-provided values override auto-inference.
-* `encoder_cudagraph_max_vision_items_per_batch` (`int`, default `0`) — maximum number of images/videos per batch during capture. If 0 (default), auto-inferred as `max_budget // min_budget`.
-* `encoder_cudagraph_max_frames_per_batch` (`int`, default `None`) — maximum number of video frames per batch during capture. If `None` (default), auto-inferred as `encoder_cudagraph_max_vision_items_per_batch * max_frames_per_video` (`max_frames_per_video` is a model-specific value according to its `processing_info`). If we limit the video count per prompt to `0`, it will also be set to `0` (i.e., fall back to image-only mode).
+* `cudagraph_mm_encoder`（`bool`，默认 `False`）—— 为多模态编码器启用 CUDA Graph 捕获。启用后，将每个 token 预算级别的完整编码器前向传播捕获为 CUDA Graph。
+* `encoder_cudagraph_token_budgets`（`list[int]`，默认 `[]`）—— 用于捕获的 token 预算级别。如果为空（默认），则从模型架构自动推断为 2 的幂级别。用户提供的值会覆盖自动推断。
+* `encoder_cudagraph_max_vision_items_per_batch`（`int`，默认 `0`）—— 捕获期间每批次的最大图像/视频数量。如果为 0（默认），则自动推断为 `max_budget // min_budget`。
+* `encoder_cudagraph_max_frames_per_batch`（`int`，默认 `None`）—— 捕获期间每批次的最大视频帧数量。如果为 `None`（默认），则自动推断为 `encoder_cudagraph_max_vision_items_per_batch * max_frames_per_video`（`max_frames_per_video` 是根据其 `processing_info` 决定的模型特定值）。如果我们限制每个提示的视频数量为 `0`，它也将被设置为 `0`（即回退到仅图像模式）。
 
-## Usage guide
+## 使用指南
 
-### Image inference
+### 图像推理
 
-Enable encoder CUDA Graphs via `compilation_config`:
+通过 `compilation_config` 启用编码器 CUDA Graphs：
 
 ```bash
 vllm serve Qwen/Qwen3-VL-32B \
   --compilation-config '{"cudagraph_mm_encoder": true}'
 ```
 
-With explicit budgets:
+使用显式预算：
 
 ```bash
 vllm serve Qwen/Qwen3-VL-32B \
   --compilation-config '{"cudagraph_mm_encoder": true, "encoder_cudagraph_token_budgets": [2048, 4096, 8192, 13824], "encoder_cudagraph_max_vision_items_per_batch": 8}'
 ```
 
-Python example:
+Python 示例：
 
 ```python
 import vllm
 
 compilation_config = {
     "cudagraph_mm_encoder": True,
-    # Optional: override auto-inferred budgets
+    # 可选：覆盖自动推断的预算
     # "encoder_cudagraph_token_budgets": [2048, 4096, 8192, 13824],
     # "encoder_cudagraph_max_vision_items_per_batch": 8,
 }
@@ -141,32 +141,32 @@ model = vllm.LLM(
 )
 ```
 
-The manager tracks hit/miss statistics and logs them periodically. A "hit" means an image was processed via CUDA Graph replay; a "miss" means eager fallback (image exceeded all budgets).
+管理器会跟踪命中/未命中统计信息并定期记录。"命中"表示图像通过 CUDA Graph 回放处理；"未命中"表示即时回退（图像超出了所有预算）。
 
-### Video inference
+### 视频推理
 
-Enable encoder CUDA Graphs via `compilation_config`:
+通过 `compilation_config` 启用编码器 CUDA Graphs：
 
 ```bash
 vllm serve Qwen/Qwen3-VL-32B \
   --compilation-config '{"cudagraph_mm_encoder": true}'
 ```
 
-With explicit budgets:
+使用显式预算：
 
 ```bash
 vllm serve Qwen/Qwen3-VL-32B \
   --compilation-config '{"cudagraph_mm_encoder": true, "encoder_cudagraph_token_budgets": [2048, 4096, 8192, 13824], "encoder_cudagraph_max_vision_items_per_batch": 8, "encoder_cudagraph_max_frames_per_batch": 64}'
 ```
 
-Python example:
+Python 示例：
 
 ```python
 import vllm
 
 compilation_config = {
     "cudagraph_mm_encoder": True,
-    # Optional: override auto-inferred budgets
+    # 可选：覆盖自动推断的预算
     # "encoder_cudagraph_token_budgets": [2048, 4096, 8192, 13824],
     # "encoder_cudagraph_max_vision_items_per_batch": 8,
     # "encoder_cudagraph_max_frames_per_batch": 64,
@@ -178,20 +178,20 @@ model = vllm.LLM(
 )
 ```
 
-## About the Performance
+## 关于性能
 
-The following benchmarks were run on Blackwell GPUs (GB200) using `vllm bench mm-processor`. See [#35963](https://github.com/vllm-project/vllm/pull/35963) for full details.
+以下基准测试在 Blackwell GPU（GB200）上使用 `vllm bench mm-processor` 运行。详见 [#35963](https://github.com/vllm-project/vllm/pull/35963)。
 
-### Single GPU (1x GB200)
+### 单 GPU（1x GB200）
 
-Model: `Qwen/Qwen3-VL-30B-A3B-Instruct`, dataset: `lmarena-ai/VisionArena-Chat` (3000 prompts, 300 warmup), `max_model_len=32768`.
+模型：`Qwen/Qwen3-VL-30B-A3B-Instruct`，数据集：`lmarena-ai/VisionArena-Chat`（3000 条提示，300 条预热），`max_model_len=32768`。
 
-| Backend | Mean latency improvement | P99 latency improvement |
+| 后端 | 平均延迟改进 | P99 延迟改进 |
 | :------ | :----------------------- | :---------------------- |
-| FLASH_ATTN | +11.8% (5.13→4.52ms) | +31.6% (9.16→6.26ms) |
-| FLASHINFER | +19.6% (5.42→4.36ms) | +40.3% (10.87→6.49ms) |
+| FLASH_ATTN | +11.8%（5.13→4.52ms） | +31.6%（9.16→6.26ms） |
+| FLASHINFER | +19.6%（5.42→4.36ms） | +40.3%（10.87→6.49ms） |
 
-To reproduce:
+复现方法：
 
 ```bash
 vllm bench mm-processor \
@@ -203,16 +203,16 @@ vllm bench mm-processor \
   --compilation-config '{"cudagraph_mm_encoder": true, "encoder_cudagraph_token_budgets": [512, 1024, 1536, 2048, 2560, 3072, 3584, 4096, 4864], "encoder_cudagraph_max_vision_items_per_batch": 8}'
 ```
 
-### Multi-GPU (4x GB200, TP=4, DP=4)
+### 多 GPU（4x GB200，TP=4，DP=4）
 
-Model: `Qwen/Qwen3-VL-32B-Instruct`, dataset: `random-mm` (1000 prompts, 200 warmup, 20 images/request at 336x336), `max_model_len=8192`.
+模型：`Qwen/Qwen3-VL-32B-Instruct`，数据集：`random-mm`（1000 条提示，200 条预热，每次请求 20 张 336x336 图像），`max_model_len=8192`。
 
-| Backend | Mean latency improvement | P99 latency improvement |
+| 后端 | 平均延迟改进 | P99 延迟改进 |
 | :------ | :----------------------- | :---------------------- |
-| FLASH_ATTN | +18.4% (28.39→23.16ms) | +14.0% (238.78→205.28ms) |
-| FLASHINFER | +44.4% (23.24→12.91ms) | +84.9% (172.41→26.05ms) |
+| FLASH_ATTN | +18.4%（28.39→23.16ms） | +14.0%（238.78→205.28ms） |
+| FLASHINFER | +44.4%（23.24→12.91ms） | +84.9%（172.41→26.05ms） |
 
-To reproduce:
+复现方法：
 
 ```bash
 vllm bench mm-processor \
@@ -229,4 +229,4 @@ vllm bench mm-processor \
 ```
 
 !!! note
-    Find more details about benchmarks on GPUs (A100) for video inference at [#38061](https://github.com/vllm-project/vllm/pull/38061).
+    在 GPU（A100）上进行视频推理的基准测试详情请参见 [#38061](https://github.com/vllm-project/vllm/pull/38061)。

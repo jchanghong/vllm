@@ -1,41 +1,34 @@
-# Reproducibility
+# 可重现性
 
-vLLM does not guarantee the reproducibility of the results by default, for the sake of performance. To achieve
-reproducible results:
+vLLM 默认不保证结果的可重现性，这是出于性能考虑。要实现可重现的结果：
 
-- In offline mode, you can either set `VLLM_ENABLE_V1_MULTIPROCESSING=0` which makes scheduling deterministic,
-  or enable [batch invariance](../features/batch_invariance.md) to make the outputs insensitive to scheduling.
-- In online mode, you can only enable [batch invariance](../features/batch_invariance.md).
+- 在离线模式下，您可以设置 `VLLM_ENABLE_V1_MULTIPROCESSING=0` 使调度具有确定性，或者启用[批处理不变性](../features/batch_invariance.md)使输出对调度不敏感。
+- 在在线模式下，您只能启用[批处理不变性](../features/batch_invariance.md)。
 
-Example: [examples/features/batch_invariance/reproducibility_offline.py](../../examples/features/batch_invariance/reproducibility_offline.py)
+示例：[examples/features/batch_invariance/reproducibility_offline.py](../../examples/features/batch_invariance/reproducibility_offline.py)
 
 !!! warning
 
-    Setting `VLLM_ENABLE_V1_MULTIPROCESSING=0` will change the random state of user code 
-    (i.e. the code that constructs [LLM][vllm.LLM] class).
+    设置 `VLLM_ENABLE_V1_MULTIPROCESSING=0` 将改变用户代码（即构造 [LLM][vllm.LLM] 类的代码）的随机状态。
 
 !!! note
 
-    Even with the above settings, vLLM only provides reproducibility
-    when it runs on the same hardware and the same vLLM version.
+    即使使用上述设置，vLLM 仅在相同硬件和相同 vLLM 版本上运行时才提供可重现性。
 
-## Setting the global seed
+## 设置全局种子
 
-The `seed` parameter in vLLM is used to control the random states for various random number generators.
+vLLM 中的 `seed` 参数用于控制各种随机数生成器的随机状态。
 
-If a specific seed value is provided, the random states for `random`, `np.random`, and `torch.manual_seed` will be set accordingly.
+如果提供了特定的种子值，`random`、`np.random` 和 `torch.manual_seed` 的随机状态将相应设置。
 
-### Default Behavior
+### 默认行为
 
-In V1, the `seed` parameter defaults to `0` which sets the random state for each worker, so the results will remain consistent for each vLLM run even if `temperature > 0`.
+在 V1 中，`seed` 参数默认为 `0`，这会设置每个工作进程的随机状态，因此即使 `temperature > 0`，每次 vLLM 运行的结果也将保持一致。
 
-It is impossible to un-specify a seed for V1 because different workers need to sample the same outputs
-for workflows such as speculative decoding. For more information, see: <https://github.com/vllm-project/vllm/pull/17929>
+无法为 V1 取消指定种子，因为不同的工作进程需要对相同输出进行采样，以便用于推测解码等工作流程。更多信息请参见：<https://github.com/vllm-project/vllm/pull/17929>
 
 !!! note
 
-    The random state in user code (i.e. the code that constructs [LLM][vllm.LLM] class) is updated by vLLM 
-    only if the workers are run in the same process as user code, i.e.: `VLLM_ENABLE_V1_MULTIPROCESSING=0`.
+    用户代码（即构造 [LLM][vllm.LLM] 类的代码）中的随机状态仅在工作进程与用户代码在同一个进程中运行时才会被 vLLM 更新，即：`VLLM_ENABLE_V1_MULTIPROCESSING=0`。
 
-    By default, `VLLM_ENABLE_V1_MULTIPROCESSING=1` so you can use vLLM without having to worry about
-    accidentally making deterministic subsequent operations that rely on random state.
+    默认情况下 `VLLM_ENABLE_V1_MULTIPROCESSING=1`，因此您可以使用 vLLM 而无需担心意外使依赖于随机状态的后续操作变得确定。

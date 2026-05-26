@@ -1,20 +1,20 @@
 # KubeRay
 
-[KubeRay](https://github.com/ray-project/kuberay) provides a Kubernetes-native way to run vLLM workloads on Ray clusters.
-A Ray cluster can be declared in YAML, and the operator then handles pod scheduling, networking configuration, restarts, and blue-green deployments — all while preserving the familiar Kubernetes experience.
+[KubeRay](https://github.com/ray-project/kuberay) 提供了一种 Kubernetes 原生的方式在 Ray 集群上运行 vLLM 工作负载。
+Ray 集群可以用 YAML 声明，然后算子处理 Pod 调度、网络配置、重启和蓝绿部署——同时保留熟悉的 Kubernetes 体验。
 
-## Why KubeRay instead of manual scripts?
+## 为什么选择 KubeRay 而不是手动脚本？
 
-| Feature | Manual scripts | KubeRay |
+| 特性 | 手动脚本 | KubeRay |
 | ------- | --------------------------------------------------------- | ------- |
-| Cluster bootstrap | Manually SSH into every node and run a script | One command to create or update the whole cluster: `kubectl apply -f cluster.yaml` |
-| Autoscaling | Manual | Automatically patches CRDs for adjusting cluster size |
-| Upgrades | Tear down & re-create manually | Blue/green deployment updates supported |
-| Declarative config | Bash flags & environment variables | Git-ops-friendly YAML CRDs (RayCluster/RayService) |
+| 集群引导 | 手动 SSH 到每个节点并运行脚本 | 一条命令即可创建或更新整个集群：`kubectl apply -f cluster.yaml` |
+| 自动扩缩容 | 手动 | 自动修补 CRD 以调整集群大小 |
+| 升级 | 手动拆除并重建 | 支持蓝绿部署更新 |
+| 声明式配置 | Bash 标志和环境变量 | GitOps 友好的 YAML CRD（RayCluster/RayService） |
 
-Using KubeRay reduces the operational burden and simplifies integration of Ray + vLLM with existing Kubernetes workflows (CI/CD, secrets, storage classes, etc.).
+使用 KubeRay 可降低运维负担，并简化 Ray + vLLM 与现有 Kubernetes 工作流（CI/CD、密钥、存储类等）的集成。
 
-## Learn more
+## 了解更多
 
-* ["Serve a Large Language Model using Ray Serve LLM on Kubernetes"](https://docs.ray.io/en/master/cluster/kubernetes/examples/rayserve-llm-example.html) - An end-to-end example of how to serve a model using vLLM, KubeRay, and Ray Serve.
-* [KubeRay documentation](https://docs.ray.io/en/latest/cluster/kubernetes/index.html)
+* ["在 Kubernetes 上使用 Ray Serve LLM 提供大语言模型服务"](https://docs.ray.io/en/master/cluster/kubernetes/examples/rayserve-llm-example.html) - 一个端到端示例，演示如何使用 vLLM、KubeRay 和 Ray Serve 提供模型服务。
+* [KubeRay 文档](https://docs.ray.io/en/latest/cluster/kubernetes/index.html)

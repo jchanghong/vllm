@@ -1,38 +1,38 @@
 # Streamlit
 
-[Streamlit](https://github.com/streamlit/streamlit) lets you transform Python scripts into interactive web apps in minutes, instead of weeks. Build dashboards, generate reports, or create chat apps.
+[Streamlit](https://github.com/streamlit/streamlit) 让您可以在数分钟而非数周内将 Python 脚本转换为交互式 Web 应用程序。构建仪表板、生成报告或创建聊天应用。
 
-It can be quickly integrated with vLLM as a backend API server, enabling powerful LLM inference via API calls.
+它可以快速与 vLLM（作为后端 API 服务器）集成，通过 API 调用实现强大的 LLM 推理。
 
-## Prerequisites
+## 前提条件
 
-Set up the vLLM environment by installing all required packages:
+通过安装所有必需的包来设置 vLLM 环境：
 
 ```bash
 pip install vllm streamlit openai
 ```
 
-## Deploy
+## 部署
 
-1. Start the vLLM server with a supported chat completion model, e.g.
+1. 使用支持的对话补全模型启动 vLLM 服务器，例如：
 
     ```bash
     vllm serve Qwen/Qwen1.5-0.5B-Chat
     ```
 
-1. Use the script: [examples/applications/chatbot/streamlit_openai_chatbot_webserver.py](../../../examples/applications/chatbot/streamlit_openai_chatbot_webserver.py)
+1. 使用脚本：[examples/applications/chatbot/streamlit_openai_chatbot_webserver.py](../../../examples/applications/chatbot/streamlit_openai_chatbot_webserver.py)
 
-1. Start the streamlit web UI and start to chat:
+1. 启动 Streamlit Web UI 并开始聊天：
 
     ```bash
     streamlit run streamlit_openai_chatbot_webserver.py
 
-    # or specify the VLLM_API_BASE or VLLM_API_KEY
+    # 或指定 VLLM_API_BASE 或 VLLM_API_KEY
     VLLM_API_BASE="http://vllm-server-host:vllm-server-port/v1" \
         streamlit run streamlit_openai_chatbot_webserver.py
 
-    # start with debug mode to view more details
+    # 以调试模式启动以查看更多详细信息
     streamlit run streamlit_openai_chatbot_webserver.py --logger.level=debug
     ```
 
-    ![Chat with vLLM assistant in Streamlit](../../assets/deployment/streamlit-chat.png)
+    ![在 Streamlit 中与 vLLM 助手聊天](../../assets/deployment/streamlit-chat.png)

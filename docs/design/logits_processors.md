@@ -1,32 +1,31 @@
-# Logits Processors
+# Logits 处理器
 
 !!! important
-    Some logits processors design changes are still in progress and the API may
-    change in the near future. We hope to stabilize this part of the API soon
+    一些 logits 处理器的设计更改仍在进行中，API 可能在不久的将来发生变化。我们希望尽快稳定这部分 API。
 
-This document describes how the vLLM engine interacts with logits processors, and the programming model which vLLM supports for implementing logits processors.
+本文档描述了 vLLM 引擎如何与 logits 处理器交互，以及 vLLM 支持用于实现 logits 处理器的编程模型。
 
-## Logits Processors Background
+## Logits 处理器背景
 
-A logits processor adjusts the next-token probability distribution, usually with the intention of steering the model towards a desired type of behavior.
+Logits 处理器调整下一个 token 的概率分布，通常旨在引导模型朝着期望的行为方向发展。
 
-In vLLM, logits processors operate at batch granularity. During a given engine step, the logits processor consumes a `(num_requests) x (vocab_size)` tensor of raw logits output by the model. For all requests which enable the logits processor, the logits processor applies a transformation to the corresponding row of the logits tensor, while leaving other rows unmodified. The transformed logits tensor is then passed to softmax.  
+在 vLLM 中，logits 处理器以批次粒度运行。在给定的引擎步骤中，logits 处理器使用一个 `(num_requests) x (vocab_size)` 的原始 logits 张量（模型输出）。对于所有启用 logits 处理器的请求，logits 处理器对 logits 张量的对应行应用变换，同时保持其他行不变。变换后的 logits 张量随后传递给 softmax。
 
-## Logits Processors in the vLLM engine
+## vLLM 引擎中的 Logits 处理器
 
-The vLLM engine's persistent batch data structure maintains a list of loaded logits processors.
+vLLM 引擎的持久批处理数据结构维护了一个已加载的 logits 处理器列表。
 
-In order to operate on the entire batch at once, each logits processor may maintain metadata about the requests in the batch (i.e. each request's logits-processor-specific configuration settings). Therefore, logits processors are stateful.
+为了在单个批次上操作，每个 logits 处理器可以维护关于批次中请求的元数据（即每个请求的 logits 处理器特定配置设置）。因此，logits 处理器是有状态的。
 
-In each engine step, the vLLM engine will (1) update each logits processor's internal state and (2) apply logits processors to the model output logits.
+在每个引擎步骤中，vLLM 引擎将 (1) 更新每个 logits 处理器的内部状态，以及 (2) 将 logits 处理器应用于模型输出的 logits。
 
-### Updating Logits Processor Internal State
+### 更新 Logits 处理器内部状态
 
-At the beginning of each engine step, the persistent batch may add, discard and/or reorder requests in response to the scheduler output. After the persistent batch has reorganized, the vLLM engine invokes each logits processor's `update_state()` method. This is necessary to ensure that logits processors' internal states are reorganized to match the new persistent batch state at the beginning of the engine step.
+在每个引擎步骤开始时，持久批处理可能根据调度器输出添加、丢弃和/或重新排序请求。在持久批处理重新组织后，vLLM 引擎调用每个 logits 处理器的 `update_state()` 方法。这对于确保 logits 处理器的内部状态被重新组织以匹配引擎步骤开始时新的持久批处理状态是必要的。
 
-The pseudocode below shows the process by which the vLLM persistent batch notifies each logits processor of changes in batch state:
+下面的伪代码显示了 vLLM 持久批处理通知每个 logits 处理器批次状态变化的过程：
 
-??? code "Model Runner Updates Logits Processor States"
+??? code "模型运行器更新 Logits 处理器状态"
 
     ``` python
     # gpu_model_runner.py
@@ -44,8 +43,7 @@ The pseudocode below shows the process by which the vLLM persistent batch notifi
 
             ...
 
-            # ...update persistent batch to reflect new/finished requests & reordering
-            # of requests within batch...
+            # ...更新持久批处理以反映新的/完成的请求以及批次内请求的重新排序...
 
             ...
 
@@ -62,7 +60,7 @@ The pseudocode below shows the process by which the vLLM persistent batch notifi
 
             ...
 
-            # Update each logits processor's state to reflect persistent batch state
+            # 更新每个 logits 处理器的状态以反映持久批处理状态
             batch_update = self.batch_update_builder.get_and_reset(self.num_reqs)
             for logit_proc in self.logitsprocs.all:
                 logit_proc.update_state(batch_update)
@@ -74,8 +72,8 @@ The pseudocode below shows the process by which the vLLM persistent batch notifi
 
     @dataclass(frozen=True)
     class BatchUpdate:
-        # Batch state-change data structure which is passed to logits processors'
-        # update_state() methods
+        # 批次状态更改数据结构，传递给 logits 处理器的
+        # update_state() 方法
 
         batch_size: int
 
@@ -85,13 +83,13 @@ The pseudocode below shows the process by which the vLLM persistent batch notifi
     
     ```
 
-### Applying Logits Processors to the Model Output Logits
+### 将 Logits 处理器应用于模型输出的 Logits
 
-After updating persistent batch state, the vLLM model runner performs model inference to obtain logits. Then, the model runner invokes the sampler against the logits. In turn, part of the sampler's operation is to invoke the logits processors' `apply()` methods against the model output logit processors, yielding transformed logits (the `apply()` methods may modify the logits in-place or out-of-place, although in-place is more memory-efficient). This process is shown in the pseudocode below.
+更新持久批处理状态后，vLLM 模型运行器执行模型推理以获得 logits。然后，模型运行器对 logits 调用采样器。反过来，采样器操作的一部分是调用 logits 处理器的 `apply()` 方法对模型输出的 logits 进行处理，产生变换后的 logits（`apply()` 方法可以就地或非就地修改 logits，尽管就地修改更节省内存）。此过程显示在下面的伪代码中。
 
-Note that the sampler will access the logits processors via `SamplingMetadata.logitsprocs`. When the vLLM engine constructs `SamplingMetadata` (not shown in the code below), the reference to the list of logits processors is passed from the persistent batch data structure to `SamplingMetadata`.
+请注意，采样器将通过 `SamplingMetadata.logitsprocs` 访问 logits 处理器。当 vLLM 引擎构造 `SamplingMetadata`（未在下面的代码中显示）时，logits 处理器列表的引用从持久批处理数据结构传递到 `SamplingMetadata`。
 
-??? code "Apply logits processors to model output logits"
+??? code "将 logits 处理器应用于模型输出的 logits"
 
     ``` python
     # gpu_model_runner.py
@@ -101,16 +99,16 @@ Note that the sampler will access the logits processors via `SamplingMetadata.lo
         ...
 
         def execute_model(self, scheduler_output, ...):
-            # (discussed in previous section)
+            #（在前一节中讨论过）
             self._update_states(scheduler_output)
 
             ...
 
-            # ...run model inference to obtain logits...
+            # ...运行模型推理以获得 logits...
 
             ...
 
-            # Invoke sampler, which applies logits processors
+            # 调用采样器，它将应用 logits 处理器
             sampler_output = self.sampler(logits=logits,
                                           sampling_metadata=sampling_metadata)
 
@@ -127,7 +125,7 @@ Note that the sampler will access the logits processors via `SamplingMetadata.lo
 
             ...
 
-            # Apply non-argmax-invariant logits processors to model output logits
+            # 将非 argmax 不变的 logits 处理器应用于模型输出的 logits
             for processor in (sampling_metadata.logitsprocs.non_argmax_invariant):
                 logits = processor.apply(logits)
 
@@ -135,39 +133,39 @@ Note that the sampler will access the logits processors via `SamplingMetadata.lo
 
             ...
 
-            # ...return sampler output data structure...
+            # ...返回采样器输出数据结构...
 
 
         def sample(self, logits, sampling_metadata)
 
             ...
 
-            # ...exit early if all requests are greedy-sampling...
+            # ...如果所有请求都是贪心采样，则提前退出...
 
             ...
 
-            # Apply argmax-invariant logits processors
+            # 应用 argmax 不变的 logits 处理器
             for processor in sampling_metadata.logitsprocs.argmax_invariant:
                 logits = processor.apply(logits)
 
             ...
 
-            # ...perform sampling and return sampling result...
+            # ...执行采样并返回采样结果...
     ``` 
 
-At sampling time, the sampler checks whether all requests in the persistent batch employ greedy sampling. If that is the case, the sampler saves compute by skipping "argmax-invariant" logits processors. Here, "argmax" is shorthand for the token ID with the highest logit value in a given row of the logits tensor (i.e. the token which the model weighted the highest for a given request).
+在采样时，采样器检查持久批处理中的所有请求是否都使用贪心采样。如果是，采样器通过跳过"argmax 不变"的 logits 处理器来节省计算。这里，"argmax"是 logits 张量给定行中具有最高 logit 值的 token ID 的简写（即模型对给定请求加权最高的 token）。
 
-* An **argmax-invariant logits processor** is a logits processor (such as Min-P) which does not modify the argmax. For example, a logits processor which masks out the lowest-probability tokens will not change which token ID has the max logit. Greedy sampling always picks the highest-logit-value token ID, and so conceptually an argmax-invariant logits processor can be skipped for greedy sampling requests.
+* **argmax 不变的 logits 处理器** 是一种不修改 argmax 的 logits 处理器（例如 Min-P）。例如，掩码掉最低概率 token 的 logits 处理器不会改变哪个 token ID 具有最大 logit。贪心采样总是选择最高 logit 值的 token ID，因此从概念上讲，对于贪心采样请求，可以跳过 argmax 不变的 logits 处理器。
 
-* A **non-argmax-invariant logits processor** is a logits processor which may modify the argmax. For example, a logits processor which masks all tokens except for EOS after a certain number of steps in order to force decoding to terminate might end up masking the max-logit-value token and therefore change the argmax. Conceptually, these logits processors cannot be skipped for greedy sampling requests.
+* **非 argmax 不变的 logits 处理器** 是一种可能修改 argmax 的 logits 处理器。例如，在特定步数后掩码除 EOS 之外所有 token 以强制解码终止的 logits 处理器，可能最终会掩码最大 logit 值的 token，从而改变 argmax。从概念上讲，对于贪心采样请求，不能跳过这些 logits 处理器。
 
-The vLLM logits processor abstraction requires the engine to apply logits processors at batch granularity; therefore in practice the argmax-invariant logits processors can only be skipped when the entire batch uses greedy sampling.
+vLLM 的 logits 处理器抽象要求引擎以批次粒度应用 logits 处理器；因此，在实践中，只有当整个批次使用贪心采样时，才能跳过 argmax 不变的 logits 处理器。
 
-## Logits Processor Programming Model
+## Logits 处理器编程模型
 
-The previous sections alluded to the interfaces which vLLM logits processors must support. This section introduces in full the programming model for implementing logits processors that are compatible with the vLLM engine, including the `LogitsProcessor` base class and its interface methods as well as the `BatchUpdate` data structure for representing persistent batch state changes, both of which are shown in the code below:
+前面的部分提到了 vLLM logits 处理器必须支持的接口。本节全面介绍了为与 vLLM 引擎兼容而实现 logits 处理器的编程模型，包括 `LogitsProcessor` 基类及其接口方法，以及用于表示持久批处理状态变化的 `BatchUpdate` 数据结构，两者如下所示：
 
-??? code "`LogitsProcessor` base class and `BatchUpdate` data structure"
+??? code "`LogitsProcessor` 基类和 `BatchUpdate` 数据结构"
 
     ``` python
     from abc import ABC, abstractmethod
@@ -185,36 +183,32 @@ The previous sections alluded to the interfaces which vLLM logits processors mus
 
 
     class MoveDirectionality(Enum):
-        # One-way i1->i2 req move within batch
+        # 批次内的单向 i1->i2 请求移动
         UNIDIRECTIONAL = auto()
-        # Two-way i1<->i2 req swap within batch
+        # 批次内的双向 i1<->i2 请求交换
         SWAP = auto()
 
 
-    # (index, params, prompt_tok_ids, output_tok_ids) tuples for new
-    # requests added to the batch.
+    # 添加到批次中的新请求的（索引、参数、prompt token ID、输出 token ID）元组。
     AddedRequest = tuple[int, SamplingParams, list[int], list[int]]
 
-    # (index 1, index 2, directionality) tuples representing
-    # one-way moves or two-way swaps of requests in batch
+    # 表示批次中请求的单向移动或双向交换的（索引 1、索引 2、方向性）元组
     MovedRequest = tuple[int, int, MoveDirectionality]
 
-    # Batch indices of any removed requests.
+    # 任何已移除请求的批次索引。
     RemovedRequest = int
 
 
     @dataclass(frozen=True)
     class BatchUpdate:
-        """Persistent batch state change info for logitsprocs"""
-        batch_size: int  # Current num reqs in batch
+        """用于 logits 处理器的持久批处理状态更改信息"""
+        batch_size: int  # 批次中当前的请求数
 
-        # Metadata for requests added to, removed from, and moved
-        # within the persistent batch.
+        # 添加到、从批次中移除以及在持久批处理中移动的请求的元数据。
         #
-        # Key assumption: the `output_tok_ids` list (which is an element of each
-        # tuple in `added`) is a reference to the request's running output tokens
-        # list; via this reference, the logits processors always see the latest
-        # list of generated output tokens
+        # 关键假设：`output_tok_ids` 列表（它是 `added` 中每个元组的一个元素）
+        # 是对请求运行中输出 token 列表的引用；通过此引用，logits 处理器
+        # 始终可以看到最新的生成输出 token 列表
         removed: Sequence[RemovedRequest]
         moved: Sequence[MovedRequest]
         added: Sequence[AddedRequest]
@@ -233,11 +227,10 @@ The previous sections alluded to the interfaces which vLLM logits processors mus
 
         @abstractmethod
         def is_argmax_invariant(self) -> bool:
-            """True if logits processor has no impact on the
-            argmax computation in greedy sampling.
-            NOTE: may or may not have the same value for all
-            instances of a given LogitsProcessor subclass,
-            depending on subclass implementation.
+            """如果 logits 处理器对贪心采样中的
+            argmax 计算没有影响，则为 True。
+            注意：对于给定的 LogitsProcessor 子类的不同实例，
+            可能有相同或不同的值，取决于子类实现。
             """
             raise NotImplementedError
 
@@ -246,326 +239,315 @@ The previous sections alluded to the interfaces which vLLM logits processors mus
             self,
             batch_update: "BatchUpdate" | None,
         ) -> None:
-            """Called when there are new output tokens, prior
-            to each forward pass.
+            """当有新的输出 token 时调用，在每次前向传播之前。
 
-            Args:
-                batch_update is non-None iff there have been
-                changes to the batch makeup.
+            参数：
+                batch_update 非 None 当且仅当批次组成发生了变化。
             """
             raise NotImplementedError
 
         @classmethod
         def validate_params(cls, sampling_params: SamplingParams):
-            """Validate sampling params for this logits processor.
+            """为此 logits 处理器验证采样参数。
 
-            Raise ValueError for invalid ones.
+            对无效参数抛出 ValueError。
             """
             return None
 
     ```
 
-A vLLM logits processor must subclass `LogitsProcessor` and define (at minimum) the following methods:
+vLLM logits 处理器必须继承 `LogitsProcessor` 并至少定义以下方法：
 
 * `__init__(self, vllm_config: VllmConfig, device: torch.device, is_pin_memory: bool)`
-    * `vllm_config`: engine configuration data structure
-    * `device`: hardware accelerator device info
-    * `is_pin_memory`: flag indicating whether pin memory is available to support logits processor implementation
+    * `vllm_config`：引擎配置数据结构
+    * `device`：硬件加速器设备信息
+    * `is_pin_memory`：指示是否可以使用固定内存以支持 logits 处理器实现的标志
 
-* `apply(self, logits: torch.Tensor) -> torch.Tensor`:
-    * Consume a `(num_requests) x (vocab_size)` logits tensor (`logits`)
-    * Apply logits processor transformation at batch granularity
-    * Return a transformed `(num_requests) x (vocab_size)` logits tensor
-    * You can modify the input logits processors in-place or out-of-place; in-place is more memory-efficient
+* `apply(self, logits: torch.Tensor) -> torch.Tensor`：
+    * 消费一个 `(num_requests) x (vocab_size)` 的 logits 张量（`logits`）
+    * 以批次粒度应用 logits 处理器变换
+    * 返回一个变换后的 `(num_requests) x (vocab_size)` 的 logits 张量
+    * 您可以就地或非就地修改输入的 logits；就地修改更节省内存
 
-* `is_argmax_invariant(self) -> bool`:
-    * Return `True` if the logits processor is argmax invariant (never changes what is the highest-logit-value token ID for a given request), `False` if the logits processor may modify argmax
-    * `is_argmax_invariant()` is evaluated once at startup; if `True`, vLLM will skip applying this logits processor in a given step when all requests use greedy sampling
+* `is_argmax_invariant(self) -> bool`：
+    * 如果 logits 处理器是 argmax 不变的（从不会改变给定请求的最高 logit 值的 token ID），返回 `True`，如果 logits 处理器可能修改 argmax，返回 `False`
+    * `is_argmax_invariant()` 在启动时评估一次；如果为 `True`，vLLM 将在所有请求使用贪心采样的步骤中跳过应用此 logits 处理器
 
-* `update_state(self, batch_update: "BatchUpdate" | None) -> None`:
-    * Consume a `BatchUpdate` data structure representing persistent batch state changes at the beginning of the current engine step
-    * Use the `BatchUpdate` members to update logits processor internal state
-    * **Note:** batch update data structure may be `None`, signaling no change to the batch constituents. In this case, the LogitsProcessor might still want to update its state based on the updated `output_token_ids` lists that it could have retained when they were added.
+* `update_state(self, batch_update: "BatchUpdate" | None) -> None`：
+    * 消费一个表示当前引擎步骤开始时持久批处理状态变化的 `BatchUpdate` 数据结构
+    * 使用 `BatchUpdate` 成员更新 logits 处理器的内部状态
+    * **注意：** 批次更新数据结构可能为 `None`，表示批次组成没有变化。在这种情况下，LogitsProcessor 可能仍希望根据更新的 `output_token_ids` 列表（可能在添加时已保留）来更新其状态。
 
-* `validate_params(cls, sampling_params: SamplingParams)`:
-    * Raise `ValueError` if `SamplingParams` has invalid arguments (especially custom arguments) used by logits processor.
-    * When request is sent to entrypoint, `validate_params()` will validate `SamplingParams` and refuse request with invalid arguments.
+* `validate_params(cls, sampling_params: SamplingParams)`：
+    * 如果 `SamplingParams` 有 logits 处理器使用的无效参数（特别是自定义参数），抛出 `ValueError`。
+    * 当请求发送到入口点时，`validate_params()` 将验证 `SamplingParams` 并拒绝带有无效参数的请求。
 
-### `BatchUpdate` data structure
+### `BatchUpdate` 数据结构
 
-The `BatchUpdate` abstraction models the persistent batch as a list of requests, supporting the following operations to change batch state (note that the order in which the operations are mentioned below reflects the order in which they should be processed in `update_state()`):
+`BatchUpdate` 抽象将持久批处理建模为一个请求列表，支持以下更改批次状态的操作（注意，以下操作的顺序反映了它们应在 `update_state()` 中处理的顺序）：
 
-* **Remove:** remove (without replacement) request at index `i`
+* **移除：** 移除（无替换）索引 `i` 处的请求
 
-    * A Remove is represented in `Batchupdate.removed` by an `int` (representing `i`)
+    * 在 `Batchupdate.removed` 中由 `int`（表示 `i`）表示
 
-    * Effect of remove-at-index on batch:
+    * 索引移除对批次的影响：
 
         ``` text
-        Batch: [A,B,C]
-        Remove @ i:  1
+        批次：[A,B,C]
+        移除 @ i:  1
 
         =>
 
-        New Batch: [A,x,C] # Discard B and leave an empty slot
+        新批次：[A,x,C] # 丢弃 B 并留下一个空槽
         ```
 
-* **Add:** add (or replace existing request with) a new request at index `i`. If a request is replaced, its associated state should be discarded.
+* **添加：** 在索引 `i` 处添加（或替换现有请求）一个新请求。如果替换了一个请求，其关联状态应被丢弃。
 
-    * An Add is represented in `Batchupdate.added` as a tuple of
+    * 在 `Batchupdate.added` 中表示为一个元组
 
         ``` text
         (index, new request SamplingParams, prompt token ids, output token ids)
         ```
 
-    * `prompt token ids` and `output token ids` are references to the request's prompt token ids and output token ids lists, respectively. Note that the output token ids list grows with each engine step, and this growth is visible to the logits processor because output token ids are passed by reference. **This is important for LogitsProcessors that take into account the tokens generated so far**.
+    * `prompt token ids` 和 `output token ids` 分别是请求的 prompt token ID 列表和输出 token ID 列表的引用。注意，输出 token ID 列表随着每个引擎步骤增长，这种增长对 logits 处理器是可见的，因为输出 token ID 是通过引用传递的。**这对于考虑已生成 token 的 LogitsProcessor 很重要**。
 
-    * The implementation of the particular logits processor subclass determines whether or how the fields in the added request tuple are digested into an internal representation. For example, a logits processor that does not utilize prompt or output token ids may only need to utilize `index` and `SamplingParams` and discard the other tuple fields
+    * 特定 logits 处理器子类的实现决定了添加的请求元组中的字段如何被消化为内部表示。例如，不利用 prompt 或输出 token ID 的 logits 处理器可能只需要使用 `index` 和 `SamplingParams` 并丢弃其他元组字段。
 
-    * If index `i` currently holds a request, a replacement occurs:
+    * 如果索引 `i` 当前持有一个请求，则发生替换：
 
         ``` text
-        Batch: [A,B,C]
-        New request to be added @ i: D @ 1
+        批次：[A,B,C]
+        要添加的新请求 @ i: D @ 1
 
         =>
 
-        New Batch: [A,D,C] # Add D, discard B
+        新批次：[A,D,C] # 添加 D，丢弃 B
         ```
 
-    * If index `i` does not currently hold a request (because `i` is out of bounds of the current batch size):
+    * 如果索引 `i` 当前不持有请求（因为 `i` 超出当前批次大小范围）：
 
         ``` text
-        Batch: [A,B,C]
-        New request to be added @ i: D @ 3
+        批次：[A,B,C]
+        要添加的新请求 @ i: D @ 3
 
         =>
 
-        New Batch: [A,B,C,D] # Add D, extending batch
+        新批次：[A,B,C,D] # 添加 D，扩展批次
         ```
 
-* **Move:** move request at index `s` to index `d` OR swap requests at indices `s` and `d`
+* **移动：** 将索引 `s` 处的请求移动到索引 `d`，或交换索引 `s` 和 `d` 处的请求
 
-    * A Move is represented in `Batchupdate.moved` as a tuple of
+    * 在 `Batchupdate.moved` 中表示为一个元组
 
         ``` text
-        (s, d, UNIDIRECTIONAL or SWAP)
+        (s, d, UNIDIRECTIONAL 或 SWAP)
         ```
 
-    * If the Move specifies `UNIDIRECTIONAL`:
+    * 如果 Move 指定为 `UNIDIRECTIONAL`：
 
-        * The request at index `s` is moved to index `d`; index `s` becomes an empty slot
+        * 索引 `s` 处的请求被移动到索引 `d`；索引 `s` 变为空槽
 
             ``` text
-            Batch: [A,x,C,D]
-            Unidirectionally Move s -> d:  3 -> 1
+            批次：[A,x,C,D]
+            单向 Move s -> d:  3 -> 1
 
             =>
 
-            New Batch: [A,D,C,x] # Move D to 1, leaving empty slot at 3
+            新批次：[A,D,C,x] # 将 D 移动到 1，在 3 处留下空槽
             ```
 
-        * If another request already resided at index `d`, it is replaced and discarded
+        * 如果索引 `d` 已有一个请求，它被替换并丢弃
 
             ``` text
-            Batch: [A,B,C,D]
-            Unidirectionally Move s -> d:  3 -> 1
+            批次：[A,B,C,D]
+            单向 Move s -> d:  3 -> 1
 
             =>
 
-            New Batch: [A,D,C,x] # Move D to 1, discarding B and leaving empty slot at 3
+            新批次：[A,D,C,x] # 将 D 移动到 1，丢弃 B，在 3 处留下空槽
             ```
 
-    * If the Move specifies `SWAP`, the requests at `s` and `d` exchange indices
+    * 如果 Move 指定为 `SWAP`，则 `s` 和 `d` 处的请求交换索引
 
         ``` text
-        Batch: [A,B,C,D]
-        Swap Move s <-> d:  3 <-> 1
+        批次：[A,B,C,D]
+        交换 Move s <-> d:  3 <-> 1
 
         =>
 
-        New Batch: [A,D,C,B] # Swap B and D
+        新批次：[A,D,C,B] # 交换 B 和 D
         ```
 
-Additionally, the `BatchUpdate` data structure includes a representation (`batch_size`) of the size of the persistent batch at the beginning of the engine step.
+此外，`BatchUpdate` 数据结构包含引擎步骤开始时持久批处理大小的表示（`batch_size`）。
 
-### How the vLLM engine builds the `BatchUpdate` data structure
+### vLLM 引擎如何构建 `BatchUpdate` 数据结构
 
-Logits processor `update_state()` implementations should assume the following model for how the model runner updates persistent batch state (expressed here in terms of the `BatchUpdate` abstraction):
+Logits 处理器的 `update_state()` 实现应假定模型运行器更新持久批处理的以下模型（以 `BatchUpdate` 抽象表示）：
 
-1. Identify indices of requests which finished in the current engine step
+1. 识别在当前引擎步骤中完成的请求的索引
 
-2. Identify new requests introduced in the current step
+2. 识别在当前步骤中引入的新请求
 
-3. Use Add operations to replace as many finished requests with new requests, in order of increasing index of the replaced request starting with the lowest index
+3. 使用 Add 操作尽可能多地用新请求替换已完成的请求，按被替换请求索引递增的顺序，从最低索引开始
 
-4. Based on the relative number of new and finished requests:
+4. 根据新请求和已完成请求的相对数量：
 
-    1. If the numbers of new and finished requests are the same, proceed to next step
+    1. 如果新请求和已完成请求的数量相同，进入下一步
 
-    2. *If there are more new requests than finished requests:* apply Add operations to extend the batch with the remaining new requests which did not replace finished requests. Assign consecutive indices to these new requests, starting with `current_max_batch_index + 1`
+    2. *如果新请求多于已完成请求：* 对未替换已完成请求的剩余新请求应用 Add 操作以扩展批次。为这些新请求分配连续的索引，从 `current_max_batch_index + 1` 开始
 
-    3. *If there are fewer new requests than finished requests:*
+    3. *如果新请求少于已完成请求：*
 
-        * Apply Remove operations to finished requests which were not replaced with new requests. These removed request indices will necessarily be greater than the greatest index of the finished requests which were replaced in the previous step. The Removes may leave the batch in a non-contiguous state
+        * 对未替换为新请求的已完成请求应用 Remove 操作。这些被移除的请求索引必然大于上一步中被替换的已完成请求的最大索引。Removes 可能使批次处于非连续状态
 
-        * **"Condense" the batch to be contiguous:** starting with the lowest-index empty slot (which was caused by a Remove), apply a Unidirectional Move from the current highest non-empty slot in the batch to fill the empty slot. Proceed with additional Unidirectional Move operations in order of increasing empty slot destination index and decreasing non-empty slot source index until the batch is contiguous
+        * **"压缩"批次使其连续：** 从最低索引的空槽开始（由 Remove 引起），应用从批次中当前最高非空槽到该空槽的单向 Move。继续按递增的空槽目标索引和递减的非空槽源索引的顺序应用额外的单向 Move 操作，直到批次连续
 
-        * **Shrink the batch:** a side effect of condensing the batch is that empty slots resulting from Remove operations are grouped in a contiguous block at the end of the batch array. Thus, after condensing, update `BatchUpdate.batch_size` to reflect the number of non-empty slots
+        * **收缩批次：** 压缩批次的副作用是，由 Remove 操作产生的空槽被分组在批次数组末尾的一个连续块中。因此，压缩后，更新 `BatchUpdate.batch_size` 以反映非空槽的数量
 
-5. Reorder the batch for improved efficiency. Depending on the attention backend implementation and the current characteristics of the batch, zero or more Swap Move operations may be applied to reorder the batch
+5. 为提升效率重新排序批次。根据注意力后端实现和当前批次特征，可以应用零个或多个 Swap Move 操作来重新排序批次
 
-Notes:
+注意：
 
-* A logits processor `update_state()` method must process batch update operations in the following order: removes, adds, moves
+* Logits 处理器 `update_state()` 方法必须按以下顺序处理批次更新操作：removes、adds、moves
 
-* The index argument for Add operations refers to the index *at the time the Add occurred*, i.e. before any Move operations
-    * Example: if a request is Added at index 5 and then swapped with index 3, the Add operation in `BatchUpdate.added` will be associated with index 5 not 3
-    * In other words Move operations can be assumed to be applied after Adds and Removes
+* Add 操作的索引参数指的是 *Add 发生时* 的索引，即在任何 Move 操作之前
+    * 示例：如果一个请求在索引 5 处被 Add，然后与索引 3 交换，`BatchUpdate.added` 中的 Add 操作将与索引 5（而不是 3）关联
+    * 换句话说，可以假定 Move 操作是在 Adds 和 Removes 之后应用的
 
-* Move operations can be assumed to be applied in the order in which they appear in `BatchUpdate.moved`
+* 可以假定 Move 操作按照它们在 `BatchUpdate.moved` 中出现的顺序应用
 
-* If there are no new/finished requests and there is no batch reordering, then the batch update for the logits processors will be `None`
+* 如果没有新的/完成的请求并且没有批次重新排序，则 logits 处理器的批次更新将为 `None`
 
-#### Example: Batch Update with Fewer New Requests Than Finished Requests
+#### 示例：新请求少于已完成请求的批次更新
 
-The following example models an engine step where 1 new request is introduced and 2 finished requests are eliminated, additionally the attention backend performs a swap to optimize the batch ordering.
+以下示例建模了一个引擎步骤，其中引入了 1 个新请求，消除了 2 个已完成请求，另外注意力后端执行了一次交换以优化批次排序。
 
 ``` text
-Batch state (beginning of engine step): [A,B,C,D]
-Batch size: 4
+批次状态（引擎步骤开始时）：[A,B,C,D]
+批次大小：4
 
-New requests: E
+新请求：E
 
-Finished requests: A, C
+已完成请求：A、C
 
-Processing steps (using BatchUpdate abstraction):
+处理步骤（使用 BatchUpdate 抽象）：
 
-1. Add E at index 0
+1. 在索引 0 处添加 E
 
-[E,B,C,D] # Discard A
-Batch size: 4
+[E,B,C,D] # 丢弃 A
+批次大小：4
 
-2. Remove at index 2
+2. 在索引 2 处移除
 
-[E,B,x,D] # Discard C, empty slot at index 2
-Batch size: 4
+[E,B,x,D] # 丢弃 C，索引 2 为空槽
+批次大小：4
 
-3. Condense batch with a Unidirectional Move 3 -> 2 operation and shrink batch
+3. 使用单向 Move 3 -> 2 压缩批次并收缩批次
 
-[E,B,D] x # Empty slot is now outside batch
-Batch size: 3
+[E,B,D] x # 空槽现在在批次之外
+批次大小：3
 
-4. Attention backend optimization: reorder batch with Swap 0 <-> 1
+4. 注意力后端优化：使用 Swap 0 <-> 1 重新排序批次
 
 [B,E,D]
-Batch size: 3
+批次大小：3
 
 ```
 
-The resulting `BatchUpdate` data structure will look like
+结果 `BatchUpdate` 数据结构将如下所示：
 
 ``` text
-BatchUpdate instance
-* added: [(0,E's SamplingParams,E's prompt tokens ref,E's output tokens ref)]
-* removed: [2] # request C was removed without replacement
+BatchUpdate 实例
+* added: [(0,E 的 SamplingParams,E 的 prompt token 引用,E 的 output token 引用)]
+* removed: [2] # 请求 C 被无替换移除
 * moved: [(3,2,UNIDIRECTIONAL),(0,1,SWAP)]
 ```
 
-#### Example: Batch Update with More New Requests Than Finished Requests
+#### 示例：新请求多于已完成请求的批次更新
 
-The following example models an engine step where 2 new requests are introduced and 1 finished request is eliminated, additionally the attention backend performs a swap to optimize the batch ordering.
+以下示例建模了一个引擎步骤，其中引入了 2 个新请求，消除了 1 个已完成请求，另外注意力后端执行了一次交换以优化批次排序。
 
 ``` text
-Batch state (beginning of engine step): [A,B,C,D]
-Batch size: 4
+批次状态（引擎步骤开始时）：[A,B,C,D]
+批次大小：4
 
-New requests: E,F
+新请求：E,F
 
-Finished requests: C
+已完成请求：C
 
-Processing steps (using BatchUpdate abstraction):
+处理步骤（使用 BatchUpdate 抽象）：
 
-1. Add E at index 2
+1. 在索引 2 处添加 E
 
-[A,B,E,D] # Discard C
-Batch size: 4
+[A,B,E,D] # 丢弃 C
+批次大小：4
 
-2. Add F at index 4 (current max batch index + 1)
+2. 在索引 4 处添加 F（当前最大批次索引 + 1）
 
-[A,B,E,D,F] # Extend batch by 1
-Batch size: 5
+[A,B,E,D,F] # 扩展批次 1
+批次大小：5
 
-4. Attention backend optimization: reorder batch with Swap 0 <-> 1
+4. 注意力后端优化：使用 Swap 0 <-> 1 重新排序批次
 
 [B,A,E,D,F]
-Batch size: 5
+批次大小：5
 
 ```
 
-Note that batch condensation is skipped because there are no empty slots left behind by Remove operations.
+注意，跳过批次压缩，因为 Remove 操作没有留下空槽。
 
-The resulting `BatchUpdate` data structure will look like
+结果 `BatchUpdate` 数据结构将如下所示：
 
 ``` text
-BatchUpdate instance
-* added: [(2,E's SamplingParams,E's prompt tokens ref,E's output tokens ref),(4,F's SamplingParams,F's prompt tokens ref,F's output tokens ref)]
-* removed: [] # no requests were removed without replacement
+BatchUpdate 实例
+* added: [(2,E 的 SamplingParams,E 的 prompt token 引用,E 的 output token 引用),(4,F 的 SamplingParams,F 的 prompt token 引用,F 的 output token 引用)]
+* removed: [] # 没有请求被无替换移除
 * moved: [(0,1,SWAP)]
 ```
 
-## How to Introduce a New Logits Processor to vLLM
+## 如何向 vLLM 引入新的 Logits 处理器
 
-### Best Practices for Writing Built-In Logits Processors
+### 编写内置 Logits 处理器的最佳实践
 
-* Write efficient `apply()` and `update_state()` implementations in light of the fact that logits processors operate at batch granularity
-    * For example, you may be able to use efficient vectorized operations to implement `apply()` or update internal state vectors in `update_state()`
-    * However, if you think that a logits processor may be used infrequently, it may be appropriate to use a "sparse" representation of request state i.e. the class can represent request configuration using a dictionary which only stores metadata about requests that enable the logits processor
+* 鉴于 logits 处理器以批次粒度运行，编写高效的 `apply()` 和 `update_state()` 实现
+    * 例如，您可以使用高效的向量化操作来实现 `apply()` 或在 `update_state()` 中更新内部状态向量
+    * 然而，如果您认为某个 logits 处理器可能不经常使用，使用请求状态的"稀疏"表示可能是合适的，即该类可以使用一个字典来表示请求配置，该字典仅存储启用该 logits 处理器的请求的元数据
 
-* It is up to the logits processor author to determine:
+* 由 logits 处理器作者决定：
 
-    1. **The per-request attributes which configure the logits processor's behavior against that request.** For example, if you are writing a new built-in logits processor for vLLM, you may or may not need to add additional fields to `SamplingParams` and the vLLM REST API
+    1. **配置 logits 处理器对该请求行为的每个请求属性。** 例如，如果您正在为 vLLM 编写一个新的内置 logits 处理器，您可能需要向 `SamplingParams` 和 vLLM REST API 添加额外字段，也可能不需要。
 
-    2. **The conditions under which the logits processor is or is not enabled on a per-request basis.** Unless your intention is for the built-in logits processor to act on all requests all the time, you should write your logits processor in such a way that it is possible to disable the logits processor for a given request, i.e. by defaulting an argument to `None` or by passing in a specific do-nothing argument value i.e. `0.0`. Try to save compute and memory for requests which disable the logits processor
+    2. **在每个请求基础上启用或禁用 logits 处理器的条件。** 除非您的意图是让内置 logits 处理器始终作用于所有请求，否则您应该以允许为给定请求禁用 logits 处理器的方式编写您的 logits 处理器，即通过将参数默认为 `None` 或通过传入特定的无操作参数值（如 `0.0`）。尽量节省禁用 logits 处理器的请求的计算和内存。
 
-    3. **The conditions under which the logits processor is short-circuited at the batch level.** Even if you have defined a way to disable the built-in logits processor at the request level, it may be difficult to translate this into compute savings i.e. if your `update_state()` and `apply()` implementations use efficient vectorized implementations that operate on the whole persistent batch in a single command. For example, you cannot skip an entire vectorized operation in `apply()` just because one request disabled the logits processor. To save compute in the edge-case where no running requests utilize the built-in logits processor, we recommend designing `apply()` to return the unmodified input tensor if all requests have the logits processor disabled. Similarly, consider whether steps can be skipped in `update_state()` if no requests enable the logits processor
+    3. **在批次级别短路 logits 处理器的条件。** 即使您定义了在请求级别禁用内置 logits 处理器的方法，将其转化为计算节省也可能很困难，例如，如果您的 `update_state()` 和 `apply()` 实现使用在单个命令中操作整个持久批处理的高效向量化实现。例如，仅仅因为一个请求禁用了 logits 处理器，您就不能跳过 `apply()` 中的整个向量化操作。为了在边缘情况下（当没有运行的请求使用内置 logits 处理器时）节省计算，我们建议设计 `apply()` 在禁用所有请求的 logits 处理器时返回未修改的输入张量。同样，考虑如果没有请求启用 logits 处理器，`update_state()` 中的步骤是否可以跳过。
 
-        * Additionally, an easy way to save compute in `update_state()` is to exit early when the batch_update is `None`
+        * 此外，在 `update_state()` 中节省计算的一个简单方法是在 `batch_update` 为 `None` 时提前退出。
 
-* Ensure that the logits processor `update_state` method discards information about finished requests (i.e. requests which are replaced by an Add or which are subject to a Remove)
+* 确保 logits 处理器的 `update_state` 方法丢弃有关已完成请求的信息（即被 Add 替换或遭受 Remove 的请求）。
 
-* `is_argmax_invariant()` can be hard-coded to `True` or `False` if the logits processor has consistent behavior. However the argmax invariance may also be determined programmatically (i.e. if your logits processor is user-customizable in some way that impacts whether the logits processor is argmax invariant). For this reason, `is_argmax_invariant()` is not a class method
+* `is_argmax_invariant()` 可以硬编码为 `True` 或 `False`，如果 logits 处理器具有一致的行为。然而，argmax 不变性也可以通过编程方式确定（例如，如果您的 logits 处理器在某些方面是用户可定制的，这会影响 logits 处理器是否是 argmax 不变的）。因此，`is_argmax_invariant()` 不是一个类方法。
 
-### Built-In Logits Processors
+### 内置 Logits 处理器
 
-Built-in logits processors are always loaded when the vLLM engine starts. See the existing vLLM built-in logits processors in `vllm/v1/sample/logits_processor/builtin.py` for examples of how to write a new built-in vLLM logits processor. It makes sense to write a PR to introduce a new logits processor as a built-in if it is likely to be useful to a wide audience. vLLM currently employs the following built-in logits processors based on the programming model described above:
+内置的 logits 处理器在 vLLM 引擎启动时始终加载。请参见 `vllm/v1/sample/logits_processor/builtin.py` 中现有的 vLLM 内置 logits 处理器，了解如何编写新的内置 vLLM logits 处理器的示例。如果某个 logits 处理器可能对广大用户有用，那么提交 PR 将其作为内置处理器引入是合理的。vLLM 目前使用以下基于上述编程模型的内置 logits 处理器：
 
 * Min-P
-
 * Logit bias
-
 * Min-tokens
 
-Review these logits processor implementations for guidance on writing built-in logits processors.
+请查阅这些 logits 处理器实现，以获取编写内置 logits 处理器的指导。
 
-Additionally, the following logits-processor-like functionalities are hard-coded into the sampler and do not yet utilize the programming model described above. Most of them will be refactored to use the aforementioned logits processor programming model.
+此外，以下类似 logits 处理器的功能被硬编码到采样器中，尚未使用上述编程模型。它们中的大多数将被重构以使用上述 logits 处理器编程模型。
 
 * Allowed token IDs
-
 * Bad words
-
 * Repetition penalty
-
 * Frequency penalty
-
 * Presence penalty
-
 * Temperature
-
 * Top-K
-
 * Top-P
 
-### Custom Logits Processors
+### 自定义 Logits 处理器
 
-vLLM can be augmented with [user-provided custom logits processors](../features/custom_logitsprocs.md).
+vLLM 可以通过[用户提供的自定义 logits 处理器](../features/custom_logitsprocs.md)进行增强。

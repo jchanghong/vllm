@@ -1,14 +1,14 @@
 # IndexCache
 
-IndexCache reduces redundant top-k computation in DeepSeek-V3.2 (DSA) models by caching and reusing top-k indices across layers.
+IndexCache 通过跨层缓存和复用 top-k 索引，减少了 DeepSeek-V3.2 (DSA) 模型中的冗余 top-k 计算。
 
-## Background
+## 背景
 
-DeepSeek-V3.2 uses a DeepSeek Sparse Attention (DSA) mechanism where top-k token selection is computed per layer. For deep models with many layers, this computation can be expensive. IndexCache allows skipping redundant top-k computations by reusing indices from previous layers.
+DeepSeek-V3.2 使用深度稀疏注意力（DSA）机制，其中每层都会计算 top-k token 的选择。对于具有许多层的深层模型，此计算可能非常昂贵。IndexCache 允许通过复用来自先前层的索引来跳过冗余的 top-k 计算。
 
-See: [IndexCache Paper](https://arxiv.org/abs/2603.12201)
+参见：[IndexCache 论文](https://arxiv.org/abs/2603.12201)
 
-## Usage
+## 使用方法
 
 ### CLI
 
@@ -17,38 +17,38 @@ vllm serve deepseek-ai/DeepSeek-V3.2 \
     --hf-overrides '{"use_index_cache": true, "index_topk_freq": 4}' ...
 ```
 
-### Configuration Reference
+### 配置参考
 
-| Parameter            | Type | Default | Description                                                                                                                                      |
+| 参数 | 类型 | 默认值 | 描述 |
 |----------------------|------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------|
-| `use_index_cache`    | bool | false   | Enable IndexCache. Must be set to true to use this feature                                                                                       |
-| `index_topk_freq`    | int  | 1       | Frequency (in layers) at which top-k is computed. 1 = compute on every layer (disabled), 4 = compute on 1/4 of layers                            |
-| `index_topk_pattern` | str  | null    | Per-layer F/S pattern. Overrides index_topk_freq if set. Each character maps to one DSA layer: F = Full, S = Shared                              |
+| `use_index_cache` | bool | false | 启用 IndexCache。必须设置为 true 才能使用此功能 |
+| `index_topk_freq` | int | 1 | 计算 top-k 的频率（以层为单位）。1 = 每层都计算（禁用），4 = 每 4 层计算 1 次 |
+| `index_topk_pattern` | str | null | 逐层 F/S 模式。如果设置，将覆盖 index_topk_freq。每个字符映射到一个 DSA 层：F = 完整计算，S = 共享复用 |
 
-### Configuration Examples
+### 配置示例
 
-**Using `index_topk_freq`** (compute every N layers):
+**使用 `index_topk_freq`**（每 N 层计算一次）：
 
 ```bash
 vllm serve deepseek-ai/DeepSeek-V3.2 \
     --hf-overrides '{"use_index_cache": true, "index_topk_freq": 4}' ...
 ```
 
-**Using `index_topk_pattern`** (explicit per-layer control):
+**使用 `index_topk_pattern`**（显式逐层控制）：
 
 ```bash
-# custom pattern for 61 layers: F = compute, S = reuse
+# 61 层的自定义模式：F = 计算，S = 复用
 vllm serve deepseek-ai/DeepSeek-V3.2 \
     --hf-overrides '{"use_index_cache": true, "index_topk_pattern": "FFSFSSSFSSFFFSSSFFFSFSSSSSSFFSFFSFFSSFFFFFFSFFFFFSFFSSSSSSFSF"}'
 ```
 
-## How It Works
+## 工作原理
 
-1. When IndexCache is enabled, layers marked with `"F"` (Full) calculate and store top-k indices
-2. Subsequent layers marked with `"S"` (Shared) receive the cached indices from the previous layer instead of recomputing
-3. The cached indices are passed through the layer stack, reducing total computation
+1. 启用 IndexCache 后，标记为 `"F"`（完整计算）的层会计算并存储 top-k 索引
+2. 后续标记为 `"S"`（共享复用）的层从上一层接收缓存的索引，而不是重新计算
+3. 缓存的索引通过层堆栈传递，从而减少总计算量
 
-## Requirements
+## 要求
 
-- DeepSeek-V3.2 or compatible DSA model
-- `use_index_cache: true` via `--hf-overrides`
+- DeepSeek-V3.2 或兼容的 DSA 模型
+- 通过 `--hf-overrides` 设置 `use_index_cache: true`

@@ -1,16 +1,16 @@
-# Suffix Decoding
+# 后缀解码 (Suffix Decoding)
 
-The following code configures vLLM to use speculative decoding where proposals are generated using Suffix Decoding ([technical report](https://arxiv.org/abs/2411.04975)).
+以下代码配置 vLLM 使用基于后缀解码（[技术报告](https://arxiv.org/abs/2411.04975)）生成提议的投机解码。
 
-Like n-gram, Suffix Decoding can generate draft tokens by pattern-matching using the last `n` generated tokens. Unlike n-gram, Suffix Decoding (1) can pattern-match against both the prompt and previous generations, (2) uses frequency counts to propose the most likely continuations, and (3) speculates an adaptive number of tokens for each request at each iteration to get better acceptance rates.
+与 n-gram 类似，后缀解码可以通过使用最近生成的 `n` 个 token 进行模式匹配来生成草稿 token。与 n-gram 不同，后缀解码：（1）可以同时对提示和先前生成的内容进行模式匹配；（2）使用频率计数来提出最可能的续写内容；（3）在每次迭代中为每个请求推测自适应数量的 token，以获得更好的接受率。
 
-Suffix Decoding can achieve better performance for tasks with high repetition, such as code-editing, agentic loops (e.g. self-reflection, self-consistency), and RL rollouts.
+后缀解码对于高重复性任务（如代码编辑、智能体循环（例如自我反思、自我一致性）和 RL 回滚）可以获得更好的性能。
 
-!!! tip "Install Arctic Inference"
-    Suffix Decoding requires [Arctic Inference](https://github.com/snowflakedb/ArcticInference). You can install it with `pip install arctic-inference`.
+!!! tip "安装 Arctic Inference"
+    后缀解码需要 [Arctic Inference](https://github.com/snowflakedb/ArcticInference)。您可以使用 `pip install arctic-inference` 进行安装。
 
-!!! tip "Suffix Decoding Speculative Tokens"
-    Suffix Decoding will speculate a dynamic number of tokens for each request at each decoding step, so the `num_speculative_tokens` configuration specifies the *maximum* number of speculative tokens. It is suggested to use a high number such as `16` or `32` (default).
+!!! tip "后缀解码推测 Token"
+    后缀解码会在每个解码步骤为每个请求推测动态数量的 token，因此 `num_speculative_tokens` 配置指定的是推测 token 的*最大*数量。建议使用较高的数值，例如 `16` 或 `32`（默认值）。
 
 ```python
 from vllm import LLM, SamplingParams

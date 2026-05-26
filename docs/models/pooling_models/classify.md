@@ -1,74 +1,73 @@
-# Classification Usages
+# 分类用途
 
-Classification involves predicting which predefined category, class, or label best corresponds to a given input.
+分类涉及预测哪个预定义的类别、类或标签最适合给定的输入。
 
-## Summary
+## 摘要
 
-- Model Usage: (sequence) classification
-- Pooling Task: `classify`
-- Offline APIs:
+- 模型用途：(序列) 分类
+- 池化任务：`classify`
+- 离线 API：
     - `LLM.classify(...)`
     - `LLM.encode(..., pooling_task="classify")`
-- Online APIs:
-    - [Classification API](classify.md#online-serving) (`/classify`)
+- 在线 API：
+    - [分类 API](classify.md#online-serving) (`/classify`)
     - Pooling API (`/pooling`)
 
-The key distinction between (sequence) classification and token classification lies in their output granularity: (sequence) classification produces a single result for an entire input sequence, whereas token classification yields a result for each individual token within the sequence.
+(序列) 分类和 token 分类之间的关键区别在于它们的输出粒度：(序列) 分类为整个输入序列生成单个结果，而 token 分类为序列中的每个单独 token 生成结果。
 
-Many classification models support both (sequence) classification and token classification. For further details on token classification, please refer to [this page](token_classify.md).
+许多分类模型同时支持 (序列) 分类和 token 分类。有关 token 分类的更多详细信息，请参阅[此页面](token_classify.md)。
 
-Only when a classification model outputs num_labels equal to 1 can it be used as a scoring model and have its scoring API enabled, please refer to [this page](scoring.md).
+只有当一个分类模型输出的 num_labels 等于 1 时，它才能用作评分模型并启用其评分 API，请参阅[此页面](scoring.md)。
 
-## Typical Use Cases
+## 典型用例
 
-### Classification
+### 分类
 
-The most fundamental application of classification models is to categorize input data into predefined classes.
+分类模型最基本的应用是将输入数据分类到预定义的类别中。
 
-## Supported Models
+## 支持的模型
 
-### Text-only Models
+### 纯文本模型
 
-| Architecture | Models | Example HF Models | [LoRA](../../features/lora.md) | [PP](../../serving/parallelism_scaling.md) |
+| 架构 | 模型 | 示例 HF 模型 | [LoRA](../../features/lora.md) | [PP](../../serving/parallelism_scaling.md) |
 | ------------ | ------ | ----------------- | ------------------------------ | ------------------------------------------ |
-| `ErnieForSequenceClassification` | BERT-like Chinese ERNIE | `Forrest20231206/ernie-3.0-base-zh-cls` | | |
+| `ErnieForSequenceClassification` | 类 BERT 中文 ERNIE | `Forrest20231206/ernie-3.0-base-zh-cls` | | |
 | `GPT2ForSequenceClassification` | GPT2 | `nie3e/sentiment-polish-gpt2-small` | | |
-| `Qwen2ForSequenceClassification`<sup>C</sup> | Qwen2-based | `jason9693/Qwen2.5-1.5B-apeach` | | |
-| `*Model`<sup>C</sup>, `*ForCausalLM`<sup>C</sup>, etc. | Generative models | N/A | \* | \* |
+| `Qwen2ForSequenceClassification`<sup>C</sup> | 基于 Qwen2 | `jason9693/Qwen2.5-1.5B-apeach` | | |
+| `*Model`<sup>C</sup>, `*ForCausalLM`<sup>C</sup> 等 | 生成式模型 | N/A | \* | \* |
 
-### Multimodal Models
+### 多模态模型
 
 !!! note
-    For more information about multimodal models inputs, see [this page](../supported_models.md#list-of-multimodal-language-models).
+    有关多模态模型输入的更多信息，请参见[此页面](../supported_models.md#list-of-multimodal-language-models)。
 
-| Architecture | Models | Inputs | Example HF Models | [LoRA](../../features/lora.md) | [PP](../../serving/parallelism_scaling.md) |
+| 架构 | 模型 | 输入 | 示例 HF 模型 | [LoRA](../../features/lora.md) | [PP](../../serving/parallelism_scaling.md) |
 | ------------ | ------ | ------ | ----------------- | ------------------------------ | ------------------------------------------ |
-| `Qwen2_5_VLForSequenceClassification`<sup>C</sup> | Qwen2_5_VL-based | T + I<sup>E+</sup> + V<sup>E+</sup> | `muziyongshixin/Qwen2.5-VL-7B-for-VideoCls` | | |
-| `*ForConditionalGeneration`<sup>C</sup>, `*ForCausalLM`<sup>C</sup>, etc. | Generative models | \* | N/A | \* | \* |
+| `Qwen2_5_VLForSequenceClassification`<sup>C</sup> | 基于 Qwen2_5_VL | T + I<sup>E+</sup> + V<sup>E+</sup> | `muziyongshixin/Qwen2.5-VL-7B-for-VideoCls` | | |
+| `*ForConditionalGeneration`<sup>C</sup>, `*ForCausalLM`<sup>C</sup> 等 | 生成式模型 | \* | N/A | \* | \* |
 
-<sup>C</sup> Automatically converted into a classification model via `--convert classify`. ([details](./README.md#model-conversion))  
-\* Feature support is the same as that of the original model.
+<sup>C</sup> 通过 `--convert classify` 自动转换为分类模型。([详细信息](./README.md#model-conversion))  
+\* 功能支持与原模型相同。
 
-If your model is not in the above list, we will try to automatically convert the model using
-[as_seq_cls_model][vllm.model_executor.models.adapters.as_seq_cls_model]. By default, the class probabilities are extracted from the softmaxed hidden state corresponding to the last token.
+如果您的模型不在上述列表中，我们将尝试使用 [as_seq_cls_model][vllm.model_executor.models.adapters.as_seq_cls_model] 自动转换模型。默认情况下，类别概率从最后一个 token 对应的 softmax 化隐藏状态中提取。
 
-### Cross-encoder Models
+### 交叉编码器模型
 
-Cross-encoder (aka reranker) models are a subset of classification models that accept two prompts as input and output num_labels equal to 1. Most classification models can also be used as [cross-encoder models](scoring.md#cross-encoder-models). For more information on cross-encoder models, please refer to [this page](scoring.md).
+交叉编码器（又称重排序器）模型是分类模型的一个子集，接受两个提示作为输入，并且输出 num_labels 等于 1。大多数分类模型也可以用作[交叉编码器模型](scoring.md#cross-encoder-models)。有关交叉编码器模型的更多信息，请参见[此页面](scoring.md)。
 
 --8<-- "docs/models/pooling_models/scoring.md:supported-cross-encoder-models"
 
-### Reward Models
+### 奖励模型
 
-Using (sequence) classification models as reward models. For more information, see [Reward Models](reward.md).
+使用 (序列) 分类模型作为奖励模型。更多信息请参见[奖励模型](reward.md)。
 
 --8<-- "docs/models/pooling_models/reward.md:supported-sequence-reward-models"
 
-## Offline Inference
+## 离线推理
 
-### Pooling Parameters
+### 池化参数
 
-The following [pooling parameters][vllm.PoolingParams] are supported.
+支持以下[池化参数][vllm.PoolingParams]。
 
 ```python
 --8<-- "vllm/pooling_params.py:common-pooling-params"
@@ -77,7 +76,7 @@ The following [pooling parameters][vllm.PoolingParams] are supported.
 
 ### `LLM.classify`
 
-The [classify][vllm.entrypoints.pooling.offline.PoolingOfflineMixin.classify] method outputs a probability vector for each prompt.
+[classify][vllm.entrypoints.pooling.offline.PoolingOfflineMixin.classify] 方法为每个提示输出一个概率向量。
 
 ```python
 from vllm import LLM
@@ -89,13 +88,13 @@ probs = output.outputs.probs
 print(f"Class Probabilities: {probs!r} (size={len(probs)})")
 ```
 
-A code example can be found here: [examples/basic/offline_inference/classify.py](../../../examples/basic/offline_inference/classify.py)
+代码示例请参见：[examples/basic/offline_inference/classify.py](../../../examples/basic/offline_inference/classify.py)
 
 ### `LLM.encode`
 
-The [encode][vllm.entrypoints.pooling.offline.PoolingOfflineMixin.encode] method is available to all pooling models in vLLM.
+[encode][vllm.entrypoints.pooling.offline.PoolingOfflineMixin.encode] 方法适用于 vLLM 中的所有池化模型。
 
-Set `pooling_task="classify"` when using `LLM.encode` for classification Models:
+为分类模型使用 `LLM.encode` 时设置 `pooling_task="classify"`：
 
 ```python
 from vllm import LLM
@@ -107,15 +106,15 @@ data = output.outputs.data
 print(f"Data: {data!r}")
 ```
 
-## Online Serving
+## 在线服务
 
-### Classification API
+### 分类 API
 
-Online `/classify` API is similar to `LLM.classify`.
+在线 `/classify` API 类似于 `LLM.classify`。
 
-#### Completion Parameters
+#### Completion 参数
 
-The following Classification API parameters are supported:
+支持以下分类 API 参数：
 
 ??? code
 
@@ -125,7 +124,7 @@ The following Classification API parameters are supported:
     --8<-- "vllm/entrypoints/pooling/base/protocol.py:classify-params"
     ```
 
-The following extra parameters are supported:
+支持以下额外参数：
 
 ??? code
 
@@ -135,9 +134,9 @@ The following extra parameters are supported:
     --8<-- "vllm/entrypoints/pooling/base/protocol.py:classify-extra-params"
     ```
 
-#### Chat Parameters
+#### Chat 参数
 
-For chat-like input (i.e. if `messages` is passed), the following parameters are supported:
+对于类似聊天的输入（即如果传递了 `messages`），则支持以下参数：
 
 ??? code
 
@@ -147,7 +146,7 @@ For chat-like input (i.e. if `messages` is passed), the following parameters are
     --8<-- "vllm/entrypoints/pooling/base/protocol.py:classify-params"
     ```
 
-these extra parameters are supported instead:
+而是支持以下额外参数：
 
 ??? code
 
@@ -157,11 +156,11 @@ these extra parameters are supported instead:
     --8<-- "vllm/entrypoints/pooling/base/protocol.py:classify-extra-params"
     ```
 
-#### Example Requests
+#### 示例请求
 
-Code example: [examples/pooling/classify/classification_online.py](../../../examples/pooling/classify/classification_online.py)
+代码示例：[examples/pooling/classify/classification_online.py](../../../examples/pooling/classify/classification_online.py)
 
-You can classify multiple texts by passing an array of strings:
+您可以通过传递字符串数组来对多个文本进行分类：
 
 ```bash
 curl -v "http://127.0.0.1:8000/classify" \
@@ -175,7 +174,7 @@ curl -v "http://127.0.0.1:8000/classify" \
   }'
 ```
 
-??? console "Response"
+??? console "响应"
 
     ```json
     {
@@ -212,7 +211,7 @@ curl -v "http://127.0.0.1:8000/classify" \
     }
     ```
 
-You can also pass a string directly to the `input` field:
+您也可以直接将字符串传递给 `input` 字段：
 
 ```bash
 curl -v "http://127.0.0.1:8000/classify" \
@@ -223,7 +222,7 @@ curl -v "http://127.0.0.1:8000/classify" \
   }'
 ```
 
-??? console "Response"
+??? console "响应"
 
     ```json
     {
@@ -251,55 +250,55 @@ curl -v "http://127.0.0.1:8000/classify" \
     }
     ```
 
-## More examples
+## 更多示例
 
-More examples can be found here: [examples/pooling/classify](../../../examples/pooling/classify)
+更多示例请参见：[examples/pooling/classify](../../../examples/pooling/classify)
 
-## Supported Features
+## 支持的功能
 
-### Enable/disable activation
+### 启用/禁用激活
 
-You can enable or disable activation via `use_activation`.
+您可以通过 `use_activation` 启用或禁用激活。
 
-### Problem type (e.g. `multi_label_classification`)
+### 问题类型（例如 `multi_label_classification`）
 
-You can modify the `problem_type` via problem_type in the Hugging Face config. The supported problem types are: `single_label_classification`, `multi_label_classification`, and `regression`.
+您可以通过 Hugging Face 配置中的 `problem_type` 修改 `problem_type`。支持的 problem_type 有：`single_label_classification`、`multi_label_classification` 和 `regression`。
 
-Implement alignment with transformers [ForSequenceClassificationLoss](https://github.com/huggingface/transformers/blob/57bb6db6ee4cfaccc45b8d474dfad5a17811ca60/src/transformers/loss/loss_utils.py#L92).
+实现与 transformers [ForSequenceClassificationLoss](https://github.com/huggingface/transformers/blob/57bb6db6ee4cfaccc45b8d474dfad5a17811ca60/src/transformers/loss/loss_utils.py#L92) 的对齐。
 
-### Affine Score Calibration
+### 仿射分数校准
 
-Affine Score Calibration, also known as [Platt Scaling](https://en.wikipedia.org/wiki/Platt_scaling) (Platt, 1999), is the most widely used method for calibrating classifier outputs into well-calibrated probabilities.
+仿射分数校准，也称为 [Platt 缩放](https://en.wikipedia.org/wiki/Platt_scaling)（Platt, 1999），是将分类器输出校准为良好校准概率的最广泛使用的方法。
 
-The calibration follows the transformation:
+校准遵循以下变换：
 
 `activation((logit - logit_mean) / logit_sigma)`
 
-| Parameter | Default | Description |
+| 参数 | 默认值 | 描述 |
 | --------- | ------- | ----------- |
-| `logit_mean` | `None` | Mean subtracted from logits (centers scores) |
-| `logit_sigma` | `None` | Standard deviation used to scale logits after mean subtraction |
+| `logit_mean` | `None` | 从 logits 减去的均值（居中分数） |
+| `logit_sigma` | `None` | 在均值相减后用于缩放 logits 的标准差 |
 
-The computation order is as follows:
+计算顺序如下：
 
 ```python
-logits -= logit_mean   # subtract mean (center scores)
-logits /= logit_sigma  # divide by sigma (scale)
-logits = activation(logits)  # e.g. sigmoid
+logits -= logit_mean   # 减去均值（居中分数）
+logits /= logit_sigma  # 除以 sigma（缩放）
+logits = activation(logits)  # 例如 sigmoid
 ```
 
-Example configuration:
+示例配置：
 
 ```bash
 --pooler-config '{"use_activation": true, "logit_mean": 4.5, "logit_sigma": 1.0}'
 ```
 
-## Removed Features
+## 已移除的功能
 
-### Remove softmax from PoolingParams
+### 从 PoolingParams 中移除 softmax
 
-We have already removed `softmax` and `activation` from PoolingParams. Instead, use `use_activation`, since we allow `classify` and `token_classify` to use any activation function.
+我们已从 PoolingParams 中移除 `softmax` 和 `activation`。请改用 `use_activation`，因为我们允许 `classify` 和 `token_classify` 使用任何激活函数。
 
-### Remove `logit_bias` and `logit_scale`
+### 移除 `logit_bias` 和 `logit_scale`
 
-`logit_bias` and `logit_scale` are deprecated aliases for `logit_mean` and `logit_sigma` respectively. When using `logit_scale`, it is automatically converted to `logit_sigma = 1/logit_scale`. These deprecated parameters will be removed in v0.21.
+`logit_bias` 和 `logit_scale` 分别是 `logit_mean` 和 `logit_sigma` 的已弃用别名。使用 `logit_scale` 时，会自动转换为 `logit_sigma = 1/logit_scale`。这些已弃用的参数将在 v0.21 中移除。
